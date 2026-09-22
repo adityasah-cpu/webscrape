@@ -61,6 +61,53 @@ def is_fresher_job(job):
 
     return False
 
+def detect_job_domain(job):
+    """Detect job domain from title, category, and description"""
+    title = (job.get('title') or '').lower()
+    category = (job.get('category') or '').lower()
+    description = (job.get('description') or '').lower()
+    text = f"{title} {category} {description}"
+
+    # Domain keywords mapping
+    domains = {
+        'AIML': [
+            'ai', 'artificial intelligence', 'machine learning', 'ml', 'deep learning',
+            'neural network', 'nlp', 'computer vision', 'llm', 'generative ai', 'chatgpt',
+            'tensorflow', 'pytorch', 'data scientist', 'nlp engineer', 'cv engineer',
+            'ai engineer', 'ml engineer', 'ai/ml'
+        ],
+        'Data Analytics': [
+            'data analyst', 'analytics', 'data analytics', 'business intelligence',
+            'bi developer', 'tableau', 'power bi', 'sql', 'analytics engineer',
+            'reporting', 'dashboard', 'data warehouse', 'etl', 'data pipeline'
+        ],
+        'Blockchain': [
+            'blockchain', 'crypto', 'web3', 'solidity', 'smart contract', 'ethereum',
+            'defi', 'nft', 'dapp', 'distributed ledger', 'consensus', 'blockchain developer',
+            'smart contract developer', 'web3 developer', 'cryptocurrency'
+        ],
+        'AR VR': [
+            'augmented reality', 'virtual reality', 'ar', 'vr', 'metaverse', 'mixed reality',
+            'xr', 'immersive', '3d graphics', 'unity', 'unreal engine', 'ar developer',
+            'vr developer', 'ar/vr', 'ar vr'
+        ],
+        'Cybersecurity': [
+            'cybersecurity', 'security engineer', 'security analyst', 'infosec', 'pentester',
+            'penetration testing', 'ethical hacker', 'soc', 'siem', 'vulnerability', 'malware',
+            'incident response', 'security operations', 'network security', 'application security',
+            'cloud security', 'security architect'
+        ]
+    }
+
+    detected_domains = []
+    for domain, keywords in domains.items():
+        for keyword in keywords:
+            if keyword in text:
+                detected_domains.append(domain)
+                break
+
+    return detected_domains if detected_domains else ['General']
+
 def filter_jobs(all_jobs, keyword="", work_type="", country="", job_type="", fresher_only=False, page=1, limit=20):
     """Filter jobs based on criteria"""
     filtered = all_jobs
@@ -194,10 +241,13 @@ def fetch_jobs():
         # Load existing jobs
         existing_jobs = load_jobs_from_file()
 
-        # Add timestamps to new jobs
+        # Add timestamps and domain detection to new jobs
         for job in fresher_jobs:
             if 'added_at' not in job:
                 job['added_at'] = datetime.now().isoformat()
+            # Add domain detection
+            if 'domains' not in job:
+                job['domains'] = detect_job_domain(job)
 
         # Merge with existing (remove duplicates by URL)
         existing_urls = {j.get('url'): j for j in existing_jobs}
@@ -235,6 +285,7 @@ def get_jobs():
         country = request.args.get("country", "")
         job_type = request.args.get("job_type", "")
         sources = request.args.get("sources", "")
+        domain = request.args.get("domain", "")
         fresher_only = request.args.get("fresher", "").lower() == "true"
         page = int(request.args.get("page", 1))
         limit = int(request.args.get("limit", 20))
@@ -245,6 +296,20 @@ def get_jobs():
         if sources:
             source_list = [s.strip() for s in sources.split(",")]
             all_jobs = [j for j in all_jobs if j.get('source') in source_list]
+
+        # Filter by domain if specified
+        if domain and domain != "All":
+            all_jobs = [j for j in all_jobs if domain in j.get('domains', [])]
+
+        # Filter onsite jobs to Pan-India only
+        if work_type and work_type.lower() == "onsite":
+            india_keywords = ['india', 'bangalore', 'mumbai', 'delhi', 'hyderabad', 'pune',
+                            'kolkata', 'chennai', 'ahmedabad', 'jaipur', 'lucknow', 'gurgaon',
+                            'noida', 'gurugram', 'pan-india', 'pan india', 'across india']
+            all_jobs = [j for j in all_jobs if any(
+                keyword in (j.get('location', '') + ' ' + j.get('country', '')).lower()
+                for keyword in india_keywords
+            )]
 
         result = filter_jobs(all_jobs, keyword, work_type, country, job_type, fresher_only, page, limit)
         result["from_cache"] = False
