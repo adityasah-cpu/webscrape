@@ -63,7 +63,7 @@ UNSTOP_PAGES = 2
 # Dev.to: Public API
 
 FIELDS = ["source", "title", "company", "work_type", "country", "location",
-          "job_type", "category", "salary", "date", "url"]
+          "job_type", "category", "salary", "date", "start_date", "end_date", "url"]
 
 
 # ---------------- Helpers ----------------
@@ -213,7 +213,7 @@ def epoch_to_date(ts):
 
 
 def job(source, title, company, *, work_type="Remote", location="", country="",
-        job_type="", category="", salary="", date="", url=""):
+        job_type="", category="", salary="", date="", start_date="", end_date="", url=""):
     location = clean(", ".join(flatten([location])))
     return {
         "source": source,
@@ -226,6 +226,8 @@ def job(source, title, company, *, work_type="Remote", location="", country="",
         "category": clean(category),
         "salary": salary or "",
         "date": str(date or "")[:10],
+        "start_date": str(start_date or "")[:10],
+        "end_date": str(end_date or "")[:10],
         "url": url or "",
     }
 

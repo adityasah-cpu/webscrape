@@ -995,6 +995,18 @@
                         <div class="modal-item-label">Source</div>
                         <div class="modal-item-value" id="modalSource">Remotive</div>
                     </div>
+                    <div class="modal-item">
+                        <div class="modal-item-label">📅 Posted Date</div>
+                        <div class="modal-item-value" id="modalDate">N/A</div>
+                    </div>
+                    <div class="modal-item">
+                        <div class="modal-item-label">🚀 Start Date</div>
+                        <div class="modal-item-value" id="modalStartDate">Not specified</div>
+                    </div>
+                    <div class="modal-item">
+                        <div class="modal-item-label">⏰ Deadline</div>
+                        <div class="modal-item-value" id="modalEndDate">Not specified</div>
+                    </div>
                 </div>
             </div>
 
@@ -1149,10 +1161,23 @@
             document.getElementById("modalJobType").textContent = job.job_type || "N/A";
             document.getElementById("modalSalary").textContent = job.salary || "Not listed";
             document.getElementById("modalSource").textContent = job.source || "N/A";
+            document.getElementById("modalDate").textContent = job.date ? formatDate(job.date) : "N/A";
+            document.getElementById("modalStartDate").textContent = job.start_date ? formatDate(job.start_date) : "Not specified";
+            document.getElementById("modalEndDate").textContent = job.end_date ? formatDate(job.end_date) : "Not specified";
             document.getElementById("modalDescription").textContent = job.description || "No description available";
 
             document.getElementById("jobModal").style.display = "block";
             document.body.style.overflow = "hidden";
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return "N/A";
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            } catch {
+                return dateStr;
+            }
         }
 
         function closeJobModal() {
@@ -1173,7 +1198,7 @@
                 return;
             }
 
-            const headers = ["Title", "Company", "Work Type", "Location", "Country", "Job Type", "Salary", "Source", "Domains", "URL"];
+            const headers = ["Title", "Company", "Work Type", "Location", "Country", "Job Type", "Salary", "Posted Date", "Start Date", "Deadline", "Source", "Domains", "URL"];
             const rows = allJobs.map(job => [
                 `"${(job.title || "N/A").replace(/"/g, '""')}"`,
                 `"${(job.company || "N/A").replace(/"/g, '""')}"`,
@@ -1182,6 +1207,9 @@
                 `"${(job.country || "N/A").replace(/"/g, '""')}"`,
                 `"${(job.job_type || "N/A").replace(/"/g, '""')}"`,
                 `"${(job.salary || "N/A").replace(/"/g, '""')}"`,
+                `"${(job.date || "N/A").replace(/"/g, '""')}"`,
+                `"${(job.start_date || "Not specified").replace(/"/g, '""')}"`,
+                `"${(job.end_date || "Not specified").replace(/"/g, '""')}"`,
                 `"${(job.source || "N/A").replace(/"/g, '""')}"`,
                 `"${(job.domains || []).join(", ").replace(/"/g, '""')}"`,
                 `"${(job.url || "N/A").replace(/"/g, '""')}"`
