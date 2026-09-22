@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JobHub - Modern Job Discovery Platform</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230284c7' width='100' height='100' rx='20'/><text x='50' y='65' font-size='60' font-weight='700' fill='white' text-anchor='middle'>J</text></svg>">
+    <title>JobHub - Fresher Job Discovery Platform</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='grad' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' style='stop-color:%230284c7;stop-opacity:1' /><stop offset='100%' style='stop-color:%231e40af;stop-opacity:1' /></linearGradient></defs><rect fill='url(%23grad)' width='100' height='100' rx='20'/><text x='50' y='65' font-size='60' font-weight='700' fill='white' text-anchor='middle'>J</text></svg>">
     <style>
         * {
             margin: 0;
@@ -13,92 +13,160 @@
         }
 
         :root {
+            --primary: #0284c7;
+            --primary-dark: #0369a1;
+            --primary-light: #e0f2fe;
+            --secondary: #06b6d4;
+            --success: #10b981;
+            --success-dark: #059669;
+            --warning: #f59e0b;
+            --danger: #ef4444;
             --bg-primary: #ffffff;
-            --bg-secondary: #f8f9fa;
-            --text-primary: #1a1a1a;
-            --text-secondary: #666666;
-            --border-color: #e0e0e0;
-            --accent: #0284c7;
-            --accent-dark: #0369a1;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-tertiary: #94a3b8;
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        html {
+            scroll-behavior: smooth;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
-            background: var(--bg-secondary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
             color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
         }
 
         .container {
             display: flex;
             min-height: 100vh;
+            gap: 0;
         }
 
         /* ============ SIDEBAR ============ */
         .sidebar {
-            width: 280px;
+            width: 300px;
             background: var(--bg-primary);
             border-right: 1px solid var(--border-color);
-            padding: 24px 20px;
+            padding: 28px 24px;
             overflow-y: auto;
             position: sticky;
             top: 0;
             height: 100vh;
+            box-shadow: var(--shadow-sm);
         }
 
-        .sidebar-title {
-            font-size: 16px;
-            font-weight: 600;
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--primary-light);
+        }
+
+        .sidebar-logo {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 700;
+            color: white;
+            box-shadow: var(--shadow-md);
+        }
+
+        .sidebar-title-text {
+            font-size: 18px;
+            font-weight: 700;
             color: var(--text-primary);
-            margin-bottom: 16px;
-            margin-top: 20px;
+            letter-spacing: -0.5px;
         }
 
-        .sidebar-title:first-child {
-            margin-top: 0;
+        .sidebar-section-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+            margin: 24px 0 16px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .source-item {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 0;
+            gap: 12px;
+            padding: 12px 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
             cursor: pointer;
+            transition: all 0.2s ease;
             user-select: none;
+        }
+
+        .source-item:hover {
+            background: var(--bg-secondary);
         }
 
         .source-item input {
             width: 18px;
             height: 18px;
             cursor: pointer;
-            accent-color: var(--accent);
+            accent-color: var(--primary);
+            border-radius: 4px;
         }
 
         .source-item label {
             cursor: pointer;
             font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
             flex: 1;
         }
 
         .fetch-btn {
             width: 100%;
-            padding: 12px 16px;
-            background: var(--accent);
+            padding: 14px 16px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 10px;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
-            margin-top: 24px;
-            transition: background 0.2s;
+            margin-top: 28px;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-md);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
 
-        .fetch-btn:hover {
-            background: var(--accent-dark);
+        .fetch-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
         }
 
-        .fetch-btn.loading {
-            opacity: 0.7;
+        .fetch-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .fetch-btn:disabled {
+            opacity: 0.6;
             cursor: not-allowed;
         }
 
@@ -107,182 +175,302 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            background: var(--bg-secondary);
         }
 
         .header {
             background: var(--bg-primary);
             border-bottom: 1px solid var(--border-color);
-            padding: 24px;
+            padding: 24px 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: var(--shadow-sm);
         }
 
         .header h1 {
-            font-size: 24px;
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -1px;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .export-btn {
+            padding: 10px 18px;
+            background: linear-gradient(135deg, var(--success) 0%, var(--success-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
             font-weight: 700;
-            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-md);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .export-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .export-btn:active {
+            transform: translateY(0);
         }
 
         .last-fetch {
-            font-size: 12px;
-            color: var(--text-secondary);
+            font-size: 13px;
+            color: var(--text-tertiary);
+            font-weight: 500;
+            letter-spacing: 0.3px;
         }
 
         /* ============ FILTERS ============ */
         .filters {
             background: var(--bg-primary);
             border-bottom: 1px solid var(--border-color);
-            padding: 16px 24px;
+            padding: 20px 32px;
             display: flex;
             gap: 16px;
             flex-wrap: wrap;
             align-items: center;
+            box-shadow: var(--shadow-sm);
         }
 
         .filter-group {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
 
         .filter-label {
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 700;
             color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
             min-width: 100px;
         }
 
         .filter-input {
-            padding: 8px 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
+            padding: 10px 14px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
             font-size: 13px;
-            min-width: 140px;
             background: var(--bg-primary);
             color: var(--text-primary);
-        }
-
-        .filter-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: #ff6b6b;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
             font-weight: 500;
+            transition: all 0.2s ease;
+            min-width: 160px;
         }
 
-        .filter-tag .remove {
-            cursor: pointer;
-            font-weight: 700;
+        .filter-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
+            background: var(--primary-light);
+        }
+
+        .filter-input:hover {
+            border-color: var(--primary);
         }
 
         /* ============ STATS ============ */
         .stats {
             background: var(--bg-primary);
             border-bottom: 1px solid var(--border-color);
-            padding: 20px 24px;
+            padding: 28px 32px;
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            box-shadow: var(--shadow-sm);
         }
 
         .stat-item {
+            background: linear-gradient(135deg, var(--primary-light) 0%, rgba(2, 132, 199, 0.05) 100%);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid var(--primary-light);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 16px;
-            border-radius: 8px;
-            background: var(--bg-secondary);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-item::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(2, 132, 199, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary);
         }
 
         .stat-value {
-            font-size: 32px;
-            font-weight: 700;
-            color: var(--accent);
+            font-size: 36px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+            z-index: 1;
         }
 
         .stat-label {
             font-size: 12px;
             color: var(--text-secondary);
-            margin-top: 4px;
-            text-align: center;
+            margin-top: 8px;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            position: relative;
+            z-index: 1;
         }
 
         /* ============ JOBS TABLE ============ */
         .jobs-container {
             flex: 1;
             overflow-y: auto;
-            background: var(--bg-primary);
+            background: var(--bg-secondary);
+            padding: 20px 32px;
         }
 
         .jobs-table {
             width: 100%;
             border-collapse: collapse;
+            background: var(--bg-primary);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
         }
 
         .jobs-table thead {
-            background: var(--bg-secondary);
-            border-bottom: 2px solid var(--border-color);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
             position: sticky;
             top: 0;
+            z-index: 10;
         }
 
         .jobs-table th {
             padding: 16px 24px;
             text-align: left;
             font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
         }
 
         .jobs-table td {
-            padding: 16px 24px;
+            padding: 18px 24px;
             border-bottom: 1px solid var(--border-color);
             font-size: 14px;
-            color: var(--text-primary);
-        }
-
-        .jobs-table tbody tr:hover {
-            background: var(--bg-secondary);
-            cursor: pointer;
-        }
-
-        .job-title {
-            font-weight: 600;
-            color: var(--accent);
-        }
-
-        .job-company {
             color: var(--text-primary);
             font-weight: 500;
         }
 
+        .jobs-table tbody tr {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .jobs-table tbody tr:hover {
+            background: var(--primary-light);
+            transform: scale(1.01);
+            box-shadow: inset 0 0 12px rgba(2, 132, 199, 0.1);
+        }
+
+        .jobs-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .job-title {
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 15px;
+        }
+
+        .job-title-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .job-domains {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .domain-badge {
+            background: linear-gradient(135deg, var(--primary-light) 0%, rgba(2, 132, 199, 0.1) 100%);
+            color: var(--primary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid var(--primary-light);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .job-company {
+            color: var(--text-primary);
+            font-weight: 700;
+            letter-spacing: -0.2px;
+        }
+
         .work-type-badge {
             display: inline-block;
-            padding: 4px 12px;
+            padding: 6px 14px;
             border-radius: 20px;
             font-size: 12px;
-            font-weight: 600;
-            background: #e3f2fd;
-            color: var(--accent);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            background: linear-gradient(135deg, #e0f2fe 0%, rgba(2, 132, 199, 0.1) 100%);
+            color: var(--primary);
+            border: 1px solid var(--primary-light);
         }
 
         .work-type-badge.hybrid {
-            background: #fff3e0;
-            color: #f57c00;
+            background: linear-gradient(135deg, #fef3c7 0%, rgba(245, 158, 11, 0.1) 100%);
+            color: #d97706;
+            border-color: #fed7aa;
         }
 
         .work-type-badge.onsite {
-            background: #f3e5f5;
-            color: #7b1fa2;
+            background: linear-gradient(135deg, #f3e8ff 0%, rgba(168, 85, 247, 0.1) 100%);
+            color: #a855f7;
+            border-color: #e9d5ff;
         }
 
         .empty-state {
@@ -290,32 +478,49 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 60px 24px;
+            padding: 80px 40px;
+            text-align: center;
             color: var(--text-secondary);
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--primary-light) 100%);
+            border-radius: 12px;
+            border: 2px dashed var(--border-color);
         }
 
         .empty-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
+            font-size: 64px;
+            margin-bottom: 20px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
         }
 
         .empty-title {
-            font-size: 16px;
-            font-weight: 600;
+            font-size: 18px;
+            font-weight: 700;
             color: var(--text-primary);
             margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .empty-text {
+            font-size: 14px;
+            color: var(--text-tertiary);
         }
 
         /* ============ MODAL ============ */
         .modal {
             display: none;
             position: fixed;
-            z-index: 1000;
+            z-index: 2000;
             left: 0;
             top: 0;
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
             animation: fadeIn 0.3s ease-in;
         }
 
@@ -327,13 +532,15 @@
         .modal-content {
             background: var(--bg-primary);
             margin: 5% auto;
-            padding: 32px;
-            border-radius: 12px;
+            padding: 40px;
+            border-radius: 16px;
             width: 90%;
-            max-width: 700px;
-            max-height: 80vh;
+            max-width: 750px;
+            max-height: 85vh;
             overflow-y: auto;
             animation: slideIn 0.3s ease-out;
+            box-shadow: var(--shadow-xl);
+            position: relative;
         }
 
         @keyframes slideIn {
@@ -350,40 +557,57 @@
         .modal-header {
             display: flex;
             justify-content: space-between;
-            align-items: start;
-            margin-bottom: 24px;
+            align-items: flex-start;
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 2px solid var(--primary-light);
         }
 
         .modal-title {
-            font-size: 24px;
-            font-weight: 700;
+            font-size: 26px;
+            font-weight: 800;
             color: var(--text-primary);
+            letter-spacing: -1px;
         }
 
         .modal-subtitle {
             font-size: 16px;
             color: var(--text-secondary);
-            margin-top: 4px;
+            margin-top: 6px;
+            font-weight: 600;
         }
 
         .modal-close {
             font-size: 28px;
             cursor: pointer;
-            color: var(--text-secondary);
+            color: var(--text-tertiary);
             background: none;
             border: none;
+            transition: all 0.2s ease;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
         }
 
         .modal-section {
-            margin-bottom: 24px;
+            margin-bottom: 32px;
         }
 
         .modal-section-title {
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 800;
             color: var(--text-secondary);
             text-transform: uppercase;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
+            letter-spacing: 0.8px;
         }
 
         .modal-grid {
@@ -394,97 +618,103 @@
         }
 
         .modal-item {
-            padding: 12px;
-            background: var(--bg-secondary);
-            border-left: 4px solid var(--accent);
-            border-radius: 4px;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--primary-light) 0%, rgba(2, 132, 199, 0.05) 100%);
+            border-left: 4px solid var(--primary);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .modal-item:hover {
+            transform: translateX(4px);
+            box-shadow: var(--shadow-md);
         }
 
         .modal-item-label {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-secondary);
             text-transform: uppercase;
-            font-weight: 600;
-            margin-bottom: 4px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
         }
 
         .modal-item-value {
-            font-size: 14px;
-            font-weight: 600;
+            font-size: 15px;
+            font-weight: 700;
             color: var(--text-primary);
+            letter-spacing: -0.3px;
         }
 
         .modal-description {
-            line-height: 1.6;
+            line-height: 1.8;
             color: var(--text-primary);
             font-size: 14px;
             white-space: pre-wrap;
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid var(--secondary);
         }
 
         .modal-buttons {
             display: flex;
             gap: 12px;
-            margin-top: 24px;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 2px solid var(--border-color);
         }
 
         .btn-apply {
             flex: 1;
-            padding: 12px 16px;
-            background: var(--accent);
+            padding: 14px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             color: white;
             border: none;
-            border-radius: 6px;
-            font-weight: 600;
+            border-radius: 8px;
+            font-weight: 700;
             cursor: pointer;
             font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-md);
         }
 
         .btn-apply:hover {
-            background: var(--accent-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-apply:active {
+            transform: translateY(0);
         }
 
         .btn-close {
             flex: 1;
-            padding: 12px 16px;
+            padding: 14px 20px;
             background: var(--bg-secondary);
             color: var(--text-primary);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-weight: 600;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-weight: 700;
             cursor: pointer;
             font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
         }
 
         .btn-close:hover {
-            background: var(--border-color);
+            background: var(--bg-tertiary);
+            border-color: var(--primary);
+            color: var(--primary);
         }
 
-        .export-btn {
-            padding: 8px 16px;
-            background: #10b981;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: background 0.2s;
-            white-space: nowrap;
-        }
-
-        .export-btn:hover {
-            background: #059669;
-        }
-
-        .export-btn:active {
-            transform: scale(0.98);
-        }
-
+        /* ============ SCROLLBAR ============ */
         ::-webkit-scrollbar {
             width: 8px;
+            height: 8px;
         }
 
         ::-webkit-scrollbar-track {
@@ -492,12 +722,93 @@
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #ccc;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             border-radius: 4px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: #999;
+            background: var(--primary-dark);
+        }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 260px;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .modal-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                padding: 16px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+                padding: 16px;
+            }
+
+            .header h1 {
+                font-size: 20px;
+            }
+
+            .header-right {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .export-btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .filters {
+                flex-direction: column;
+                padding: 16px;
+            }
+
+            .filter-group {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .filter-input {
+                width: 100%;
+                min-width: auto;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+                padding: 16px;
+            }
+
+            .jobs-container {
+                padding: 12px;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 24px;
+                margin: 20% auto;
+            }
         }
     </style>
 </head>
@@ -505,7 +816,12 @@
     <div class="container">
         <!-- SIDEBAR -->
         <div class="sidebar">
-            <div class="sidebar-title">Remote-only boards</div>
+            <div class="sidebar-header">
+                <div class="sidebar-logo">💼</div>
+                <div class="sidebar-title-text">JobHub</div>
+            </div>
+
+            <div class="sidebar-section-title">Remote-only Boards</div>
             <div class="source-item">
                 <input type="checkbox" id="remotive" value="remotive" class="source-item input">
                 <label for="remotive">Remotive</label>
@@ -519,29 +835,33 @@
                 <label for="himalayas">Himalayas</label>
             </div>
 
-            <div class="sidebar-title">Freshers & Internships (India focus)</div>
+            <div class="sidebar-section-title">Freshers & Internships</div>
             <div class="source-item">
                 <input type="checkbox" id="internshala" value="internshala" class="source-item input">
-                <label for="internshala">Internshala (India internships)</label>
+                <label for="internshala">Internshala</label>
             </div>
             <div class="source-item">
                 <input type="checkbox" id="firstnaukri" value="firstnaukri" class="source-item input">
-                <label for="firstnaukri">FirstNaukri (India freshers)</label>
+                <label for="firstnaukri">FirstNaukri</label>
             </div>
 
-            <button class="fetch-btn" onclick="fetchJobs()" id="fetchBtn">Fetch Jobs</button>
+            <div class="sidebar-section-title">General Jobs</div>
+            <div class="source-item">
+                <input type="checkbox" id="arbeitnow" value="arbeitnow" class="source-item input">
+                <label for="arbeitnow">Arbeitnow</label>
+            </div>
+
+            <button class="fetch-btn" onclick="fetchJobs()" id="fetchBtn">⚡ Fetch Jobs</button>
         </div>
 
         <!-- MAIN CONTENT -->
         <div class="main-content">
             <!-- HEADER -->
             <div class="header">
-                <div>
-                    <h1>1 · Sources</h1>
-                </div>
-                <div style="display: flex; gap: 16px; align-items: center;">
+                <h1>🎯 Discover Your Next Opportunity</h1>
+                <div class="header-right">
                     <button class="export-btn" onclick="exportToCSV()" title="Export current jobs to CSV">
-                        <span style="font-size: 18px; margin-right: 6px;">⬇️</span> Export to CSV
+                        📊 Export CSV
                     </button>
                     <div class="last-fetch" id="lastFetch">Last fetch: Never</div>
                 </div>
@@ -550,27 +870,27 @@
             <!-- FILTERS -->
             <div class="filters">
                 <div class="filter-group">
-                    <span class="filter-label">Domain</span>
+                    <span class="filter-label">🎓 Domain</span>
                     <select id="filterDomain" class="filter-input" onchange="renderJobs()">
                         <option value="All">All Domains</option>
-                        <option value="AIML">AI/ML</option>
-                        <option value="Data Analytics">Data Analytics</option>
-                        <option value="Blockchain">Blockchain</option>
-                        <option value="AR VR">AR/VR</option>
-                        <option value="Cybersecurity">Cybersecurity</option>
+                        <option value="AIML">🤖 AI/ML</option>
+                        <option value="Data Analytics">📊 Data Analytics</option>
+                        <option value="Blockchain">⛓️ Blockchain</option>
+                        <option value="AR VR">🥽 AR/VR</option>
+                        <option value="Cybersecurity">🔒 Cybersecurity</option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <span class="filter-label">Job type</span>
+                    <span class="filter-label">📍 Type</span>
                     <select id="filterWorkType" class="filter-input" onchange="renderJobs()">
                         <option value="">All Types</option>
-                        <option value="Remote">Remote</option>
-                        <option value="Hybrid">Hybrid</option>
-                        <option value="Onsite">Onsite (Pan-India)</option>
+                        <option value="Remote">🌍 Remote</option>
+                        <option value="Hybrid">🏢 Hybrid</option>
+                        <option value="Onsite">📍 Onsite (Pan-India)</option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <span class="filter-label">Country / Region</span>
+                    <span class="filter-label">🌏 Region</span>
                     <input type="text" id="filterCountry" class="filter-input" placeholder="e.g., India, USA" onkeyup="renderJobs()">
                 </div>
             </div>
@@ -579,19 +899,19 @@
             <div class="stats">
                 <div class="stat-item">
                     <div class="stat-value" id="jobsTotal">0</div>
-                    <div class="stat-label">Jobs found</div>
+                    <div class="stat-label">Jobs Found</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-value" id="jobsRemote">0</div>
-                    <div class="stat-label">Remote</div>
+                    <div class="stat-label">🌍 Remote</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-value" id="jobsHybrid">0</div>
-                    <div class="stat-label">Hybrid</div>
+                    <div class="stat-label">🏢 Hybrid</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-value" id="jobsOnsite">0</div>
-                    <div class="stat-label">Onsite</div>
+                    <div class="stat-label">📍 Onsite</div>
                 </div>
             </div>
 
@@ -600,18 +920,19 @@
                 <table class="jobs-table">
                     <thead>
                         <tr>
-                            <th style="width: 40%;">Title</th>
-                            <th style="width: 30%;">Company</th>
-                            <th style="width: 30%;">Work type</th>
+                            <th style="width: 35%;">Position & Domain</th>
+                            <th style="width: 25%;">Company</th>
+                            <th style="width: 20%;">Type</th>
+                            <th style="width: 20%;">Source</th>
                         </tr>
                     </thead>
                     <tbody id="jobsTableBody">
                         <tr>
-                            <td colspan="3" style="text-align: center; padding: 60px 24px;">
+                            <td colspan="4">
                                 <div class="empty-state">
                                     <div class="empty-icon">🔍</div>
-                                    <div class="empty-title">No jobs yet</div>
-                                    <p>Select sources and click "Fetch Jobs" to get started</p>
+                                    <div class="empty-title">No Jobs Yet</div>
+                                    <div class="empty-text">Select job platforms and click "Fetch Jobs" to discover opportunities</div>
                                 </div>
                             </td>
                         </tr>
@@ -662,12 +983,12 @@
             </div>
 
             <div class="modal-section">
-                <div class="modal-section-title">Job Description</div>
+                <div class="modal-section-title">📝 Job Description</div>
                 <div class="modal-description" id="modalDescription">No description available</div>
             </div>
 
             <div class="modal-buttons">
-                <button class="btn-apply" onclick="applyJob()">Apply Now on Official Site →</button>
+                <button class="btn-apply" onclick="applyJob()">🚀 Apply Now</button>
                 <button class="btn-close" onclick="closeJobModal()">Close</button>
             </div>
         </div>
@@ -682,8 +1003,7 @@
         async function loadSources() {
             try {
                 const res = await fetch(`${API}/sources`);
-                const sources = await res.json();
-                console.log("Sources loaded:", sources);
+                console.log("Sources loaded successfully");
             } catch (e) {
                 console.error("Failed to load sources:", e);
             }
@@ -713,7 +1033,7 @@
             selectedSources = sources.map(getSourceDisplayName);
             const btn = document.getElementById("fetchBtn");
             btn.disabled = true;
-            btn.textContent = "Fetching...";
+            btn.textContent = "⏳ Fetching...";
 
             try {
                 const res = await fetch(`${API}/fetch`, {
@@ -723,14 +1043,14 @@
                 });
                 const data = await res.json();
 
-                document.getElementById("lastFetch").textContent = `Last fetch: ${new Date().toLocaleTimeString()}`;
+                document.getElementById("lastFetch").textContent = `✅ Last fetch: ${new Date().toLocaleTimeString()}`;
                 await renderJobs();
             } catch (e) {
                 console.error("Fetch failed:", e);
-                alert("Failed to fetch jobs");
+                alert("Failed to fetch jobs. Please try again.");
             } finally {
                 btn.disabled = false;
-                btn.textContent = "Fetch Jobs";
+                btn.textContent = "⚡ Fetch Jobs";
             }
         }
 
@@ -747,7 +1067,6 @@
                 const data = await res.json();
                 allJobs = data.jobs;
 
-                // Calculate stats
                 const total = allJobs.length;
                 const remote = allJobs.filter(j => j.work_type === "Remote").length;
                 const hybrid = allJobs.filter(j => j.work_type === "Hybrid").length;
@@ -758,27 +1077,28 @@
                 document.getElementById("jobsHybrid").textContent = hybrid;
                 document.getElementById("jobsOnsite").textContent = onsite;
 
-                // Render jobs table
                 const tbody = document.getElementById("jobsTableBody");
                 if (allJobs.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="3" style="text-align: center; padding: 60px 24px;">
+                            <td colspan="4">
                                 <div class="empty-state">
                                     <div class="empty-icon">📭</div>
-                                    <div class="empty-title">No jobs found</div>
-                                    <p>Try adjusting your filters or select different sources</p>
+                                    <div class="empty-title">No Jobs Found</div>
+                                    <div class="empty-text">Try adjusting your filters or select different domains</div>
                                 </div>
                             </td>
                         </tr>
                     `;
                 } else {
                     tbody.innerHTML = allJobs.map((job, idx) => `
-                        <tr onclick="openJobModal(${idx})" title="${(job.domains || []).join(', ')}">
+                        <tr onclick="openJobModal(${idx})">
                             <td>
-                                <div class="job-title">${job.title || "N/A"}</div>
-                                <div style="font-size: 12px; color: #0284c7; margin-top: 4px;">
-                                    ${(job.domains || []).slice(0, 2).map(d => `<span style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px; margin-right: 4px; display: inline-block;">${d}</span>`).join('')}
+                                <div class="job-title-wrapper">
+                                    <div class="job-title">${job.title || "N/A"}</div>
+                                    <div class="job-domains">
+                                        ${(job.domains || []).slice(0, 2).map(d => `<span class="domain-badge">${d}</span>`).join('')}
+                                    </div>
                                 </div>
                             </td>
                             <td>
@@ -788,6 +1108,9 @@
                                 <span class="work-type-badge ${(job.work_type || "Remote").toLowerCase()}">
                                     ${job.work_type || "N/A"}
                                 </span>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; font-size: 13px;">${job.source || "N/A"}</div>
                             </td>
                         </tr>
                     `).join("");
@@ -834,21 +1157,7 @@
                 return;
             }
 
-            // Define CSV headers
-            const headers = [
-                "Title",
-                "Company",
-                "Work Type",
-                "Location",
-                "Country",
-                "Job Type",
-                "Salary",
-                "Source",
-                "Domains",
-                "URL"
-            ];
-
-            // Convert jobs to CSV rows
+            const headers = ["Title", "Company", "Work Type", "Location", "Country", "Job Type", "Salary", "Source", "Domains", "URL"];
             const rows = allJobs.map(job => [
                 `"${(job.title || "N/A").replace(/"/g, '""')}"`,
                 `"${(job.company || "N/A").replace(/"/g, '""')}"`,
@@ -862,23 +1171,14 @@
                 `"${(job.url || "N/A").replace(/"/g, '""')}"`
             ]);
 
-            // Create CSV content
-            const csvContent = [
-                headers.join(","),
-                ...rows.map(row => row.join(","))
-            ].join("\n");
-
-            // Create blob and download
+            const csvContent = [headers.join(","), ...rows.map(row => row.join(","))].join("\n");
             const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
             const link = document.createElement("a");
             const url = URL.createObjectURL(blob);
 
-            // Generate filename with date and domain filter
             const domain = document.getElementById("filterDomain").value;
             const date = new Date().toISOString().split("T")[0];
-            const filename = domain === "All"
-                ? `jobs_${date}.csv`
-                : `jobs_${domain.replace(/\//g, "_")}_${date}.csv`;
+            const filename = domain === "All" ? `jobs_${date}.csv` : `jobs_${domain.replace(/\//g, "_")}_${date}.csv`;
 
             link.setAttribute("href", url);
             link.setAttribute("download", filename);
@@ -887,8 +1187,7 @@
             link.click();
             document.body.removeChild(link);
 
-            // Show success message
-            alert(`Exported ${allJobs.length} jobs to ${filename}`);
+            alert(`✅ Exported ${allJobs.length} jobs to ${filename}`);
         }
 
         window.onclick = function(event) {
@@ -898,7 +1197,6 @@
             }
         }
 
-        // Initialize
         loadSources();
     </script>
 </body>
