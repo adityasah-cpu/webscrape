@@ -459,6 +459,30 @@
             background: var(--border-color);
         }
 
+        .export-btn {
+            padding: 8px 16px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .export-btn:hover {
+            background: #059669;
+        }
+
+        .export-btn:active {
+            transform: scale(0.98);
+        }
+
         ::-webkit-scrollbar {
             width: 8px;
         }
@@ -515,7 +539,12 @@
                 <div>
                     <h1>1 · Sources</h1>
                 </div>
-                <div class="last-fetch" id="lastFetch">Last fetch: Never</div>
+                <div style="display: flex; gap: 16px; align-items: center;">
+                    <button class="export-btn" onclick="exportToCSV()" title="Export current jobs to CSV">
+                        <span style="font-size: 18px; margin-right: 6px;">⬇️</span> Export to CSV
+                    </button>
+                    <div class="last-fetch" id="lastFetch">Last fetch: Never</div>
+                </div>
             </div>
 
             <!-- FILTERS -->
@@ -797,6 +826,69 @@
             if (job && job.url) {
                 window.open(job.url, "_blank");
             }
+        }
+
+        function exportToCSV() {
+            if (allJobs.length === 0) {
+                alert("No jobs to export. Please fetch jobs first.");
+                return;
+            }
+
+            // Define CSV headers
+            const headers = [
+                "Title",
+                "Company",
+                "Work Type",
+                "Location",
+                "Country",
+                "Job Type",
+                "Salary",
+                "Source",
+                "Domains",
+                "URL"
+            ];
+
+            // Convert jobs to CSV rows
+            const rows = allJobs.map(job => [
+                `"${(job.title || "N/A").replace(/"/g, '""')}"`,
+                `"${(job.company || "N/A").replace(/"/g, '""')}"`,
+                `"${(job.work_type || "N/A").replace(/"/g, '""')}"`,
+                `"${(job.location || "N/A").replace(/"/g, '""')}"`,
+                `"${(job.country || "N/A").replace(/"/g, '""')}"`,
+                `"${(job.job_type || "N/A").replace(/"/g, '""')}"`,
+                `"${(job.salary || "N/A").replace(/"/g, '""')}"`,
+                `"${(job.source || "N/A").replace(/"/g, '""')}"`,
+                `"${(job.domains || []).join(", ").replace(/"/g, '""')}"`,
+                `"${(job.url || "N/A").replace(/"/g, '""')}"`
+            ]);
+
+            // Create CSV content
+            const csvContent = [
+                headers.join(","),
+                ...rows.map(row => row.join(","))
+            ].join("\n");
+
+            // Create blob and download
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+
+            // Generate filename with date and domain filter
+            const domain = document.getElementById("filterDomain").value;
+            const date = new Date().toISOString().split("T")[0];
+            const filename = domain === "All"
+                ? `jobs_${date}.csv`
+                : `jobs_${domain.replace(/\//g, "_")}_${date}.csv`;
+
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = "hidden";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Show success message
+            alert(`Exported ${allJobs.length} jobs to ${filename}`);
         }
 
         window.onclick = function(event) {
