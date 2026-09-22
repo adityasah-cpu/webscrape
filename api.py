@@ -42,24 +42,42 @@ def save_jobs_to_file(jobs):
         return False
 
 def is_fresher_job(job):
-    """Detect if a job is suitable for freshers/entry-level"""
+    """Detect if a job is ONLY suitable for freshers/entry-level (0-1 years)"""
     fresher_keywords = [
-        'fresher', 'intern', 'entry-level', 'entry level', 'junior',
-        'graduate', 'trainee', 'apprentice', 'new grad', 'beginner',
-        'no experience', 'without experience', '0-1 year', 'undergraduate',
-        'placement', 'associate', 'assistant'
+        'fresher', 'intern', 'internship', 'entry-level', 'entry level', 'entry-level graduate',
+        'graduate', 'trainee', 'apprentice', 'new grad', 'beginner', 'new graduate',
+        'no experience', 'without experience', '0-1 year', '0-1 years', 'zero experience',
+        'placement', 'campus', 'university', 'college', 'newly graduate',
+        'first job', 'first time', 'entry point', 'starter role', 'beginner friendly'
+    ]
+
+    # Keywords that indicate experienced roles - EXCLUDE these
+    exclude_keywords = [
+        'senior', 'expert', 'lead', 'principal', 'architect', '2+ years', '2-3 years',
+        '3+ years', '3-5 years', '5+ years', '5-7 years', '7+ years', '10+ years',
+        'experienced', 'years of experience', 'years experience', 'experienced professional',
+        'mid-level', 'mid level', 'professional', 'staff engineer', 'principal engineer'
     ]
 
     title = (job.get('title') or '').lower()
     category = (job.get('category') or '').lower()
     description = (job.get('description') or '').lower()
+    text = f"{title} {category} {description}"
 
-    # Check if any fresher keyword is in title, category, or description
+    # FIRST: Check if job explicitly EXCLUDES freshers (has experience requirement)
+    for keyword in exclude_keywords:
+        if keyword in text:
+            return False
+
+    # SECOND: Check if job explicitly requires freshers
+    has_fresher_keyword = False
     for keyword in fresher_keywords:
-        if keyword in title or keyword in category or keyword in description:
-            return True
+        if keyword in text:
+            has_fresher_keyword = True
+            break
 
-    return False
+    # THIRD: Only return True if it has fresher keywords AND no exclude keywords
+    return has_fresher_keyword
 
 def detect_job_domain(job):
     """Detect job domain from title, category, and description"""
