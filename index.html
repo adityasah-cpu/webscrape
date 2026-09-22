@@ -14,282 +14,228 @@
 
         :root {
             --bg-primary: #ffffff;
-            --bg-secondary: #f0f9ff;
-            --bg-tertiary: #e0f2fe;
-            --text-primary: #0c2340;
-            --text-secondary: #1e5a96;
-            --text-tertiary: #64748b;
-            --border-color: #bae6fd;
+            --bg-secondary: #f8f9fa;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --border-color: #e0e0e0;
             --accent: #0284c7;
             --accent-dark: #0369a1;
-            --accent-light: #bae6fd;
-            --success: #10b981;
-            --warning: #f59e0b;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
             background: var(--bg-secondary);
             color: var(--text-primary);
-            line-height: 1.5;
-            letter-spacing: -0.3px;
         }
 
-        .app {
-            display: grid;
-            grid-template-columns: 260px 1fr;
+        .container {
+            display: flex;
             min-height: 100vh;
-            gap: 0;
         }
 
         /* ============ SIDEBAR ============ */
         .sidebar {
+            width: 280px;
             background: var(--bg-primary);
             border-right: 1px solid var(--border-color);
-            padding: 24px 16px;
+            padding: 24px 20px;
             overflow-y: auto;
             position: sticky;
             top: 0;
             height: 100vh;
         }
 
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 32px;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-
-        .logo:hover {
-            opacity: 0.8;
-        }
-
-        .logo-icon {
-            font-size: 24px;
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-        }
-
-        .logo-text {
+        .sidebar-title {
             font-size: 16px;
             font-weight: 600;
             color: var(--text-primary);
+            margin-bottom: 16px;
+            margin-top: 20px;
         }
 
-        .sidebar-section {
-            margin-bottom: 28px;
-        }
-
-        .sidebar-title {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-tertiary);
-            margin-bottom: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .sidebar-title small {
-            font-size: 10px;
-            font-weight: 500;
-            display: flex;
-            gap: 4px;
-        }
-
-        .sidebar-title a {
-            color: var(--accent);
-            text-decoration: none;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-
-        .sidebar-title a:hover {
-            opacity: 0.8;
-        }
-
-        .source-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+        .sidebar-title:first-child {
+            margin-top: 0;
         }
 
         .source-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px;
-            border-radius: 6px;
-            transition: background 0.2s;
+            gap: 10px;
+            padding: 10px 0;
             cursor: pointer;
+            user-select: none;
         }
 
-        .source-item:hover {
-            background: var(--bg-secondary);
-        }
-
-        .source-item input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
+        .source-item input {
+            width: 18px;
+            height: 18px;
             cursor: pointer;
             accent-color: var(--accent);
         }
 
         .source-item label {
-            font-size: 13px;
-            color: var(--text-primary);
             cursor: pointer;
+            font-size: 14px;
             flex: 1;
-            font-weight: 500;
         }
 
-        .btn-fetch {
+        .fetch-btn {
             width: 100%;
             padding: 12px 16px;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            background: var(--accent);
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             margin-top: 24px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+            transition: background 0.2s;
         }
 
-        .btn-fetch:hover {
-            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
-            transform: translateY(-1px);
+        .fetch-btn:hover {
+            background: var(--accent-dark);
         }
 
-        .btn-fetch:active {
-            transform: translateY(0);
-        }
-
-        .btn-fetch.loading {
+        .fetch-btn.loading {
             opacity: 0.7;
-            pointer-events: none;
+            cursor: not-allowed;
         }
 
-        .loading-spinner {
-            display: inline-block;
-            width: 14px;
-            height: 14px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-            margin-right: 8px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .sidebar-footer {
-            position: absolute;
-            bottom: 20px;
-            left: 16px;
-            right: 16px;
-            padding-top: 16px;
-            border-top: 1px solid var(--border-color);
-            font-size: 12px;
-            color: var(--text-tertiary);
-        }
-
-        /* ============ MAIN ============ */
-        .main {
+        /* ============ MAIN CONTENT ============ */
+        .main-content {
+            flex: 1;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
 
         .header {
             background: var(--bg-primary);
             border-bottom: 1px solid var(--border-color);
-            padding: 24px 32px;
+            padding: 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .header-title {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .header-title h1 {
+        .header h1 {
             font-size: 24px;
             font-weight: 700;
             color: var(--text-primary);
         }
 
-        .header-title p {
-            font-size: 13px;
+        .last-fetch {
+            font-size: 12px;
             color: var(--text-secondary);
         }
 
-        .stats {
-            display: flex;
-            gap: 24px;
-        }
-
-        .stat {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            text-align: right;
-        }
-
-        .stat-value {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: var(--text-tertiary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .content {
-            flex: 1;
-            padding: 32px;
-            overflow-y: auto;
-        }
-
+        /* ============ FILTERS ============ */
         .filters {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 32px;
             background: var(--bg-primary);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 24px;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: center;
         }
 
         .filter-group {
             display: flex;
-            flex-direction: column;
+            align-items: center;
             gap: 8px;
         }
 
         .filter-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            min-width: 100px;
+        }
+
+        .filter-input {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 13px;
+            min-width: 140px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .filter-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #ff6b6b;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .filter-tag .remove {
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        /* ============ STATS ============ */
+        .stats {
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 20px 24px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            border-radius: 8px;
+            background: var(--bg-secondary);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            text-align: center;
+        }
+
+        /* ============ JOBS TABLE ============ */
+        .jobs-container {
+            flex: 1;
+            overflow-y: auto;
+            background: var(--bg-primary);
+        }
+
+        .jobs-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .jobs-table thead {
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--border-color);
+            position: sticky;
+            top: 0;
+        }
+
+        .jobs-table th {
+            padding: 16px 24px;
+            text-align: left;
             font-size: 12px;
             font-weight: 600;
             color: var(--text-secondary);
@@ -297,184 +243,67 @@
             letter-spacing: 0.5px;
         }
 
-        .filter-input {
-            padding: 10px 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
+        .jobs-table td {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
             font-size: 14px;
             color: var(--text-primary);
+        }
+
+        .jobs-table tbody tr:hover {
             background: var(--bg-secondary);
-            transition: all 0.2s;
-        }
-
-        .filter-input:focus {
-            outline: none;
-            border-color: var(--accent);
-            background: #f0f9ff;
-            box-shadow: 0 0 0 3px #bae6fd;
-        }
-
-        .jobs-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .jobs-header h2 {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .jobs-count {
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-
-        .jobs-grid {
-            display: grid;
-            gap: 16px;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        }
-
-        .job-card {
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 20px;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .job-card:hover {
-            border-color: var(--accent);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-            transform: translateY(-2px);
-        }
-
-        .job-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 12px;
         }
 
         .job-title {
-            font-size: 15px;
             font-weight: 600;
-            color: var(--text-primary);
-            flex: 1;
+            color: var(--accent);
         }
 
         .job-company {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-top: 4px;
+            color: var(--text-primary);
+            font-weight: 500;
         }
 
-        .badge {
+        .work-type-badge {
             display: inline-block;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            white-space: nowrap;
-        }
-
-        .badge.remote {
-            background: #cffafe;
-            color: #0369a1;
-            border: 1px solid #86efac;
-        }
-
-        .badge.hybrid {
-            background: #fed7aa;
-            color: #92400e;
-            border: 1px solid #fbbf24;
-        }
-
-        .badge.onsite {
-            background: #fecaca;
-            color: #7f1d1d;
-            border: 1px solid #fca5a5;
-        }
-
-        .job-meta {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            padding: 12px 0;
-            border-top: 1px solid var(--border-color);
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .meta-item {
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-
-        .meta-label {
-            font-weight: 600;
-            color: var(--text-tertiary);
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            font-size: 10px;
-            display: block;
-            margin-bottom: 2px;
-        }
-
-        .job-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 8px;
-        }
-
-        .job-salary {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--success);
-        }
-
-        .btn-view {
-            padding: 8px 14px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
+            background: #e3f2fd;
+            color: var(--accent);
         }
 
-        .btn-view:hover {
-            background: var(--accent-dark);
+        .work-type-badge.hybrid {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .work-type-badge.onsite {
+            background: #f3e5f5;
+            color: #7b1fa2;
         }
 
         .empty-state {
-            text-align: center;
-            padding: 60px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 24px;
             color: var(--text-secondary);
         }
 
         .empty-icon {
             font-size: 48px;
             margin-bottom: 16px;
-            opacity: 0.5;
         }
 
         .empty-title {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
-            margin-bottom: 8px;
             color: var(--text-primary);
+            margin-bottom: 8px;
         }
 
         /* ============ MODAL ============ */
@@ -486,8 +315,8 @@
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.4);
-            animation: fadeIn 0.2s ease-out;
+            background: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease-in;
         }
 
         @keyframes fadeIn {
@@ -496,21 +325,20 @@
         }
 
         .modal-content {
-            background-color: var(--bg-primary);
+            background: var(--bg-primary);
             margin: 5% auto;
             padding: 32px;
             border-radius: 12px;
             width: 90%;
-            max-width: 600px;
+            max-width: 700px;
             max-height: 80vh;
             overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-            animation: slideUp 0.3s ease-out;
+            animation: slideIn 0.3s ease-out;
         }
 
-        @keyframes slideUp {
+        @keyframes slideIn {
             from {
-                transform: translateY(30px);
+                transform: translateY(-50px);
                 opacity: 0;
             }
             to {
@@ -522,347 +350,296 @@
         .modal-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: start;
             margin-bottom: 24px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 20px;
         }
 
         .modal-title {
-            flex: 1;
-        }
-
-        .modal-title h2 {
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 700;
             color: var(--text-primary);
-            margin-bottom: 6px;
         }
 
-        .modal-company {
-            font-size: 14px;
+        .modal-subtitle {
+            font-size: 16px;
             color: var(--text-secondary);
+            margin-top: 4px;
         }
 
         .modal-close {
-            font-size: 24px;
-            color: var(--text-tertiary);
+            font-size: 28px;
             cursor: pointer;
-            border: none;
+            color: var(--text-secondary);
             background: none;
-            padding: 4px 8px;
-            transition: color 0.2s;
+            border: none;
         }
 
-        .modal-close:hover {
-            color: var(--text-primary);
-        }
-
-        .modal-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
+        .modal-section {
             margin-bottom: 24px;
         }
 
-        .detail-item {
-            padding: 14px;
-            background: #eff6ff;
-            border-radius: 8px;
-            border-left: 3px solid var(--accent);
-        }
-
-        .detail-label {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-tertiary);
+        .modal-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 6px;
+            margin-bottom: 12px;
         }
 
-        .detail-value {
+        .modal-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .modal-item {
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-left: 4px solid var(--accent);
+            border-radius: 4px;
+        }
+
+        .modal-item-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .modal-item-value {
             font-size: 14px;
             font-weight: 600;
             color: var(--text-primary);
         }
 
         .modal-description {
-            margin-bottom: 24px;
-        }
-
-        .modal-description-title {
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--text-tertiary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
-        }
-
-        .modal-description-text {
-            font-size: 14px;
-            color: var(--text-secondary);
             line-height: 1.6;
-            max-height: 200px;
-            overflow-y: auto;
+            color: var(--text-primary);
+            font-size: 14px;
+            white-space: pre-wrap;
         }
 
-        .modal-footer {
+        .modal-buttons {
             display: flex;
             gap: 12px;
-            border-top: 1px solid var(--border-color);
-            padding-top: 20px;
+            margin-top: 24px;
         }
 
         .btn-apply {
             flex: 1;
-            padding: 12px 20px;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            padding: 12px 16px;
+            background: var(--accent);
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 14px;
+            border-radius: 6px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+            font-size: 14px;
         }
 
         .btn-apply:hover {
-            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
-            transform: translateY(-1px);
+            background: var(--accent-dark);
         }
 
         .btn-close {
             flex: 1;
-            padding: 12px 20px;
-            background: transparent;
-            color: var(--text-secondary);
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
             border: 1px solid var(--border-color);
-            border-radius: 8px;
-            font-size: 14px;
+            border-radius: 6px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            font-size: 14px;
         }
 
         .btn-close:hover {
             background: var(--border-color);
-            color: var(--text-primary);
         }
 
-        /* ============ SCROLLBAR ============ */
         ::-webkit-scrollbar {
             width: 8px;
-            height: 8px;
         }
 
         ::-webkit-scrollbar-track {
-            background: transparent;
+            background: var(--bg-secondary);
         }
 
         ::-webkit-scrollbar-thumb {
-            background: var(--border-color);
+            background: #ccc;
             border-radius: 4px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-tertiary);
-        }
-
-        /* ============ RESPONSIVE ============ */
-        @media (max-width: 768px) {
-            .app {
-                grid-template-columns: 1fr;
-            }
-
-            .sidebar {
-                height: auto;
-                border-right: none;
-                border-bottom: 1px solid var(--border-color);
-            }
-
-            .jobs-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 16px;
-            }
-
-            .stats {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .modal-content {
-                width: 95%;
-                margin: 20% auto;
-            }
+            background: #999;
         }
     </style>
 </head>
 <body>
-    <!-- Job Details Modal -->
-    <div id="jobModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">
-                    <h2 id="modalJobTitle">Job Title</h2>
-                    <div class="modal-company" id="modalJobCompany">Company</div>
-                </div>
-                <button class="modal-close" onclick="closeJobModal()">&times;</button>
+    <div class="container">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="sidebar-title">Remote-only boards</div>
+            <div class="source-item">
+                <input type="checkbox" id="remotive" value="remotive" class="source-item input">
+                <label for="remotive">Remotive</label>
+            </div>
+            <div class="source-item">
+                <input type="checkbox" id="remoteok" value="remoteok" class="source-item input">
+                <label for="remoteok">RemoteOK</label>
+            </div>
+            <div class="source-item">
+                <input type="checkbox" id="himalayas" value="himalayas" class="source-item input">
+                <label for="himalayas">Himalayas</label>
             </div>
 
-            <div class="modal-details">
-                <div class="detail-item">
-                    <div class="detail-label">Work Type</div>
-                    <div class="detail-value" id="modalWorkType">Remote</div>
+            <div class="sidebar-title">Freshers & Internships (India focus)</div>
+            <div class="source-item">
+                <input type="checkbox" id="internshala" value="internshala" class="source-item input">
+                <label for="internshala">Internshala (India internships)</label>
+            </div>
+            <div class="source-item">
+                <input type="checkbox" id="firstnaukri" value="firstnaukri" class="source-item input">
+                <label for="firstnaukri">FirstNaukri (India freshers)</label>
+            </div>
+
+            <button class="fetch-btn" onclick="fetchJobs()" id="fetchBtn">Fetch Jobs</button>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+            <!-- HEADER -->
+            <div class="header">
+                <div>
+                    <h1>1 · Sources</h1>
                 </div>
-                <div class="detail-item">
-                    <div class="detail-label">Location</div>
-                    <div class="detail-value" id="modalLocation">Bangalore</div>
+                <div class="last-fetch" id="lastFetch">Last fetch: Never</div>
+            </div>
+
+            <!-- FILTERS -->
+            <div class="filters">
+                <div class="filter-group">
+                    <span class="filter-label">Domain</span>
+                    <select id="filterDomain" class="filter-input" onchange="renderJobs()">
+                        <option value="All">All Domains</option>
+                        <option value="AIML">AI/ML</option>
+                        <option value="Data Analytics">Data Analytics</option>
+                        <option value="Blockchain">Blockchain</option>
+                        <option value="AR VR">AR/VR</option>
+                        <option value="Cybersecurity">Cybersecurity</option>
+                    </select>
                 </div>
-                <div class="detail-item">
-                    <div class="detail-label">Country</div>
-                    <div class="detail-value" id="modalCountry">India</div>
+                <div class="filter-group">
+                    <span class="filter-label">Job type</span>
+                    <select id="filterWorkType" class="filter-input" onchange="renderJobs()">
+                        <option value="">All Types</option>
+                        <option value="Remote">Remote</option>
+                        <option value="Hybrid">Hybrid</option>
+                        <option value="Onsite">Onsite (Pan-India)</option>
+                    </select>
                 </div>
-                <div class="detail-item">
-                    <div class="detail-label">Job Type</div>
-                    <div class="detail-value" id="modalJobType">Full-time</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Salary</div>
-                    <div class="detail-value" id="modalSalary">Not listed</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Source</div>
-                    <div class="detail-value" id="modalSource">Remotive</div>
+                <div class="filter-group">
+                    <span class="filter-label">Country / Region</span>
+                    <input type="text" id="filterCountry" class="filter-input" placeholder="e.g., India, USA" onkeyup="renderJobs()">
                 </div>
             </div>
 
-            <div class="modal-description">
-                <div class="modal-description-title">About This Job</div>
-                <div class="modal-description-text" id="modalDescription">
-                    No description available
+            <!-- STATS -->
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="jobsTotal">0</div>
+                    <div class="stat-label">Jobs found</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="jobsRemote">0</div>
+                    <div class="stat-label">Remote</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="jobsHybrid">0</div>
+                    <div class="stat-label">Hybrid</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="jobsOnsite">0</div>
+                    <div class="stat-label">Onsite</div>
                 </div>
             </div>
 
-            <div class="modal-footer">
-                <a id="modalApplyLink" href="#" target="_blank" class="btn-apply">
-                    Apply on Official Site
-                </a>
-                <button class="btn-close" onclick="closeJobModal()">Close</button>
+            <!-- JOBS TABLE -->
+            <div class="jobs-container">
+                <table class="jobs-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">Title</th>
+                            <th style="width: 30%;">Company</th>
+                            <th style="width: 30%;">Work type</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobsTableBody">
+                        <tr>
+                            <td colspan="3" style="text-align: center; padding: 60px 24px;">
+                                <div class="empty-state">
+                                    <div class="empty-icon">🔍</div>
+                                    <div class="empty-title">No jobs yet</div>
+                                    <p>Select sources and click "Fetch Jobs" to get started</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <!-- Main App -->
-    <div class="app">
-        <!-- SIDEBAR -->
-        <div class="sidebar">
-            <div class="logo">
-                <div class="logo-icon">J</div>
-                <div class="logo-text">JobHub</div>
-            </div>
-
-            <div class="sidebar-section">
-                <div class="sidebar-title">
-                    Remote Jobs
-                    <small>
-                        <a onclick="selectAllSources(); return false;">All</a> |
-                        <a onclick="deselectAllSources(); return false;">Clear</a>
-                    </small>
+    <!-- MODAL -->
+    <div id="jobModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <div class="modal-title" id="modalTitle">Job Title</div>
+                    <div class="modal-subtitle" id="modalCompany">Company Name</div>
                 </div>
-                <div class="source-group" id="remoteSources"></div>
+                <button class="modal-close" onclick="closeJobModal()">&times;</button>
             </div>
 
-            <div class="sidebar-section">
-                <div class="sidebar-title">Freshers</div>
-                <div class="source-group" id="fresherSources"></div>
-            </div>
-
-            <div class="sidebar-section">
-                <div class="sidebar-title">All Jobs</div>
-                <div class="source-group" id="allJobsSources"></div>
-            </div>
-
-            <button class="btn-fetch" onclick="fetchJobs()" id="fetchBtn">
-                <span id="fetchText">Fetch Jobs</span>
-            </button>
-
-            <div class="sidebar-footer" id="lastFetch">
-                Last fetch: Never
-            </div>
-        </div>
-
-        <!-- MAIN -->
-        <div class="main">
-            <!-- HEADER -->
-            <div class="header">
-                <div class="header-title">
-                    <h1>Discover Your Next Opportunity</h1>
-                    <p>Browse remote and flexible job positions</p>
-                </div>
-                <div class="stats">
-                    <div class="stat">
-                        <div class="stat-value" id="jobsTotal">0</div>
-                        <div class="stat-label">Total Jobs</div>
+            <div class="modal-section">
+                <div class="modal-grid">
+                    <div class="modal-item">
+                        <div class="modal-item-label">Work Type</div>
+                        <div class="modal-item-value" id="modalWorkType">Remote</div>
                     </div>
-                    <div class="stat">
-                        <div class="stat-value" id="jobsShowing">0</div>
-                        <div class="stat-label">Showing</div>
+                    <div class="modal-item">
+                        <div class="modal-item-label">Location</div>
+                        <div class="modal-item-value" id="modalLocation">Remote</div>
+                    </div>
+                    <div class="modal-item">
+                        <div class="modal-item-label">Country</div>
+                        <div class="modal-item-value" id="modalCountry">India</div>
+                    </div>
+                    <div class="modal-item">
+                        <div class="modal-item-label">Job Type</div>
+                        <div class="modal-item-value" id="modalJobType">Full-time</div>
+                    </div>
+                    <div class="modal-item">
+                        <div class="modal-item-label">Salary</div>
+                        <div class="modal-item-value" id="modalSalary">Not listed</div>
+                    </div>
+                    <div class="modal-item">
+                        <div class="modal-item-label">Source</div>
+                        <div class="modal-item-value" id="modalSource">Remotive</div>
                     </div>
                 </div>
             </div>
 
-            <!-- CONTENT -->
-            <div class="content">
-                <!-- FILTERS -->
-                <div class="filters">
-                    <div class="filter-group">
-                        <label class="filter-label">Keyword</label>
-                        <input type="text" id="filterKeyword" class="filter-input" placeholder="e.g., Python, Design" onkeyup="renderJobs()">
-                    </div>
-                    <div class="filter-group">
-                        <label class="filter-label">Work Type</label>
-                        <select id="filterWorkType" class="filter-input" onchange="renderJobs()">
-                            <option value="">All Types</option>
-                            <option value="Remote">Remote</option>
-                            <option value="Hybrid">Hybrid</option>
-                            <option value="Onsite">Onsite</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label class="filter-label">Country</label>
-                        <input type="text" id="filterCountry" class="filter-input" placeholder="e.g., India, USA" onkeyup="renderJobs()">
-                    </div>
-                </div>
+            <div class="modal-section">
+                <div class="modal-section-title">Job Description</div>
+                <div class="modal-description" id="modalDescription">No description available</div>
+            </div>
 
-                <!-- JOBS HEADER -->
-                <div class="jobs-header">
-                    <h2>Available Jobs</h2>
-                    <span class="jobs-count" id="jobsCount">0 jobs</span>
-                </div>
-
-                <!-- JOBS GRID -->
-                <div class="jobs-grid" id="jobsContainer">
-                    <div class="empty-state">
-                        <div class="empty-icon">🔍</div>
-                        <div class="empty-title">No jobs yet</div>
-                        <p>Select sources and click "Fetch Jobs" to get started</p>
-                    </div>
-                </div>
-
-                <!-- PAGINATION -->
-                <div id="pagination" style="margin-top: 32px; text-align: center; color: var(--text-secondary);"></div>
+            <div class="modal-buttons">
+                <button class="btn-apply" onclick="applyJob()">Apply Now on Official Site →</button>
+                <button class="btn-close" onclick="closeJobModal()">Close</button>
             </div>
         </div>
     </div>
@@ -870,65 +647,31 @@
     <script>
         const API = "http://localhost:5000/api";
         let allJobs = [];
-        let allSources = {};
-        let currentPage = 1;
         let selectedSources = [];
-        const jobsPerPage = 12;
+        let currentJobIndex = -1;
 
-        // Initialize
-        async function init() {
-            await loadSources();
-        }
-
-        // Load sources
         async function loadSources() {
             try {
                 const res = await fetch(`${API}/sources`);
-                allSources = await res.json();
-                renderSources();
+                const sources = await res.json();
+                console.log("Sources loaded:", sources);
             } catch (e) {
                 console.error("Failed to load sources:", e);
             }
         }
 
-        function renderSources() {
-            const renderGroup = (sources) => sources
-                .map(s => `
-                    <div class="source-item">
-                        <input type="checkbox" id="src_${s.id}" value="${s.id}">
-                        <label for="src_${s.id}">${s.name}</label>
-                    </div>
-                `)
-                .join("");
-
-            document.getElementById("remoteSources").innerHTML = renderGroup(allSources.remote_boards || []);
-            document.getElementById("fresherSources").innerHTML = renderGroup(allSources.freshers || []);
-            document.getElementById("allJobsSources").innerHTML = renderGroup(allSources.all_jobs || []);
-        }
-
-        function selectAllSources() {
-            document.querySelectorAll('.source-item input').forEach(cb => cb.checked = true);
-        }
-
-        function deselectAllSources() {
-            document.querySelectorAll('.source-item input').forEach(cb => cb.checked = false);
-        }
-
-        // Map source IDs to display names
         function getSourceDisplayName(sourceId) {
-            // Find the actual source name from allSources
-            for (const category of [
-                allSources.remote_boards || [],
-                allSources.freshers || [],
-                allSources.all_jobs || []
-            ]) {
-                const source = category.find(s => s.id === sourceId);
-                if (source) return source.name;
-            }
-            return sourceId;
+            const mapping = {
+                "remotive": "Remotive",
+                "remoteok": "RemoteOK",
+                "himalayas": "Himalayas",
+                "internshala": "Internshala",
+                "firstnaukri": "FirstNaukri",
+                "arbeitnow": "Arbeitnow"
+            };
+            return mapping[sourceId] || sourceId;
         }
 
-        // Fetch jobs
         async function fetchJobs() {
             const sources = Array.from(document.querySelectorAll('.source-item input:checked'))
                 .map(cb => cb.value);
@@ -938,13 +681,10 @@
                 return;
             }
 
-            // Store selected sources with their display names
             selectedSources = sources.map(getSourceDisplayName);
-
             const btn = document.getElementById("fetchBtn");
-            const text = document.getElementById("fetchText");
-            btn.classList.add("loading");
-            text.innerHTML = '<span class="loading-spinner"></span>Fetching...';
+            btn.disabled = true;
+            btn.textContent = "Fetching...";
 
             try {
                 const res = await fetch(`${API}/fetch`, {
@@ -955,100 +695,86 @@
                 const data = await res.json();
 
                 document.getElementById("lastFetch").textContent = `Last fetch: ${new Date().toLocaleTimeString()}`;
-                document.getElementById("jobsTotal").textContent = data.total_stored || 0;
-                currentPage = 1;
                 await renderJobs();
             } catch (e) {
                 console.error("Fetch failed:", e);
                 alert("Failed to fetch jobs");
             } finally {
-                btn.classList.remove("loading");
-                text.innerHTML = "Fetch Jobs";
+                btn.disabled = false;
+                btn.textContent = "Fetch Jobs";
             }
         }
 
-        // Render jobs
         async function renderJobs() {
-            const keyword = document.getElementById("filterKeyword").value.toLowerCase();
+            const domain = document.getElementById("filterDomain").value;
             const workType = document.getElementById("filterWorkType").value;
             const country = document.getElementById("filterCountry").value;
 
             try {
-                // Build sources parameter for backend (all selected sources)
                 const sourcesParam = selectedSources.length > 0 ? selectedSources.join(",") : "";
-
                 const res = await fetch(
-                    `${API}/jobs?page=${currentPage}&limit=${jobsPerPage}&keyword=${keyword}&work_type=${workType}&country=${country}&sources=${encodeURIComponent(sourcesParam)}`
+                    `${API}/jobs?page=1&limit=1000&domain=${encodeURIComponent(domain)}&work_type=${encodeURIComponent(workType)}&country=${encodeURIComponent(country)}&sources=${encodeURIComponent(sourcesParam)}`
                 );
                 const data = await res.json();
                 allJobs = data.jobs;
 
-                // Display jobs directly from backend (already filtered by source)
-                let jobsToDisplay = allJobs;
+                // Calculate stats
+                const total = allJobs.length;
+                const remote = allJobs.filter(j => j.work_type === "Remote").length;
+                const hybrid = allJobs.filter(j => j.work_type === "Hybrid").length;
+                const onsite = allJobs.filter(j => j.work_type === "Onsite").length;
 
-                document.getElementById("jobsShowing").textContent = jobsToDisplay.length;
-                document.getElementById("jobsCount").textContent = `${jobsToDisplay.length} jobs`;
+                document.getElementById("jobsTotal").textContent = total;
+                document.getElementById("jobsRemote").textContent = remote;
+                document.getElementById("jobsHybrid").textContent = hybrid;
+                document.getElementById("jobsOnsite").textContent = onsite;
 
-                if (jobsToDisplay.length === 0) {
-                    document.getElementById("jobsContainer").innerHTML = `
-                        <div class="empty-state" style="grid-column: 1/-1;">
-                            <div class="empty-icon">📭</div>
-                            <div class="empty-title">No jobs found</div>
-                            <p>Try adjusting your filters or select different sources</p>
-                        </div>
+                // Render jobs table
+                const tbody = document.getElementById("jobsTableBody");
+                if (allJobs.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="3" style="text-align: center; padding: 60px 24px;">
+                                <div class="empty-state">
+                                    <div class="empty-icon">📭</div>
+                                    <div class="empty-title">No jobs found</div>
+                                    <p>Try adjusting your filters or select different sources</p>
+                                </div>
+                            </td>
+                        </tr>
                     `;
-                    return;
+                } else {
+                    tbody.innerHTML = allJobs.map((job, idx) => `
+                        <tr onclick="openJobModal(${idx})" title="${(job.domains || []).join(', ')}">
+                            <td>
+                                <div class="job-title">${job.title || "N/A"}</div>
+                                <div style="font-size: 12px; color: #0284c7; margin-top: 4px;">
+                                    ${(job.domains || []).slice(0, 2).map(d => `<span style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px; margin-right: 4px; display: inline-block;">${d}</span>`).join('')}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="job-company">${job.company || "N/A"}</div>
+                            </td>
+                            <td>
+                                <span class="work-type-badge ${(job.work_type || "Remote").toLowerCase()}">
+                                    ${job.work_type || "N/A"}
+                                </span>
+                            </td>
+                        </tr>
+                    `).join("");
                 }
-
-                document.getElementById("jobsContainer").innerHTML = jobsToDisplay
-                    .map((j, idx) => `
-                        <div class="job-card" onclick="openJobModal(${idx})">
-                            <div class="job-header">
-                                <div>
-                                    <div class="job-title">${j.title || "N/A"}</div>
-                                    <div class="job-company">${j.company || "N/A"}</div>
-                                </div>
-                                <span class="badge ${(j.work_type || "").toLowerCase()}">${j.work_type || "N/A"}</span>
-                            </div>
-
-                            <div class="job-meta">
-                                <div class="meta-item">
-                                    <span class="meta-label">Location</span>
-                                    ${j.location || "Remote"}
-                                </div>
-                                <div class="meta-item">
-                                    <span class="meta-label">Country</span>
-                                    ${j.country || "N/A"}
-                                </div>
-                                <div class="meta-item">
-                                    <span class="meta-label">Posted</span>
-                                    ${j.date || "N/A"}
-                                </div>
-                                <div class="meta-item">
-                                    <span class="meta-label">Source</span>
-                                    ${j.source || "N/A"}
-                                </div>
-                            </div>
-
-                            <div class="job-footer">
-                                <div class="job-salary">${j.salary || "Not listed"}</div>
-                                <button class="btn-view" onclick="event.stopPropagation(); openJobModal(${idx})">View</button>
-                            </div>
-                        </div>
-                    `)
-                    .join("");
             } catch (e) {
                 console.error("Render failed:", e);
             }
         }
 
-        // Modal functions
-        function openJobModal(index) {
-            const job = allJobs[index];
+        function openJobModal(idx) {
+            currentJobIndex = idx;
+            const job = allJobs[idx];
             if (!job) return;
 
-            document.getElementById("modalJobTitle").textContent = job.title || "N/A";
-            document.getElementById("modalJobCompany").textContent = job.company || "N/A";
+            document.getElementById("modalTitle").textContent = job.title || "N/A";
+            document.getElementById("modalCompany").textContent = job.company || "N/A";
             document.getElementById("modalWorkType").textContent = job.work_type || "N/A";
             document.getElementById("modalLocation").textContent = job.location || "Remote";
             document.getElementById("modalCountry").textContent = job.country || "N/A";
@@ -1056,7 +782,6 @@
             document.getElementById("modalSalary").textContent = job.salary || "Not listed";
             document.getElementById("modalSource").textContent = job.source || "N/A";
             document.getElementById("modalDescription").textContent = job.description || "No description available";
-            document.getElementById("modalApplyLink").href = job.url || "#";
 
             document.getElementById("jobModal").style.display = "block";
             document.body.style.overflow = "hidden";
@@ -1067,6 +792,13 @@
             document.body.style.overflow = "auto";
         }
 
+        function applyJob() {
+            const job = allJobs[currentJobIndex];
+            if (job && job.url) {
+                window.open(job.url, "_blank");
+            }
+        }
+
         window.onclick = function(event) {
             const modal = document.getElementById("jobModal");
             if (event.target === modal) {
@@ -1074,8 +806,8 @@
             }
         }
 
-        // Start
-        init();
+        // Initialize
+        loadSources();
     </script>
 </body>
 </html>
