@@ -1,0 +1,50 @@
+{
+  "sources": [
+    "remotive",
+    "remoteok",
+    "himalayas",
+    "jobicy",
+    "weworkremotely",
+    "internshala",
+    "unstop",
+    "firstnaukri",
+    "angellist",
+    "devto",
+    "upwork",
+    "toptal"
+  ],
+  "filters": {
+    "work_type": [
+      "Remote",
+      "Hybrid"
+    ],
+    "countries": [
+      "India"
+    ],
+    "job_types": [
+      "Full-time",
+      "Internship"
+    ],
+    "keywords": []
+  },
+  "alerts": {
+    "enabled": false,
+    "telegram": {
+      "bot_token": "YOUR_BOT_TOKEN_HERE",
+      "chat_id": "YOUR_CHAT_ID_HERE"
+    },
+    "email": {
+      "sender": "your-email@gmail.com",
+      "password": "your-app-password",
+      "recipient": "recipient@gmail.com"
+    },
+    "slack": {
+      "webhook_url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+    }
+  },
+  "schedule": {
+    "interval_hours": 8,
+    "send_alert_if_new": true,
+    "alert_after_hours": 24
+  }
+}

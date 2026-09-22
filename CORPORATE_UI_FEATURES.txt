@@ -1,0 +1,137 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    🏢 CORPORATE UI - FEATURE SHOWCASE                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────┬────────────────────────────────────────────────────────┐
+│                      │  🏢 Job Finder Pro                                     │
+│   SIDEBAR            │  Enterprise Job Discovery Platform                     │
+│   (Dark Theme)       │                                                        │
+│                      ├────────────────────────────────────────────────────────┤
+│   🎯 Logo            │  ┌──────────────┬──────────────┬──────────────┐        │
+│                      │  │  📍 REMOTE   │ 🏢 HYBRID    │ 🏪 ONSITE   │        │
+│   REMOTE BOARDS      │  │   1,200 jobs │  20 jobs     │  14 jobs    │        │
+│   ☑ Remotive (20)    │  │  [Gradient]  │ [Gradient]   │ [Gradient]  │        │
+│   ☑ RemoteOK (99)    │  └──────────────┴──────────────┴──────────────┘        │
+│   ☑ Himalayas (200)  │                                                        │
+│   ☑ Jobicy (100)     ├────────────────────────────────────────────────────────┤
+│   ☑ We Work (84)     │                                                        │
+│                      │  🔍 Keywords    [Search...]                           │
+│   FRESHERS           │  Work Type      [Remote ▼]                            │
+│   ☐ Internshala      │  Country        [India ...]                           │
+│   ☐ Unstop           │                                                        │
+│                      ├────────────────────────────────────────────────────────┤
+│   ALL JOBS           │  Showing 10 of 1,234 jobs    [📥 Export CSV]         │
+│   ☑ Arbeitnow (800)  │                                                        │
+│   ☐ Adzuna           │  ┌────────────────────────────────────────────────┐   │
+│                      │  │ 🔷 Python Developer         [REMOTE]           │   │
+│   [🔍 FETCH JOBS]    │  │                                                │   │
+│                      │  │ @ Google                                       │   │
+│   ⏱ Last Fetch:      │  │                                                │   │
+│      Today 15:32     │  │ 📍 Remote  🌍 Worldwide  📅 Posted today    │   │
+│                      │  │ 💼 Full-time  💰 $150K-170K                   │   │
+│                      │  │                        [Apply Now →]          │   │
+│                      │  └────────────────────────────────────────────────┘   │
+│                      │                                                        │
+│                      │  ┌────────────────────────────────────────────────┐   │
+│                      │  │ 🔷 Golang Engineer           [HYBRID]          │   │
+│                      │  │                                                │   │
+│                      │  │ @ Netflix                                      │   │
+│                      │  │                                                │   │
+│                      │  │ 📍 San Francisco  🌍 US  📅 Posted 2 days    │   │
+│                      │  │ 💼 Full-time  💰 $180K-200K                   │   │
+│                      │  │                        [Apply Now →]          │   │
+│                      │  └────────────────────────────────────────────────┘   │
+│                      │                                                        │
+│                      │  ┌────────────────────────────────────────────────┐   │
+│                      │  │ 🔷 React Developer           [ONSITE]          │   │
+│                      │  │                                                │   │
+│                      │  │ @ Stripe                                       │   │
+│                      │  │                                                │   │
+│                      │  │ 📍 Dublin  🌍 Ireland  📅 Posted 3 days     │   │
+│                      │  │ 💼 Full-time  💰 $160K-180K                   │   │
+│                      │  │                        [Apply Now →]          │   │
+│                      │  └────────────────────────────────────────────────┘   │
+│                      │                                                        │
+│                      │  [1] [2] [3] [4] [5] ... [10]                       │
+│                      │                                                        │
+└──────────────────────┴────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+
+KEY FEATURES:
+
+✨ DESIGN
+  • Modern dark sidebar with professional logo
+  • Clean white content area with subtle shadows
+  • Gradient colored cards for visual appeal
+  • Smooth hover animations and transitions
+  • Professional color scheme (blues, grays)
+
+🎯 NAVIGATION
+  • Source selection in grouped categories
+  • Badge showing job count per source
+  • Large prominent "Fetch Jobs" button
+  • Loading spinner with status message
+  • Last fetch timestamp
+
+📊 DASHBOARD
+  • Three gradient stat cards (Remote/Hybrid/Onsite)
+  • Real-time updates when jobs are fetched
+  • Emoji icons for visual clarity
+  • Large, readable numbers
+
+🔍 FILTERING
+  • Real-time keyword search (title + company)
+  • Work type selector (Remote/Hybrid/Onsite)
+  • Country/location filter
+  • Instant results update (no page reload)
+  • Responsive layout
+
+💼 JOB CARDS
+  • Beautiful card layout with hover lift effect
+  • Color-coded work type badges
+  • Structured metadata (location, country, date)
+  • Salary display in success green
+  • Direct "Apply Now" button with link
+
+📱 RESPONSIVE
+  • Sidebar collapses on mobile
+  • Flexible grid layout
+  • Touch-friendly buttons
+  • Optimized for all screen sizes
+
+📥 EXPORT
+  • One-click CSV download
+  • All filtered jobs included
+  • Opens in Excel/Sheets
+
+📄 PAGINATION
+  • 10 jobs per page
+  • Numbered pagination buttons
+  • Jump to any page
+
+═══════════════════════════════════════════════════════════════════════════════
+
+COLORS USED:
+
+  Primary Blue:     #1e40af  (Headers, text)
+  Accent Blue:      #3b82f6  (Buttons, highlights)
+  Dark BG:          #0f172a  (Sidebar)
+  Light BG:         #f8fafc  (Main area)
+  Success Green:    #10b981  (Salary)
+  
+  Gradients:
+    Remote:   #667eea → #764ba2  (Purple)
+    Hybrid:   #f093fb → #f5576c  (Pink/Red)
+    Onsite:   #4facfe → #00f2fe  (Cyan)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+SETUP:
+
+  1. pip install flask flask-cors
+  2. python api.py
+  3. Open http://localhost:5000
+  4. Select sources → Click Fetch → Browse jobs!
+
+═══════════════════════════════════════════════════════════════════════════════
