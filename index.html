@@ -479,6 +479,63 @@
             border-color: #e9d5ff;
         }
 
+        .match-score-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            text-align: center;
+            min-width: 50px;
+        }
+
+        .match-score-badge.high {
+            background: linear-gradient(135deg, #dcfce7 0%, rgba(34, 197, 94, 0.1) 100%);
+            color: #16a34a;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .match-score-badge.mid {
+            background: linear-gradient(135deg, #fef3c7 0%, rgba(245, 158, 11, 0.1) 100%);
+            color: #d97706;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .match-score-badge.low {
+            background: linear-gradient(135deg, #f3f4f6 0%, rgba(107, 114, 128, 0.1) 100%);
+            color: #6b7280;
+            border: 1px solid rgba(107, 114, 128, 0.3);
+        }
+
+        .domain-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: rgba(2, 132, 199, 0.15);
+            color: var(--primary);
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 4px;
+            margin-top: 4px;
+        }
+
+        .job-title-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .job-domains {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .resume-upload-box {
+            margin: 12px 0;
+            padding: 8px 0;
+        }
+
         .empty-state {
             display: flex;
             flex-direction: column;
@@ -867,6 +924,15 @@
                 <label for="arbeitnow">Arbeitnow</label>
             </div>
 
+            <div class="sidebar-section-title">📄 Resume Matching</div>
+            <div class="resume-upload-box">
+                <input type="file" id="resumeInput" accept=".pdf,.docx,.txt" style="display:none" onchange="handleResumeFileSelected()">
+                <button class="fetch-btn" onclick="document.getElementById('resumeInput').click()" id="resumeUploadBtn">
+                    📄 Upload Resume
+                </button>
+                <div id="resumeFileName" style="font-size:12px; color:#888; margin-top:6px;"></div>
+            </div>
+
             <button class="fetch-btn" onclick="fetchJobs()" id="fetchBtn">⚡ Fetch Jobs</button>
         </div>
 
@@ -929,6 +995,27 @@
                     <div class="stat-value" id="jobsOnsite">0</div>
                     <div class="stat-label">📍 Onsite</div>
                 </div>
+            </div>
+
+            <!-- RECOMMENDED FOR YOU (hidden until resume is matched) -->
+            <div class="jobs-container recommended-section" id="recommendedSection" style="display:none;">
+                <div class="recommended-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <h2 style="margin: 0; flex: 1;">⭐ Recommended for You</h2>
+                    <div id="recommendedMeta" style="font-size:13px; color:#888; text-align: right;"></div>
+                    <button class="export-btn" onclick="clearRecommendations()" title="Clear recommendations">✕ Clear</button>
+                </div>
+                <table class="jobs-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 10%;">Match</th>
+                            <th style="width: 30%;">Position & Domain</th>
+                            <th style="width: 25%;">Company</th>
+                            <th style="width: 17.5%;">Type</th>
+                            <th style="width: 17.5%;">Source</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recommendedTableBody"></tbody>
+                </table>
             </div>
 
             <!-- JOBS TABLE -->
@@ -1082,6 +1169,92 @@
             }
         }
 
+        let recommendedJobs = [];
+        let currentModalJob = null;
+
+        function handleResumeFileSelected() {
+            const input = document.getElementById("resumeInput");
+            const file = input.files[0];
+            if (!file) return;
+            document.getElementById("resumeFileName").textContent = file.name;
+            uploadResumeAndMatch(file);
+        }
+
+        async function uploadResumeAndMatch(file) {
+            const btn = document.getElementById("resumeUploadBtn");
+            btn.disabled = true;
+            btn.textContent = "⏳ Matching...";
+
+            const formData = new FormData();
+            formData.append("resume", file);
+
+            try {
+                const res = await fetch(`${API}/match-resume`, { method: "POST", body: formData });
+                const data = await res.json();
+
+                if (!data.success) {
+                    alert(data.error || "Failed to process resume.");
+                    return;
+                }
+
+                recommendedJobs = data.matches || [];
+                renderRecommended(data);
+            } catch (e) {
+                console.error("Resume match failed:", e);
+                alert("Failed to upload/match resume. Please try again.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "📄 Upload Resume";
+            }
+        }
+
+        function renderRecommended(data) {
+            const section = document.getElementById("recommendedSection");
+            const tbody = document.getElementById("recommendedTableBody");
+            const meta = document.getElementById("recommendedMeta");
+
+            if (!recommendedJobs.length) {
+                section.style.display = "block";
+                meta.textContent = data.message || "No matching jobs found.";
+                tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">
+                    <div class="empty-icon">🤷</div>
+                    <div class="empty-title">No Recommendations</div>
+                    <div class="empty-text">${data.message || "Try fetching more jobs first."}</div>
+                </div></td></tr>`;
+                return;
+            }
+
+            section.style.display = "block";
+            meta.textContent = `Detected skills: ${(data.resume_domains || []).join(", ")} · ranked from ${data.total_jobs_considered} jobs`;
+
+            tbody.innerHTML = recommendedJobs.map((job, idx) => {
+                const score = job.match_score ?? 0;
+                const tier = score >= 70 ? "high" : score >= 40 ? "mid" : "low";
+                return `
+                <tr onclick="openRecommendedJobModal(${idx})">
+                    <td><span class="match-score-badge ${tier}">${score}%</span></td>
+                    <td>
+                        <div class="job-title-wrapper">
+                            <div class="job-title">${job.title || "N/A"}</div>
+                            <div class="job-domains">
+                                ${(job.domains || []).slice(0, 2).map(d => `<span class="domain-badge">${d}</span>`).join('')}
+                            </div>
+                        </div>
+                    </td>
+                    <td><div class="job-company">${job.company || "N/A"}</div></td>
+                    <td><span class="work-type-badge ${(job.work_type || "Remote").toLowerCase()}">${job.work_type || "N/A"}</span></td>
+                    <td><div style="font-weight:600; font-size:13px;">${job.source || "N/A"}</div></td>
+                </tr>`;
+            }).join("");
+        }
+
+        function clearRecommendations() {
+            recommendedJobs = [];
+            document.getElementById("recommendedSection").style.display = "none";
+            document.getElementById("resumeFileName").textContent = "";
+            document.getElementById("resumeInput").value = "";
+        }
+
         async function renderJobs() {
             const domain = document.getElementById("filterDomain").value;
             const workType = document.getElementById("filterWorkType").value;
@@ -1148,11 +1321,8 @@
             }
         }
 
-        function openJobModal(idx) {
-            currentJobIndex = idx;
-            const job = allJobs[idx];
-            if (!job) return;
-
+        function showJobModal(job) {
+            currentModalJob = job;
             document.getElementById("modalTitle").textContent = job.title || "N/A";
             document.getElementById("modalCompany").textContent = job.company || "N/A";
             document.getElementById("modalWorkType").textContent = job.work_type || "N/A";
@@ -1168,6 +1338,18 @@
 
             document.getElementById("jobModal").style.display = "block";
             document.body.style.overflow = "hidden";
+        }
+
+        function openJobModal(idx) {
+            currentJobIndex = idx;
+            const job = allJobs[idx];
+            if (job) showJobModal(job);
+        }
+
+        function openRecommendedJobModal(idx) {
+            currentJobIndex = -1;
+            const job = recommendedJobs[idx];
+            if (job) showJobModal(job);
         }
 
         function formatDate(dateStr) {
@@ -1186,7 +1368,7 @@
         }
 
         function applyJob() {
-            const job = allJobs[currentJobIndex];
+            const job = currentModalJob;
             if (job && job.url) {
                 window.open(job.url, "_blank");
             }
