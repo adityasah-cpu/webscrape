@@ -1,6 +1,6 @@
 """
 Job Finder - Corporate API Backend (Flask)
-Serves job data from file-based storage (PostgreSQL & Redis disabled)
+Serves job data from MySQL database
 
 Run:
     python api.py
@@ -14,35 +14,166 @@ import json
 from datetime import datetime
 import threading
 import os
+import mysql.connector
+from mysql.connector import Error
+import io
+from werkzeug.utils import secure_filename
+from pdfminer.high_level import extract_text as pdf_extract_text
+import mammoth
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 app = Flask(__name__)
 CORS(app)
 
-# File-based storage (PostgreSQL & Redis disabled)
-JOBS_FILE = "jobs_data.json"
+# Resume upload constraints
+ALLOWED_RESUME_EXTENSIONS = {"pdf", "docx", "txt"}
+MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+MIN_RESUME_TEXT_CHARS = 30  # Minimum text to consider resume parseable
 
-def load_jobs_from_file():
-    """Load jobs from JSON file"""
-    if os.path.exists(JOBS_FILE):
-        try:
-            with open(JOBS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            return []
-    return []
+app.config['MAX_CONTENT_LENGTH'] = MAX_RESUME_SIZE_BYTES
 
-def save_jobs_to_file(jobs):
-    """Save jobs to JSON file"""
+# MySQL Configuration
+MYSQL_CONFIG = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': 'aditya@2004',
+    'database': 'job_portal',
+    'autocommit': True
+}
+
+def get_db_connection():
+    """Get MySQL connection"""
     try:
-        with open(JOBS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(jobs, f, indent=2, ensure_ascii=False)
+        conn = mysql.connector.connect(**MYSQL_CONFIG)
+        return conn
+    except Error as e:
+        print(f"[ERROR] Database connection failed: {e}")
+        return None
+
+def init_db():
+    """Initialize database and tables"""
+    try:
+        conn = mysql.connector.connect(
+            host=MYSQL_CONFIG['host'],
+            user=MYSQL_CONFIG['user'],
+            password=MYSQL_CONFIG['password']
+        )
+        cursor = conn.cursor()
+
+        # Create database if not exists
+        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {MYSQL_CONFIG['database']}")
+        cursor.close()
+        conn.close()
+
+        # Now connect to the database
+        conn = get_db_connection()
+        if not conn:
+            print("[ERROR] Failed to connect to database after creation")
+            return False
+
+        cursor = conn.cursor()
+
+        # Create jobs table
+        create_table = """
+        CREATE TABLE IF NOT EXISTS jobs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            source VARCHAR(100),
+            title VARCHAR(255),
+            company VARCHAR(255),
+            work_type VARCHAR(50),
+            country VARCHAR(255),
+            location VARCHAR(255),
+            job_type VARCHAR(50),
+            category VARCHAR(100),
+            salary VARCHAR(100),
+            date VARCHAR(50),
+            start_date VARCHAR(50),
+            end_date VARCHAR(50),
+            url VARCHAR(500) UNIQUE,
+            added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            domains JSON,
+            INDEX idx_source (source),
+            INDEX idx_work_type (work_type),
+            INDEX idx_country (country),
+            INDEX idx_url (url)
+        )
+        """
+        cursor.execute(create_table)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("[OK] Database initialized successfully")
         return True
-    except Exception as e:
-        print(f"Error saving jobs: {e}")
+    except Error as e:
+        print(f"[ERROR] Database initialization failed: {e}")
+        return False
+
+def load_jobs_from_db():
+    """Load all jobs from MySQL database"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return []
+
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM jobs ORDER BY added_at DESC")
+        jobs = cursor.fetchall()
+
+        # Parse JSON fields
+        for job in jobs:
+            if job.get('domains'):
+                try:
+                    job['domains'] = json.loads(job['domains'])
+                except:
+                    job['domains'] = ['General']
+
+        cursor.close()
+        conn.close()
+        return jobs
+    except Error as e:
+        print(f"[ERROR] Failed to load jobs from database: {e}")
+        return []
+
+def save_jobs_to_db(jobs):
+    """Save jobs to MySQL database"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+
+        cursor = conn.cursor()
+
+        for job in jobs:
+            domains = json.dumps(job.get('domains', ['General']))
+
+            try:
+                insert_query = """
+                INSERT INTO jobs (source, title, company, work_type, country, location,
+                                 job_type, category, salary, date, start_date, end_date, url, domains, added_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE added_at = NOW()
+                """
+                cursor.execute(insert_query, (
+                    job.get('source'), job.get('title'), job.get('company'),
+                    job.get('work_type'), job.get('country'), job.get('location'),
+                    job.get('job_type'), job.get('category'), job.get('salary'),
+                    job.get('date'), job.get('start_date'), job.get('end_date'),
+                    job.get('url'), domains, datetime.now()
+                ))
+            except Error as e:
+                print(f"[ERROR] Failed to insert job: {e}")
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Error as e:
+        print(f"[ERROR] Failed to save jobs to database: {e}")
         return False
 
 def is_fresher_job(job):
-    """Detect if a job is ONLY suitable for freshers/entry-level (0-1 years)"""
+    """Detect if a job is ONLY for freshers/entry-level (0-1 years) or internships"""
     fresher_keywords = [
         'fresher', 'intern', 'internship', 'entry-level', 'entry level', 'entry-level graduate',
         'graduate', 'trainee', 'apprentice', 'new grad', 'beginner', 'new graduate',
@@ -55,8 +186,8 @@ def is_fresher_job(job):
     exclude_keywords = [
         'senior', 'expert', 'lead', 'principal', 'architect', '2+ years', '2-3 years',
         '3+ years', '3-5 years', '5+ years', '5-7 years', '7+ years', '10+ years',
-        'experienced', 'years of experience', 'years experience', 'experienced professional',
-        'mid-level', 'mid level', 'professional', 'staff engineer', 'principal engineer'
+        'years of experience', 'years experience', 'experienced professional',
+        'mid-level', 'mid level', 'staff engineer', 'principal engineer'
     ]
 
     title = (job.get('title') or '').lower()
@@ -64,20 +195,50 @@ def is_fresher_job(job):
     description = (job.get('description') or '').lower()
     text = f"{title} {category} {description}"
 
-    # FIRST: Check if job explicitly EXCLUDES freshers (has experience requirement)
+    # REJECT: If job explicitly requires experience, exclude it
     for keyword in exclude_keywords:
         if keyword in text:
             return False
 
-    # SECOND: Check if job explicitly requires freshers
-    has_fresher_keyword = False
+    # STRICT: ONLY ACCEPT if job has explicit fresher/internship keywords
     for keyword in fresher_keywords:
         if keyword in text:
-            has_fresher_keyword = True
-            break
+            return True
 
-    # THIRD: Only return True if it has fresher keywords AND no exclude keywords
-    return has_fresher_keyword
+    # REJECT by default: If no explicit fresher keyword found, exclude it
+    # This ensures ONLY genuine fresher/internship jobs are shown
+    return False
+
+# Domain keywords mapping - shared with resume matching
+DOMAIN_KEYWORDS = {
+    'AIML': [
+        'ai', 'artificial intelligence', 'machine learning', 'ml', 'deep learning',
+        'neural network', 'nlp', 'computer vision', 'llm', 'generative ai', 'chatgpt',
+        'tensorflow', 'pytorch', 'data scientist', 'nlp engineer', 'cv engineer',
+        'ai engineer', 'ml engineer', 'ai/ml'
+    ],
+    'Data Analytics': [
+        'data analyst', 'analytics', 'data analytics', 'business intelligence',
+        'bi developer', 'tableau', 'power bi', 'sql', 'analytics engineer',
+        'reporting', 'dashboard', 'data warehouse', 'etl', 'data pipeline'
+    ],
+    'Blockchain': [
+        'blockchain', 'crypto', 'web3', 'solidity', 'smart contract', 'ethereum',
+        'defi', 'nft', 'dapp', 'distributed ledger', 'consensus', 'blockchain developer',
+        'smart contract developer', 'web3 developer', 'cryptocurrency'
+    ],
+    'AR VR': [
+        'augmented reality', 'virtual reality', 'ar', 'vr', 'metaverse', 'mixed reality',
+        'xr', 'immersive', '3d graphics', 'unity', 'unreal engine', 'ar developer',
+        'vr developer', 'ar/vr', 'ar vr'
+    ],
+    'Cybersecurity': [
+        'cybersecurity', 'security engineer', 'security analyst', 'infosec', 'pentester',
+        'penetration testing', 'ethical hacker', 'soc', 'siem', 'vulnerability', 'malware',
+        'incident response', 'security operations', 'network security', 'application security',
+        'cloud security', 'security architect'
+    ]
+}
 
 def detect_job_domain(job):
     """Detect job domain from title, category, and description"""
@@ -86,39 +247,8 @@ def detect_job_domain(job):
     description = (job.get('description') or '').lower()
     text = f"{title} {category} {description}"
 
-    # Domain keywords mapping
-    domains = {
-        'AIML': [
-            'ai', 'artificial intelligence', 'machine learning', 'ml', 'deep learning',
-            'neural network', 'nlp', 'computer vision', 'llm', 'generative ai', 'chatgpt',
-            'tensorflow', 'pytorch', 'data scientist', 'nlp engineer', 'cv engineer',
-            'ai engineer', 'ml engineer', 'ai/ml'
-        ],
-        'Data Analytics': [
-            'data analyst', 'analytics', 'data analytics', 'business intelligence',
-            'bi developer', 'tableau', 'power bi', 'sql', 'analytics engineer',
-            'reporting', 'dashboard', 'data warehouse', 'etl', 'data pipeline'
-        ],
-        'Blockchain': [
-            'blockchain', 'crypto', 'web3', 'solidity', 'smart contract', 'ethereum',
-            'defi', 'nft', 'dapp', 'distributed ledger', 'consensus', 'blockchain developer',
-            'smart contract developer', 'web3 developer', 'cryptocurrency'
-        ],
-        'AR VR': [
-            'augmented reality', 'virtual reality', 'ar', 'vr', 'metaverse', 'mixed reality',
-            'xr', 'immersive', '3d graphics', 'unity', 'unreal engine', 'ar developer',
-            'vr developer', 'ar/vr', 'ar vr'
-        ],
-        'Cybersecurity': [
-            'cybersecurity', 'security engineer', 'security analyst', 'infosec', 'pentester',
-            'penetration testing', 'ethical hacker', 'soc', 'siem', 'vulnerability', 'malware',
-            'incident response', 'security operations', 'network security', 'application security',
-            'cloud security', 'security architect'
-        ]
-    }
-
     detected_domains = []
-    for domain, keywords in domains.items():
+    for domain, keywords in DOMAIN_KEYWORDS.items():
         for keyword in keywords:
             if keyword in text:
                 detected_domains.append(domain)
@@ -163,7 +293,7 @@ def filter_jobs(all_jobs, keyword="", work_type="", country="", job_type="", fre
 
 def get_statistics():
     """Calculate statistics from jobs"""
-    jobs = load_jobs_from_file()
+    jobs = load_jobs_from_db()
 
     if not jobs:
         return {
@@ -197,6 +327,87 @@ def get_statistics():
         stats["by_source"][source] = stats["by_source"].get(source, 0) + 1
 
     return stats
+
+# ============ RESUME MATCHING HELPERS ============
+
+def extract_text_from_resume(file_storage):
+    """Extract text from uploaded resume (PDF, DOCX, or TXT).
+    Everything stays in memory - never written to disk."""
+    filename = secure_filename(file_storage.filename or "")
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+
+    if ext not in ALLOWED_RESUME_EXTENSIONS:
+        raise ValueError(f"Unsupported file type: .{ext}. Allowed: {', '.join(ALLOWED_RESUME_EXTENSIONS)}")
+
+    raw_bytes = file_storage.read()
+    if not raw_bytes:
+        raise ValueError("Uploaded file is empty")
+
+    try:
+        if ext == "pdf":
+            text = pdf_extract_text(io.BytesIO(raw_bytes))
+        elif ext == "docx":
+            result = mammoth.extract_raw_text(io.BytesIO(raw_bytes))
+            text = result.value
+        else:  # txt
+            text = raw_bytes.decode("utf-8", errors="ignore")
+    except Exception as e:
+        raise ValueError(f"Could not parse this file: {str(e)[:100]}")
+
+    text = (text or "").strip()
+    return text
+
+def extract_resume_keywords(resume_text):
+    """Detect which domains a resume's text touches using domain keyword vocabulary."""
+    text = resume_text.lower()
+    matched = []
+    for domain, keywords in DOMAIN_KEYWORDS.items():
+        if any(kw in text for kw in keywords):
+            matched.append(domain)
+    return matched or ["General"]
+
+def build_job_text(job):
+    """Build searchable text from a job object for TF-IDF matching."""
+    parts = [
+        job.get("title") or "",
+        job.get("company") or "",
+        job.get("category") or "",
+        job.get("job_type") or "",
+        job.get("work_type") or "",
+        job.get("location") or "",
+        " ".join(job.get("domains") or []),
+    ]
+    return " ".join(p for p in parts if p)
+
+def score_job_match(resume_text, jobs):
+    """Score and rank jobs against resume text using TF-IDF + cosine similarity."""
+    if not jobs:
+        return []
+
+    job_texts = [build_job_text(j) for j in jobs]
+    corpus = [resume_text] + job_texts
+
+    vectorizer = TfidfVectorizer(
+        stop_words="english",
+        ngram_range=(1, 2),
+        min_df=1,
+        max_features=5000,
+    )
+    tfidf_matrix = vectorizer.fit_transform(corpus)
+
+    resume_vec = tfidf_matrix[0:1]
+    job_vecs = tfidf_matrix[1:]
+
+    similarities = cosine_similarity(resume_vec, job_vecs)[0]
+
+    scored = []
+    for job, sim in zip(jobs, similarities):
+        job_copy = dict(job)
+        job_copy["match_score"] = round(float(sim) * 100, 1)
+        scored.append(job_copy)
+
+    scored.sort(key=lambda j: j["match_score"], reverse=True)
+    return scored
 
 # ============ API ENDPOINTS ============
 
@@ -256,9 +467,6 @@ def fetch_jobs():
         fresher_jobs = [j for j in jobs if is_fresher_job(j)]
         print(f"[*] Filtered to fresher jobs: {len(fresher_jobs)} jobs")
 
-        # Load existing jobs
-        existing_jobs = load_jobs_from_file()
-
         # Add timestamps and domain detection to new jobs
         for job in fresher_jobs:
             if 'added_at' not in job:
@@ -267,15 +475,8 @@ def fetch_jobs():
             if 'domains' not in job:
                 job['domains'] = detect_job_domain(job)
 
-        # Merge with existing (remove duplicates by URL)
-        existing_urls = {j.get('url'): j for j in existing_jobs}
-        new_urls = {j.get('url'): j for j in fresher_jobs}
-        existing_urls.update(new_urls)
-
-        final_jobs = list(existing_urls.values())
-
-        # Save to file
-        save_jobs_to_file(final_jobs)
+        # Save to database
+        save_jobs_to_db(fresher_jobs)
 
         stats = get_statistics()
 
@@ -284,10 +485,61 @@ def fetch_jobs():
             "jobs_count": len(jobs),
             "inserted": len(jobs),
             "skipped": 0,
-            "total_stored": len(final_jobs),
+            "total_stored": len(fresher_jobs),
             "status": status,
             "stats": stats,
             "last_fetch": datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/match-resume", methods=["POST"])
+def match_resume():
+    """Upload a resume, extract text, score/rank current jobs against it.
+    Nothing about the resume is persisted — parsed in memory, discarded
+    after the response is built."""
+    try:
+        if "resume" not in request.files:
+            return jsonify({"success": False, "error": "No resume file provided (expected form field 'resume')"}), 400
+
+        file_storage = request.files["resume"]
+        if not file_storage or file_storage.filename == "":
+            return jsonify({"success": False, "error": "No file selected"}), 400
+
+        try:
+            resume_text = extract_text_from_resume(file_storage)
+        except ValueError as ve:
+            return jsonify({"success": False, "error": str(ve)}), 400
+
+        if len(resume_text) < MIN_RESUME_TEXT_CHARS:
+            return jsonify({
+                "success": False,
+                "error": "Could not extract enough readable text from this resume. "
+                         "Try a different file (avoid scanned/image-only PDFs)."
+            }), 422
+
+        all_jobs = load_jobs_from_db()
+        if not all_jobs:
+            return jsonify({
+                "success": True,
+                "matches": [],
+                "total_jobs_considered": 0,
+                "resume_domains": extract_resume_keywords(resume_text),
+                "message": "No jobs available yet. Fetch jobs first, then upload your resume."
+            })
+
+        top_n = int(request.args.get("top_n", 20))
+        scored = score_job_match(resume_text, all_jobs)
+        top_matches = scored[:top_n]
+
+        return jsonify({
+            "success": True,
+            "matches": top_matches,
+            "total_jobs_considered": len(all_jobs),
+            "resume_domains": extract_resume_keywords(resume_text),
+            "resume_chars_extracted": len(resume_text)
         })
 
     except Exception as e:
@@ -308,7 +560,7 @@ def get_jobs():
         page = int(request.args.get("page", 1))
         limit = int(request.args.get("limit", 20))
 
-        all_jobs = load_jobs_from_file()
+        all_jobs = load_jobs_from_db()
 
         # Filter by sources if specified (can be comma-separated)
         if sources:
@@ -356,7 +608,7 @@ def export_jobs():
     """Export jobs to CSV or JSON"""
     try:
         fmt = request.args.get("format", "csv")
-        jobs = load_jobs_from_file()
+        jobs = load_jobs_from_db()
 
         if fmt == "csv":
             import csv
@@ -387,16 +639,17 @@ def export_jobs():
 def db_info():
     """Get database information"""
     try:
-        jobs = load_jobs_from_file()
+        jobs = load_jobs_from_db()
         stats = get_statistics()
 
         return jsonify({
-            "database": "File-based (JSON)",
+            "database": "MySQL",
             "status": "✓ Active",
             "total_jobs": len(jobs),
             "statistics": stats,
-            "file": JOBS_FILE,
-            "note": "PostgreSQL and Redis are disabled. Data stored in JSON file."
+            "host": MYSQL_CONFIG['host'],
+            "database": MYSQL_CONFIG['database'],
+            "note": "Data stored in MySQL database."
         })
     except Exception as e:
         return jsonify({"error": str(e), "status": "✗ Error"}), 500
@@ -406,7 +659,14 @@ def db_info():
 def clear_jobs():
     """Clear all jobs"""
     try:
-        save_jobs_to_file([])
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM jobs")
+        conn.commit()
+        cursor.close()
+        conn.close()
         return jsonify({"success": True, "message": "All jobs cleared"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -490,16 +750,21 @@ def index():
 
 if __name__ == "__main__":
     print("\n" + "="*60)
-    print("[*] Job Portal API Starting (File-based Storage)...")
+    print("[*] Job Portal API Starting (MySQL)...")
     print("="*60)
-    print("[OK] Storage: File-based (JSON)")
-    print("[OK] PostgreSQL: Disabled")
-    print("[OK] Redis: Disabled")
-    print("[OK] Server: http://localhost:5000")
-    print("[OK] Data file: jobs_data.json")
-    print("="*60)
-    print("\n[NOTE] Once you install PostgreSQL and Redis,")
-    print("   change back to postgres_db and redis_cache imports.\n")
-    print("="*60 + "\n")
 
-    app.run(debug=True, port=5000)
+    # Initialize database
+    if init_db():
+        print("[OK] Storage: MySQL Database")
+        print("[OK] Host: localhost")
+        print("[OK] Database: job_portal")
+        print("[OK] User: root")
+        print("[OK] Server: http://localhost:5000")
+        print("="*60 + "\n")
+        app.run(debug=True, port=5000)
+    else:
+        print("[ERROR] Failed to initialize database. Please check:")
+        print("  - MySQL server is running")
+        print("  - Credentials are correct (root / aditya@2004)")
+        print("  - Port 3306 is accessible")
+        print("="*60 + "\n")
