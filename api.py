@@ -7,7 +7,7 @@ Run:
     Then open http://localhost:5000 in browser
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import remote_job_scraper as rjs
 import json
@@ -18,7 +18,9 @@ import time
 import os
 import mysql.connector
 from mysql.connector import Error
+from mysql.connector.abstracts import MySQLConnectionAbstract
 import io
+from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 from pdfminer.high_level import extract_text as pdf_extract_text
 import mammoth
@@ -28,6 +30,7 @@ import logging
 from dotenv import load_dotenv
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from typing import Any, Dict, List, Optional
 
 # Load environment variables from .env file
 load_dotenv()
@@ -58,7 +61,7 @@ limiter = Limiter(
 
 # Add security headers
 @app.after_request
-def set_security_headers(response):
+def set_security_headers(response: Response) -> Response:
     """Add security headers to all responses"""
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
@@ -67,7 +70,7 @@ def set_security_headers(response):
     return response
 
 @app.errorhandler(429)
-def ratelimit_handler(e):
+def ratelimit_handler(e: Exception) -> tuple:
     """Return a clean JSON response when rate limits are exceeded"""
     logger.warning(f"Rate limit exceeded: {request.remote_addr} - {request.path}")
     return jsonify({
@@ -105,13 +108,13 @@ MAX_JOBS_FETCH = int(os.getenv('MAX_JOBS_FETCH', 5000))  # Safety cap on rows lo
 _jobs_cache = {"data": None, "timestamp": 0}
 _jobs_cache_lock = threading.Lock()
 
-def invalidate_jobs_cache():
+def invalidate_jobs_cache() -> None:
     """Clear the in-memory jobs cache after a write (insert/delete)."""
     with _jobs_cache_lock:
         _jobs_cache["data"] = None
         _jobs_cache["timestamp"] = 0
 
-def get_db_connection():
+def get_db_connection() -> Optional[MySQLConnectionAbstract]:
     """Get MySQL connection"""
     try:
         conn = mysql.connector.connect(**MYSQL_CONFIG)
@@ -123,7 +126,7 @@ def get_db_connection():
         logger.error(f"Unexpected error in database connection: {e}")
         return None
 
-def init_db():
+def init_db() -> bool:
     """Initialize database and tables"""
     try:
         conn = mysql.connector.connect(
@@ -208,7 +211,7 @@ def init_db():
         logger.error(f"Unexpected error during database initialization: {e}")
         return False
 
-def load_jobs_from_db(use_cache=True):
+def load_jobs_from_db(use_cache: bool = True) -> List[Dict[str, Any]]:
     """Load jobs from MySQL database, with a short-lived in-memory cache to
     avoid repeatedly re-fetching/re-parsing the full table on rapid successive
     requests. Capped at MAX_JOBS_FETCH rows as a safety limit."""
@@ -248,7 +251,7 @@ def load_jobs_from_db(use_cache=True):
         logger.error(f"Failed to load jobs from database: {e}")
         return []
 
-def save_jobs_to_db(jobs):
+def save_jobs_to_db(jobs: List[Dict[str, Any]]) -> bool:
     """Save jobs to MySQL database"""
     try:
         conn = get_db_connection()
@@ -294,7 +297,7 @@ def save_jobs_to_db(jobs):
         logger.error(f"Unexpected error while saving jobs: {e}")
         return False
 
-def is_fresher_job(job):
+def is_fresher_job(job: Dict[str, Any]) -> bool:
     """Detect if a job is ONLY for freshers/entry-level (0-1 years) or internships"""
     fresher_keywords = [
         'fresher', 'intern', 'internship', 'entry-level', 'entry level', 'entry-level graduate',
@@ -376,7 +379,7 @@ _DOMAIN_KEYWORD_PATTERNS = {
     for domain, keywords in DOMAIN_KEYWORDS.items()
 }
 
-def detect_job_domain(job):
+def detect_job_domain(job: Dict[str, Any]) -> List[str]:
     """Detect job domain from title, category, and description"""
     title = (job.get('title') or '').lower()
     category = (job.get('category') or '').lower()
@@ -390,7 +393,16 @@ def detect_job_domain(job):
 
     return detected_domains if detected_domains else ['General']
 
-def filter_jobs(all_jobs, keyword="", work_type="", country="", job_type="", fresher_only=False, page=1, limit=20):
+def filter_jobs(
+    all_jobs: List[Dict[str, Any]],
+    keyword: str = "",
+    work_type: str = "",
+    country: str = "",
+    job_type: str = "",
+    fresher_only: bool = False,
+    page: int = 1,
+    limit: int = 20,
+) -> Dict[str, Any]:
     """Filter jobs based on criteria"""
     filtered = all_jobs
 
@@ -425,7 +437,7 @@ def filter_jobs(all_jobs, keyword="", work_type="", country="", job_type="", fre
         "limit": limit
     }
 
-def get_statistics():
+def get_statistics() -> Dict[str, Any]:
     """Calculate statistics from jobs"""
     jobs = load_jobs_from_db()
 
@@ -464,7 +476,7 @@ def get_statistics():
 
 # ============ RESUME MATCHING HELPERS ============
 
-def extract_text_from_resume(file_storage):
+def extract_text_from_resume(file_storage: FileStorage) -> str:
     """Extract text from uploaded resume (PDF, DOCX, or TXT).
     Everything stays in memory - never written to disk."""
     filename = secure_filename(file_storage.filename or "")
@@ -491,7 +503,7 @@ def extract_text_from_resume(file_storage):
     text = (text or "").strip()
     return text
 
-def extract_resume_keywords(resume_text):
+def extract_resume_keywords(resume_text: str) -> List[str]:
     """Detect which domains a resume's text touches using domain keyword vocabulary."""
     text = resume_text.lower()
     matched = []
@@ -500,7 +512,7 @@ def extract_resume_keywords(resume_text):
             matched.append(domain)
     return matched or ["General"]
 
-def build_job_text(job):
+def build_job_text(job: Dict[str, Any]) -> str:
     """Build searchable text from a job object for TF-IDF matching."""
     parts = [
         job.get("title") or "",
@@ -513,7 +525,7 @@ def build_job_text(job):
     ]
     return " ".join(p for p in parts if p)
 
-def score_job_match(resume_text, jobs):
+def score_job_match(resume_text: str, jobs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Score and rank jobs against resume text using TF-IDF + cosine similarity."""
     if not jobs:
         return []
@@ -546,7 +558,7 @@ def score_job_match(resume_text, jobs):
 # ============ API ENDPOINTS ============
 
 @app.route("/api/sources", methods=["GET"])
-def get_sources():
+def get_sources() -> Any:
     """Get all available sources"""
     sources = {
         "remote_boards": [
@@ -569,7 +581,7 @@ def get_sources():
 
 @app.route("/api/fetch", methods=["POST"])
 @limiter.limit("5 per minute")
-def fetch_jobs():
+def fetch_jobs() -> Any:
     """Fetch jobs from selected sources and store in file"""
     try:
         data = request.json
@@ -633,7 +645,7 @@ def fetch_jobs():
 
 @app.route("/api/match-resume", methods=["POST"])
 @limiter.limit("10 per minute")
-def match_resume():
+def match_resume() -> Any:
     """Upload a resume, extract text, score/rank current jobs against it.
     Nothing about the resume is persisted — parsed in memory, discarded
     after the response is built."""
@@ -695,7 +707,7 @@ def match_resume():
 
 
 @app.route("/api/jobs", methods=["GET"])
-def get_jobs():
+def get_jobs() -> Any:
     """Get filtered jobs from file storage"""
     try:
         keyword = request.args.get("keyword", "").lower()
@@ -741,7 +753,7 @@ def get_jobs():
 
 
 @app.route("/api/stats", methods=["GET"])
-def get_stats():
+def get_stats() -> Any:
     """Get job statistics from database"""
     try:
         stats = get_statistics()
@@ -754,7 +766,7 @@ def get_stats():
 
 
 @app.route("/api/export", methods=["GET"])
-def export_jobs():
+def export_jobs() -> Any:
     """Export jobs to CSV or JSON"""
     try:
         fmt = request.args.get("format", "csv")
@@ -790,7 +802,7 @@ def export_jobs():
 
 
 @app.route("/api/db-info", methods=["GET"])
-def db_info():
+def db_info() -> Any:
     """Get database information"""
     try:
         jobs = load_jobs_from_db()
@@ -812,7 +824,7 @@ def db_info():
 
 @app.route("/api/clear-jobs", methods=["DELETE"])
 @limiter.limit("3 per minute")
-def clear_jobs():
+def clear_jobs() -> Any:
     """Clear all jobs"""
     try:
         conn = get_db_connection()
@@ -831,7 +843,7 @@ def clear_jobs():
 
 
 @app.route("/api/test-alert", methods=["POST"])
-def test_alert():
+def test_alert() -> Any:
     """Test alert configuration"""
     try:
         import alerts
@@ -863,7 +875,7 @@ def test_alert():
 
 
 @app.route("/api/cache-info", methods=["GET"])
-def cache_info():
+def cache_info() -> Any:
     """Get in-memory jobs cache information"""
     with _jobs_cache_lock:
         has_data = _jobs_cache["data"] is not None
@@ -882,14 +894,14 @@ def cache_info():
 
 
 @app.route("/api/cache-clear", methods=["DELETE"])
-def cache_clear():
+def cache_clear() -> Any:
     """Manually invalidate the in-memory jobs cache"""
     invalidate_jobs_cache()
     return jsonify({"success": True, "message": "Jobs cache cleared"})
 
 
 @app.route("/api/scheduler-status", methods=["GET"])
-def scheduler_status():
+def scheduler_status() -> Any:
     """Get scheduler configuration"""
     try:
         config_file = "scraper_config.json"
@@ -911,7 +923,7 @@ def scheduler_status():
 
 
 @app.route("/", methods=["GET"])
-def index():
+def index() -> Any:
     """Serve web UI"""
     try:
         with open("index.html", encoding="utf-8") as f:

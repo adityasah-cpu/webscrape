@@ -21,6 +21,7 @@ import re
 import sys
 import time
 from datetime import datetime, timezone
+from typing import Any, Dict, List
 
 import feedparser
 import requests
@@ -68,8 +69,8 @@ FIELDS = ["source", "title", "company", "work_type", "country", "location",
 
 # ---------------- Helpers ----------------
 
-def flatten(vals):
-    out = []
+def flatten(vals: Any) -> List[str]:
+    out: List[str] = []
     for v in vals:
         if v is None or v == "":
             continue
@@ -82,7 +83,7 @@ def flatten(vals):
     return out
 
 
-def clean(text):
+def clean(text: Any) -> str:
     text = html.unescape(str(text or ""))
     return re.sub(r"<[^>]+>", "", text).strip()
 
@@ -212,8 +213,22 @@ def epoch_to_date(ts):
         return ""
 
 
-def job(source, title, company, *, work_type="Remote", location="", country="",
-        job_type="", category="", salary="", date="", start_date="", end_date="", url=""):
+def job(
+    source: str,
+    title: str,
+    company: str,
+    *,
+    work_type: str = "Remote",
+    location: Any = "",
+    country: str = "",
+    job_type: str = "",
+    category: str = "",
+    salary: str = "",
+    date: str = "",
+    start_date: str = "",
+    end_date: str = "",
+    url: str = "",
+) -> Dict[str, str]:
     location = clean(", ".join(flatten([location])))
     return {
         "source": source,
@@ -648,7 +663,7 @@ SCRAPERS = [
 
 # ---------------- Main ----------------
 
-def dedupe(jobs):
+def dedupe(jobs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     seen, unique = set(), []
     for j in jobs:
         if not j["title"]:
