@@ -13,6 +13,7 @@ import remote_job_scraper as rjs
 import json
 from datetime import datetime
 import threading
+import time
 import os
 import mysql.connector
 from mysql.connector import Error
@@ -24,6 +25,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
 from dotenv import load_dotenv
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # Load environment variables from .env file
 load_dotenv()
@@ -44,6 +47,14 @@ app = Flask(__name__)
 cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:5000').split(',')
 CORS(app, origins=cors_origins, allow_headers=['Content-Type'], methods=['GET', 'POST', 'DELETE'])
 
+# Configure rate limiting to prevent API abuse
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per hour", "50 per minute"],
+    storage_uri="memory://",
+)
+
 # Add security headers
 @app.after_request
 def set_security_headers(response):
@@ -53,6 +64,16 @@ def set_security_headers(response):
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     return response
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    """Return a clean JSON response when rate limits are exceeded"""
+    logger.warning(f"Rate limit exceeded: {request.remote_addr} - {request.path}")
+    return jsonify({
+        "success": False,
+        "error": "Too many requests. Please slow down and try again shortly.",
+        "retry_after": str(e.description)
+    }), 429
 
 # Resume upload constraints
 ALLOWED_RESUME_EXTENSIONS = {"pdf", "docx", "txt"}
@@ -74,6 +95,20 @@ MYSQL_CONFIG = {
 if not MYSQL_CONFIG['password']:
     logger.error("[ERROR] Database password not set in .env file!")
     raise ValueError("DB_PASSWORD environment variable is required")
+
+# In-memory cache for load_jobs_from_db() to avoid re-fetching/re-parsing the
+# entire jobs table on every request (e.g. /api/jobs, /api/stats, /api/match-resume
+# hitting within the same few seconds). Invalidated on any write (save/clear).
+JOBS_CACHE_TTL_SECONDS = int(os.getenv('JOBS_CACHE_TTL_SECONDS', 15))
+MAX_JOBS_FETCH = int(os.getenv('MAX_JOBS_FETCH', 5000))  # Safety cap on rows loaded per query
+_jobs_cache = {"data": None, "timestamp": 0}
+_jobs_cache_lock = threading.Lock()
+
+def invalidate_jobs_cache():
+    """Clear the in-memory jobs cache after a write (insert/delete)."""
+    with _jobs_cache_lock:
+        _jobs_cache["data"] = None
+        _jobs_cache["timestamp"] = 0
 
 def get_db_connection():
     """Get MySQL connection"""
@@ -105,7 +140,7 @@ def init_db():
         # Now connect to the database
         conn = get_db_connection()
         if not conn:
-            print("[ERROR] Failed to connect to database after creation")
+            logger.error("Failed to connect to database after creation")
             return False
 
         cursor = conn.cursor()
@@ -148,15 +183,23 @@ def init_db():
         logger.error(f"Unexpected error during database initialization: {e}")
         return False
 
-def load_jobs_from_db():
-    """Load all jobs from MySQL database"""
+def load_jobs_from_db(use_cache=True):
+    """Load jobs from MySQL database, with a short-lived in-memory cache to
+    avoid repeatedly re-fetching/re-parsing the full table on rapid successive
+    requests. Capped at MAX_JOBS_FETCH rows as a safety limit."""
+    if use_cache:
+        with _jobs_cache_lock:
+            age = time.time() - _jobs_cache["timestamp"]
+            if _jobs_cache["data"] is not None and age < JOBS_CACHE_TTL_SECONDS:
+                return _jobs_cache["data"]
+
     try:
         conn = get_db_connection()
         if not conn:
             return []
 
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM jobs ORDER BY added_at DESC")
+        cursor.execute("SELECT * FROM jobs ORDER BY added_at DESC LIMIT %s", (MAX_JOBS_FETCH,))
         jobs = cursor.fetchall()
 
         # Parse JSON fields
@@ -170,9 +213,14 @@ def load_jobs_from_db():
 
         cursor.close()
         conn.close()
+
+        with _jobs_cache_lock:
+            _jobs_cache["data"] = jobs
+            _jobs_cache["timestamp"] = time.time()
+
         return jobs
     except Error as e:
-        print(f"[ERROR] Failed to load jobs from database: {e}")
+        logger.error(f"Failed to load jobs from database: {e}")
         return []
 
 def save_jobs_to_db(jobs):
@@ -207,6 +255,7 @@ def save_jobs_to_db(jobs):
         conn.commit()
         cursor.close()
         conn.close()
+        invalidate_jobs_cache()
         return True
     except Error as e:
         logger.error(f"Failed to save jobs to database: {e}")
@@ -477,6 +526,7 @@ def get_sources():
 
 
 @app.route("/api/fetch", methods=["POST"])
+@limiter.limit("5 per minute")
 def fetch_jobs():
     """Fetch jobs from selected sources and store in file"""
     try:
@@ -535,10 +585,12 @@ def fetch_jobs():
         })
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.error(f"Failed to fetch jobs: {e}")
+        return jsonify({"success": False, "error": "Failed to fetch jobs. Please try again."}), 500
 
 
 @app.route("/api/match-resume", methods=["POST"])
+@limiter.limit("10 per minute")
 def match_resume():
     """Upload a resume, extract text, score/rank current jobs against it.
     Nothing about the resume is persisted — parsed in memory, discarded
@@ -596,7 +648,8 @@ def match_resume():
         })
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.error(f"Failed to match resume: {e}")
+        return jsonify({"success": False, "error": "Failed to process resume. Please try again."}), 500
 
 
 @app.route("/api/jobs", methods=["GET"])
@@ -636,24 +689,26 @@ def get_jobs():
 
         result = filter_jobs(all_jobs, keyword, work_type, country, job_type, fresher_only, page, limit)
         result["from_cache"] = False
-        result["storage"] = "file-based"
+        result["storage"] = "mysql"
 
         return jsonify(result)
 
     except Exception as e:
-        return jsonify({"jobs": [], "total": 0, "page": 1, "pages": 0, "error": str(e)}), 500
+        logger.error(f"Failed to get jobs: {e}")
+        return jsonify({"jobs": [], "total": 0, "page": 1, "pages": 0, "error": "Failed to load jobs. Please try again."}), 500
 
 
 @app.route("/api/stats", methods=["GET"])
 def get_stats():
-    """Get job statistics from file storage"""
+    """Get job statistics from database"""
     try:
         stats = get_statistics()
         stats["from_cache"] = False
-        stats["storage"] = "file-based"
+        stats["storage"] = "mysql"
         return jsonify(stats)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Failed to get stats: {e}")
+        return jsonify({"error": "Failed to load statistics. Please try again."}), 500
 
 
 @app.route("/api/export", methods=["GET"])
@@ -684,8 +739,12 @@ def export_jobs():
         elif fmt == "json":
             return jsonify(jobs)
 
+        else:
+            return jsonify({"error": f"Unsupported export format: {fmt}. Use 'csv' or 'json'."}), 400
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Failed to export jobs: {e}")
+        return jsonify({"error": "Failed to export jobs. Please try again."}), 500
 
 
 @app.route("/api/db-info", methods=["GET"])
@@ -696,7 +755,7 @@ def db_info():
         stats = get_statistics()
 
         return jsonify({
-            "database": "MySQL",
+            "database_engine": "MySQL",
             "status": "✓ Active",
             "total_jobs": len(jobs),
             "statistics": stats,
@@ -705,10 +764,12 @@ def db_info():
             "note": "Data stored in MySQL database."
         })
     except Exception as e:
-        return jsonify({"error": str(e), "status": "✗ Error"}), 500
+        logger.error(f"Failed to get database info: {e}")
+        return jsonify({"error": "Failed to load database info. Please try again.", "status": "✗ Error"}), 500
 
 
 @app.route("/api/clear-jobs", methods=["DELETE"])
+@limiter.limit("3 per minute")
 def clear_jobs():
     """Clear all jobs"""
     try:
@@ -720,9 +781,11 @@ def clear_jobs():
         conn.commit()
         cursor.close()
         conn.close()
+        invalidate_jobs_cache()
         return jsonify({"success": True, "message": "All jobs cleared"})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.error(f"Failed to clear jobs: {e}")
+        return jsonify({"success": False, "error": "Failed to clear jobs. Please try again."}), 500
 
 
 @app.route("/api/test-alert", methods=["POST"])
@@ -753,25 +816,34 @@ def test_alert():
             "results": results
         })
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.error(f"Failed to send test alert: {e}")
+        return jsonify({"success": False, "error": "Failed to send test alert. Check your alert configuration."}), 500
 
 
 @app.route("/api/cache-info", methods=["GET"])
 def cache_info():
-    """Get cache information"""
+    """Get in-memory jobs cache information"""
+    with _jobs_cache_lock:
+        has_data = _jobs_cache["data"] is not None
+        age = time.time() - _jobs_cache["timestamp"] if has_data else None
+
     return jsonify({
         "cache": {
-            "status": "disabled",
-            "note": "Redis is currently disabled"
+            "status": "active" if has_data else "empty",
+            "ttl_seconds": JOBS_CACHE_TTL_SECONDS,
+            "age_seconds": round(age, 1) if age is not None else None,
+            "cached_jobs": len(_jobs_cache["data"]) if has_data else 0,
+            "note": "In-memory cache for jobs table reads. Redis is not used."
         },
-        "storage": "file-based (JSON)"
+        "storage": "mysql"
     })
 
 
 @app.route("/api/cache-clear", methods=["DELETE"])
 def cache_clear():
-    """Cache operations (no-op)"""
-    return jsonify({"success": True, "message": "Cache disabled - no action needed"})
+    """Manually invalidate the in-memory jobs cache"""
+    invalidate_jobs_cache()
+    return jsonify({"success": True, "message": "Jobs cache cleared"})
 
 
 @app.route("/api/scheduler-status", methods=["GET"])
@@ -789,10 +861,11 @@ def scheduler_status():
             "status": "active" if os.path.exists(config_file) else "not configured",
             "config": config,
             "config_file": config_file,
-            "note": "PostgreSQL and Redis disabled"
+            "note": "Storage: MySQL. Scheduler config (if any) is separate from the jobs database."
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Failed to get scheduler status: {e}")
+        return jsonify({"error": "Failed to load scheduler status. Please try again."}), 500
 
 
 @app.route("/", methods=["GET"])
