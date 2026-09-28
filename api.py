@@ -12,7 +12,7 @@ from flask_cors import CORS
 import remote_job_scraper as rjs
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 import threading
 import time
 import os
@@ -474,6 +474,108 @@ def get_statistics() -> Dict[str, Any]:
 
     return stats
 
+def _job_added_date(job: Dict[str, Any]) -> Optional[datetime]:
+    """Normalize the added_at field (native datetime from MySQL, or a string
+    fallback) into a datetime, or None if it can't be parsed."""
+    added_at = job.get('added_at')
+    if isinstance(added_at, datetime):
+        return added_at
+    if isinstance(added_at, str) and added_at:
+        for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                return datetime.strptime(added_at, fmt)
+            except ValueError:
+                continue
+    return None
+
+def get_analytics(days: int = 14, top_n: int = 10) -> Dict[str, Any]:
+    """Aggregate analytics for the dashboard: summary counts, a jobs-added
+    time series, domain/work-type distribution, and top sources/countries/
+    companies. Built entirely from load_jobs_from_db() (Python-side
+    aggregation) so it benefits from the same in-memory cache as other
+    endpoints rather than issuing extra DB queries."""
+    jobs = load_jobs_from_db()
+
+    if not jobs:
+        return {
+            "summary": {"total_jobs": 0, "added_today": 0, "added_this_week": 0,
+                        "total_companies": 0, "total_sources": 0},
+            "jobs_over_time": [],
+            "by_domain": {},
+            "by_work_type": {},
+            "top_sources": [],
+            "top_countries": [],
+            "top_companies": [],
+        }
+
+    now = datetime.now()
+    today = now.date()
+    week_ago = today - timedelta(days=7)
+
+    domain_counts: Dict[str, int] = {}
+    work_type_counts: Dict[str, int] = {}
+    source_counts: Dict[str, int] = {}
+    country_counts: Dict[str, int] = {}
+    company_counts: Dict[str, int] = {}
+    day_counts: Dict[str, int] = {(today - timedelta(days=i)).isoformat(): 0 for i in range(days)}
+
+    added_today = 0
+    added_this_week = 0
+
+    for job in jobs:
+        for domain in (job.get('domains') or ['General']):
+            domain_counts[domain] = domain_counts.get(domain, 0) + 1
+
+        work_type = job.get('work_type') or 'Unknown'
+        work_type_counts[work_type] = work_type_counts.get(work_type, 0) + 1
+
+        source = job.get('source') or 'Unknown'
+        source_counts[source] = source_counts.get(source, 0) + 1
+
+        country = job.get('country') or 'Unknown'
+        country_counts[country] = country_counts.get(country, 0) + 1
+
+        company = job.get('company') or 'Unknown'
+        company_counts[company] = company_counts.get(company, 0) + 1
+
+        added_dt = _job_added_date(job)
+        if added_dt:
+            added_date = added_dt.date()
+            if added_date == today:
+                added_today += 1
+            if added_date >= week_ago:
+                added_this_week += 1
+            day_key = added_date.isoformat()
+            if day_key in day_counts:
+                day_counts[day_key] += 1
+
+    def top(counts: Dict[str, int], n: int) -> List[Dict[str, Any]]:
+        return [
+            {"name": name, "count": count}
+            for name, count in sorted(counts.items(), key=lambda x: x[1], reverse=True)[:n]
+        ]
+
+    jobs_over_time = [
+        {"date": day, "count": day_counts[day]}
+        for day in sorted(day_counts.keys())
+    ]
+
+    return {
+        "summary": {
+            "total_jobs": len(jobs),
+            "added_today": added_today,
+            "added_this_week": added_this_week,
+            "total_companies": len({j.get('company') for j in jobs if j.get('company')}),
+            "total_sources": len({j.get('source') for j in jobs if j.get('source')}),
+        },
+        "jobs_over_time": jobs_over_time,
+        "by_domain": domain_counts,
+        "by_work_type": work_type_counts,
+        "top_sources": top(source_counts, top_n),
+        "top_countries": top(country_counts, top_n),
+        "top_companies": top(company_counts, top_n),
+    }
+
 # ============ RESUME MATCHING HELPERS ============
 
 def extract_text_from_resume(file_storage: FileStorage) -> str:
@@ -763,6 +865,25 @@ def get_stats() -> Any:
     except Exception as e:
         logger.error(f"Failed to get stats: {e}")
         return jsonify({"error": "Failed to load statistics. Please try again."}), 500
+
+
+@app.route("/api/analytics", methods=["GET"])
+def analytics() -> Any:
+    """Get dashboard analytics: summary counts, jobs-added time series,
+    domain/work-type distribution, and top sources/countries/companies."""
+    try:
+        days = min(max(int(request.args.get("days", 14)), 1), 90)
+        top_n = min(max(int(request.args.get("top_n", 10)), 1), 50)
+    except (ValueError, TypeError):
+        days, top_n = 14, 10
+
+    try:
+        data = get_analytics(days=days, top_n=top_n)
+        data["success"] = True
+        return jsonify(data)
+    except Exception as e:
+        logger.error(f"Failed to get analytics: {e}")
+        return jsonify({"success": False, "error": "Failed to load analytics. Please try again."}), 500
 
 
 @app.route("/api/export", methods=["GET"])

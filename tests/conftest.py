@@ -118,3 +118,33 @@ def sample_jobs():
             "domains": ["General"],
         },
     ]
+
+
+@pytest.fixture
+def analytics_jobs():
+    """Jobs with controlled added_at timestamps (today / yesterday / last
+    week / a month ago) for deterministic analytics/time-series testing."""
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    return [
+        {
+            "id": 1, "source": "Remotive", "title": "AI Engineer Fresher", "company": "Acme AI",
+            "work_type": "Remote", "country": "India", "domains": ["AIML"],
+            "added_at": now,
+        },
+        {
+            "id": 2, "source": "Remotive", "title": "Data Analyst Intern", "company": "Acme AI",
+            "work_type": "Onsite", "country": "India", "domains": ["Data Analytics"],
+            "added_at": now - timedelta(days=1),
+        },
+        {
+            "id": 3, "source": "Himalayas", "title": "Blockchain Trainee", "company": "ChainWorks",
+            "work_type": "Remote", "country": "Germany", "domains": ["Blockchain"],
+            "added_at": now - timedelta(days=5),
+        },
+        {
+            "id": 4, "source": "Himalayas", "title": "Marketing Intern", "company": "BrandCo",
+            "work_type": "Onsite", "country": "Germany", "domains": ["General"],
+            "added_at": now - timedelta(days=40),  # outside the default 14-day window
+        },
+    ]

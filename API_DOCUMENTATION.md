@@ -182,6 +182,48 @@ Aggregate counts over all stored jobs.
 
 ---
 
+## `GET /api/analytics`
+
+Aggregated data for the frontend analytics dashboard (summary counts, a jobs-added time series, domain/work-type distribution, and top sources/countries/companies). Built from `load_jobs_from_db()` in Python (benefits from the same in-memory cache as other endpoints — no extra DB queries).
+
+**Query parameters** (all optional):
+| Param | Type | Default | Bounds |
+|---|---|---|---|
+| `days` | int | `14` | clamped to `1`–`90` |
+| `top_n` | int | `10` | clamped to `1`–`50` |
+
+Invalid/non-numeric values silently fall back to the defaults rather than erroring.
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "summary": {
+    "total_jobs": 1243,
+    "added_today": 0,
+    "added_this_week": 1243,
+    "total_companies": 564,
+    "total_sources": 6
+  },
+  "jobs_over_time": [
+    {"date": "2026-09-15", "count": 0},
+    {"date": "2026-09-21", "count": 1243},
+    "...": "one entry per day in the requested window, zero-filled for days with no inserts, sorted ascending"
+  ],
+  "by_domain": {"General": 1058, "AIML": 142, "Data Analytics": 30, "Cybersecurity": 15, "AR VR": 2, "Blockchain": 1},
+  "by_work_type": {"Onsite": 727, "Remote": 502, "Hybrid": 14},
+  "top_sources": [{"name": "Arbeitnow", "count": 767}, "...": "up to top_n entries, sorted descending"],
+  "top_countries": [{"name": "Germany", "count": 383}, "..."],
+  "top_companies": [{"name": "sumup", "count": 56}, "..."]
+}
+```
+
+`added_today`/`added_this_week` are computed from each job's `added_at` timestamp (when it was inserted/last upserted), not from the job posting's own `date` field. A job counts toward `by_domain` once per tag if it matches multiple domains (same behavior as `detect_job_domain()`).
+
+**Response `500`:** `{"success": false, "error": "Failed to load analytics. Please try again."}`
+
+---
+
 ## `GET /api/export`
 
 Export all stored jobs.
