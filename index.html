@@ -1115,6 +1115,19 @@
         let selectedSources = [];
         let currentJobIndex = -1;
 
+        // XSS Protection: Escape HTML characters to prevent injection attacks
+        function escapeHtml(text) {
+            if (!text) return "";
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
+
         async function loadSources() {
             try {
                 const res = await fetch(`${API}/sources`);
@@ -1235,15 +1248,15 @@
                     <td><span class="match-score-badge ${tier}">${score}%</span></td>
                     <td>
                         <div class="job-title-wrapper">
-                            <div class="job-title">${job.title || "N/A"}</div>
+                            <div class="job-title">${escapeHtml(job.title || "N/A")}</div>
                             <div class="job-domains">
-                                ${(job.domains || []).slice(0, 2).map(d => `<span class="domain-badge">${d}</span>`).join('')}
+                                ${(job.domains || []).slice(0, 2).map(d => `<span class="domain-badge">${escapeHtml(d)}</span>`).join('')}
                             </div>
                         </div>
                     </td>
-                    <td><div class="job-company">${job.company || "N/A"}</div></td>
-                    <td><span class="work-type-badge ${(job.work_type || "Remote").toLowerCase()}">${job.work_type || "N/A"}</span></td>
-                    <td><div style="font-weight:600; font-size:13px;">${job.source || "N/A"}</div></td>
+                    <td><div class="job-company">${escapeHtml(job.company || "N/A")}</div></td>
+                    <td><span class="work-type-badge ${(job.work_type || "Remote").toLowerCase()}">${escapeHtml(job.work_type || "N/A")}</span></td>
+                    <td><div style="font-weight:600; font-size:13px;">${escapeHtml(job.source || "N/A")}</div></td>
                 </tr>`;
             }).join("");
         }
@@ -1296,22 +1309,22 @@
                         <tr onclick="openJobModal(${idx})">
                             <td>
                                 <div class="job-title-wrapper">
-                                    <div class="job-title">${job.title || "N/A"}</div>
+                                    <div class="job-title">${escapeHtml(job.title || "N/A")}</div>
                                     <div class="job-domains">
-                                        ${(job.domains || []).slice(0, 2).map(d => `<span class="domain-badge">${d}</span>`).join('')}
+                                        ${(job.domains || []).slice(0, 2).map(d => `<span class="domain-badge">${escapeHtml(d)}</span>`).join('')}
                                     </div>
                                 </div>
                             </td>
                             <td>
-                                <div class="job-company">${job.company || "N/A"}</div>
+                                <div class="job-company">${escapeHtml(job.company || "N/A")}</div>
                             </td>
                             <td>
                                 <span class="work-type-badge ${(job.work_type || "Remote").toLowerCase()}">
-                                    ${job.work_type || "N/A"}
+                                    ${escapeHtml(job.work_type || "N/A")}
                                 </span>
                             </td>
                             <td>
-                                <div style="font-weight: 600; font-size: 13px;">${job.source || "N/A"}</div>
+                                <div style="font-weight: 600; font-size: 13px;">${escapeHtml(job.source || "N/A")}</div>
                             </td>
                         </tr>
                     `).join("");

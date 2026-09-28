@@ -22,25 +22,58 @@ from pdfminer.high_level import extract_text as pdf_extract_text
 import mammoth
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import logging
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)
+
+# Configure CORS with allowed origins
+cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:5000').split(',')
+CORS(app, origins=cors_origins, allow_headers=['Content-Type'], methods=['GET', 'POST', 'DELETE'])
+
+# Add security headers
+@app.after_request
+def set_security_headers(response):
+    """Add security headers to all responses"""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    return response
 
 # Resume upload constraints
 ALLOWED_RESUME_EXTENSIONS = {"pdf", "docx", "txt"}
-MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
-MIN_RESUME_TEXT_CHARS = 30  # Minimum text to consider resume parseable
+MAX_RESUME_SIZE_BYTES = int(os.getenv('MAX_RESUME_SIZE', 5 * 1024 * 1024))  # 5 MB
+MIN_RESUME_TEXT_CHARS = int(os.getenv('MIN_RESUME_TEXT', 30))
 
 app.config['MAX_CONTENT_LENGTH'] = MAX_RESUME_SIZE_BYTES
 
-# MySQL Configuration
+# MySQL Configuration - Using environment variables
 MYSQL_CONFIG = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': '***REDACTED-PASSWORD***',
-    'database': 'job_portal',
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'user': os.getenv('DB_USER', 'root'),
+    'password': os.getenv('DB_PASSWORD'),
+    'database': os.getenv('DB_NAME', 'job_portal'),
     'autocommit': True
 }
+
+# Validate critical configuration
+if not MYSQL_CONFIG['password']:
+    logger.error("[ERROR] Database password not set in .env file!")
+    raise ValueError("DB_PASSWORD environment variable is required")
 
 def get_db_connection():
     """Get MySQL connection"""
@@ -48,7 +81,10 @@ def get_db_connection():
         conn = mysql.connector.connect(**MYSQL_CONFIG)
         return conn
     except Error as e:
-        print(f"[ERROR] Database connection failed: {e}")
+        logger.error(f"Database connection failed: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error in database connection: {e}")
         return None
 
 def init_db():
@@ -103,10 +139,13 @@ def init_db():
         conn.commit()
         cursor.close()
         conn.close()
-        print("[OK] Database initialized successfully")
+        logger.info("Database initialized successfully")
         return True
     except Error as e:
-        print(f"[ERROR] Database initialization failed: {e}")
+        logger.error(f"Database initialization failed: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error during database initialization: {e}")
         return False
 
 def load_jobs_from_db():
@@ -125,7 +164,8 @@ def load_jobs_from_db():
             if job.get('domains'):
                 try:
                     job['domains'] = json.loads(job['domains'])
-                except:
+                except (json.JSONDecodeError, TypeError, ValueError) as e:
+                    logger.warning(f"Failed to parse domains for job {job.get('url')}: {e}")
                     job['domains'] = ['General']
 
         cursor.close()
@@ -162,14 +202,17 @@ def save_jobs_to_db(jobs):
                     job.get('url'), domains, datetime.now()
                 ))
             except Error as e:
-                print(f"[ERROR] Failed to insert job: {e}")
+                logger.error(f"Failed to insert job {job.get('url')}: {e}")
 
         conn.commit()
         cursor.close()
         conn.close()
         return True
     except Error as e:
-        print(f"[ERROR] Failed to save jobs to database: {e}")
+        logger.error(f"Failed to save jobs to database: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error while saving jobs: {e}")
         return False
 
 def is_fresher_job(job):
@@ -446,26 +489,26 @@ def fetch_jobs():
         all_jobs = []
         status = {}
 
-        print(f"\n[*] Fetching from {len(enabled)} sources...")
+        logger.info(f"Fetching jobs from {len(enabled)} sources...")
 
         for scraper in enabled:
             name = scraper.__name__.replace("scrape_", "")
             try:
-                print(f"  Scraping {name}...", end="")
+                logger.info(f"Scraping {name}...")
                 results = scraper()
                 all_jobs.extend(results)
                 status[name] = {"success": True, "count": len(results)}
-                print(f" [OK] {len(results)} jobs")
+                logger.info(f"  {name}: {len(results)} jobs fetched")
             except Exception as e:
                 status[name] = {"success": False, "error": str(e)[:50]}
-                print(f" [ERROR] Error: {str(e)[:40]}")
+                logger.error(f"  {name}: Failed - {str(e)[:40]}")
 
         jobs = rjs.dedupe(all_jobs)
-        print(f"\n[OK] Total unique jobs: {len(jobs)}")
+        logger.info(f"Total unique jobs after deduplication: {len(jobs)}")
 
         # Filter to keep only fresher jobs
         fresher_jobs = [j for j in jobs if is_fresher_job(j)]
-        print(f"[*] Filtered to fresher jobs: {len(fresher_jobs)} jobs")
+        logger.info(f"Filtered to fresher jobs: {len(fresher_jobs)} jobs")
 
         # Add timestamps and domain detection to new jobs
         for job in fresher_jobs:
@@ -530,7 +573,17 @@ def match_resume():
                 "message": "No jobs available yet. Fetch jobs first, then upload your resume."
             })
 
-        top_n = int(request.args.get("top_n", 20))
+        # Validate and bound top_n parameter
+        try:
+            top_n = int(request.args.get("top_n", 20))
+            if top_n < 1:
+                top_n = 20
+            if top_n > 100:
+                top_n = 100  # Cap at 100 to prevent performance issues
+        except (ValueError, TypeError):
+            top_n = 20
+            logger.warning("Invalid top_n parameter, using default value of 20")
+
         scored = score_job_match(resume_text, all_jobs)
         top_matches = scored[:top_n]
 
@@ -745,26 +798,36 @@ def scheduler_status():
 @app.route("/", methods=["GET"])
 def index():
     """Serve web UI"""
-    return open("index.html", encoding="utf-8").read(), 200, {"Content-Type": "text/html"}
+    try:
+        with open("index.html", encoding="utf-8") as f:
+            content = f.read()
+        return content, 200, {"Content-Type": "text/html"}
+    except FileNotFoundError:
+        logger.error("index.html not found")
+        return "Error: index.html not found", 404
+    except Exception as e:
+        logger.error(f"Error loading index.html: {e}")
+        return f"Error loading page: {str(e)}", 500
 
 
 if __name__ == "__main__":
-    print("\n" + "="*60)
-    print("[*] Job Portal API Starting (MySQL)...")
-    print("="*60)
+    logger.info("=" * 60)
+    logger.info("Job Portal API Starting (MySQL)...")
+    logger.info("=" * 60)
 
     # Initialize database
     if init_db():
-        print("[OK] Storage: MySQL Database")
-        print("[OK] Host: localhost")
-        print("[OK] Database: job_portal")
-        print("[OK] User: root")
-        print("[OK] Server: http://localhost:5000")
-        print("="*60 + "\n")
+        logger.info(f"Storage: MySQL Database")
+        logger.info(f"Host: {MYSQL_CONFIG['host']}")
+        logger.info(f"Database: {MYSQL_CONFIG['database']}")
+        logger.info(f"User: {MYSQL_CONFIG['user']}")
+        logger.info(f"Server: http://localhost:5000")
+        logger.info("=" * 60)
+        logger.info("API Ready to serve requests")
         app.run(debug=True, port=5000)
     else:
-        print("[ERROR] Failed to initialize database. Please check:")
-        print("  - MySQL server is running")
-        print("  - Credentials are correct (root / ***REDACTED-PASSWORD***)")
-        print("  - Port 3306 is accessible")
-        print("="*60 + "\n")
+        logger.error("Failed to initialize database. Please check:")
+        logger.error("  - MySQL server is running")
+        logger.error("  - Database credentials in .env file are correct")
+        logger.error("  - Port 3306 is accessible")
+        logger.error("=" * 60)
