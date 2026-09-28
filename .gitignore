@@ -59,3 +59,8 @@ tmp/
 
 # MySQL
 mysql_data/
+
+# Test artifacts
+.coverage
+.pytest_cache/
+htmlcov/

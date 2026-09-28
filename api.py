@@ -11,6 +11,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import remote_job_scraper as rjs
 import json
+import re
 from datetime import datetime
 import threading
 import time
@@ -172,6 +173,30 @@ def init_db():
         """
         cursor.execute(create_table)
         conn.commit()
+
+        # CREATE TABLE IF NOT EXISTS is a no-op when the table already exists
+        # from an older schema version, so newer columns (e.g. start_date,
+        # end_date, domains) never get added automatically. Migrate any
+        # missing columns explicitly so inserts referencing them don't
+        # silently fail with "Unknown column" errors.
+        expected_columns = {
+            "start_date": "ALTER TABLE jobs ADD COLUMN start_date VARCHAR(50)",
+            "end_date": "ALTER TABLE jobs ADD COLUMN end_date VARCHAR(50)",
+            "domains": "ALTER TABLE jobs ADD COLUMN domains JSON",
+        }
+        cursor.execute(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+            "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'jobs'",
+            (MYSQL_CONFIG['database'],)
+        )
+        existing_columns = {row[0] for row in cursor.fetchall()}
+
+        for column_name, alter_sql in expected_columns.items():
+            if column_name not in existing_columns:
+                logger.warning(f"Migrating schema: adding missing column '{column_name}' to jobs table")
+                cursor.execute(alter_sql)
+                conn.commit()
+
         cursor.close()
         conn.close()
         logger.info("Database initialized successfully")
@@ -240,7 +265,12 @@ def save_jobs_to_db(jobs):
                 INSERT INTO jobs (source, title, company, work_type, country, location,
                                  job_type, category, salary, date, start_date, end_date, url, domains, added_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE added_at = NOW()
+                ON DUPLICATE KEY UPDATE
+                    source = VALUES(source), title = VALUES(title), company = VALUES(company),
+                    work_type = VALUES(work_type), country = VALUES(country), location = VALUES(location),
+                    job_type = VALUES(job_type), category = VALUES(category), salary = VALUES(salary),
+                    date = VALUES(date), start_date = VALUES(start_date), end_date = VALUES(end_date),
+                    domains = VALUES(domains), added_at = NOW()
                 """
                 cursor.execute(insert_query, (
                     job.get('source'), job.get('title'), job.get('company'),
@@ -332,6 +362,20 @@ DOMAIN_KEYWORDS = {
     ]
 }
 
+# Word-boundary matching (not plain substring) so short keywords like "ai", "ml",
+# "ar", "vr" don't false-positive inside unrelated words - e.g. "ai" inside
+# "Retail", "ml" inside "HTML", "ar" inside "Car"/"Market"/"Guitar", "vr" inside
+# assorted German compound words. Boundaries are any non-alphanumeric character
+# (or start/end of string), so this still matches keywords embedded in phrases
+# like "AI/ML Engineer" or "(AI)".
+_DOMAIN_KEYWORD_PATTERNS = {
+    domain: [
+        re.compile(r"(?<![a-z0-9])" + re.escape(keyword) + r"(?![a-z0-9])")
+        for keyword in keywords
+    ]
+    for domain, keywords in DOMAIN_KEYWORDS.items()
+}
+
 def detect_job_domain(job):
     """Detect job domain from title, category, and description"""
     title = (job.get('title') or '').lower()
@@ -340,11 +384,9 @@ def detect_job_domain(job):
     text = f"{title} {category} {description}"
 
     detected_domains = []
-    for domain, keywords in DOMAIN_KEYWORDS.items():
-        for keyword in keywords:
-            if keyword in text:
-                detected_domains.append(domain)
-                break
+    for domain, patterns in _DOMAIN_KEYWORD_PATTERNS.items():
+        if any(pattern.search(text) for pattern in patterns):
+            detected_domains.append(domain)
 
     return detected_domains if detected_domains else ['General']
 
@@ -453,8 +495,8 @@ def extract_resume_keywords(resume_text):
     """Detect which domains a resume's text touches using domain keyword vocabulary."""
     text = resume_text.lower()
     matched = []
-    for domain, keywords in DOMAIN_KEYWORDS.items():
-        if any(kw in text for kw in keywords):
+    for domain, patterns in _DOMAIN_KEYWORD_PATTERNS.items():
+        if any(pattern.search(text) for pattern in patterns):
             matched.append(domain)
     return matched or ["General"]
 
