@@ -43,7 +43,7 @@ The Job Portal codebase is **well-structured and functional** with comprehensive
 MYSQL_CONFIG = {
     'host': 'localhost',
     'user': 'root',
-    'password': '***REDACTED-PASSWORD***',  # ⚠️ EXPOSED!
+    'password': '<REDACTED-real-password-was-here>',  # ⚠️ EXPOSED!
     'database': 'job_portal',
     'autocommit': True
 }

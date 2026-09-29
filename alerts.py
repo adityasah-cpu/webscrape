@@ -4,10 +4,33 @@ Send notifications of new jobs matching filters.
 """
 
 import os
+import re
+import html as html_escaper
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import requests
+
+
+def _safe_url(url):
+    """Only allow http(s) URLs through to outbound messages/emails. Job data
+    comes from scraped third-party sources, so a malicious or compromised
+    listing could otherwise inject a javascript:/data: URI into an outbound
+    notification."""
+    url = str(url or "")
+    if re.match(r"^https?://", url, re.IGNORECASE):
+        return url
+    return "#"
+
+
+_MARKDOWN_SPECIAL_CHARS = re.compile(r"([_*\[\]`])")
+
+
+def _escape_markdown(text):
+    """Escape Telegram/Slack markdown special characters in untrusted job
+    text so a crafted title/company can't break out of the surrounding
+    formatting (e.g. unbalanced `*` closing bold early)."""
+    return _MARKDOWN_SPECIAL_CHARS.sub(r"\\\1", str(text or ""))
 
 
 # ============ TELEGRAM ============
@@ -43,12 +66,12 @@ def format_jobs_telegram(jobs, title="🆕 New Jobs Found"):
     if not jobs:
         return f"{title}: None"
     
-    msg = f"*{title}* ({len(jobs)} new)\n\n"
+    msg = f"*{_escape_markdown(title)}* ({len(jobs)} new)\n\n"
     for j in jobs[:10]:  # Max 10 per message
-        msg += f"*{j['title']}* @ {j['company']}\n"
-        msg += f"🌍 {j.get('country', 'Unknown')} | 💼 {j.get('work_type', 'Unknown')}\n"
-        msg += f"💰 {j.get('salary', 'Not listed')} | 📅 {j.get('date', '')}\n"
-        msg += f"🔗 {j['url']}\n\n"
+        msg += f"*{_escape_markdown(j['title'])}* @ {_escape_markdown(j['company'])}\n"
+        msg += f"🌍 {_escape_markdown(j.get('country', 'Unknown'))} | 💼 {_escape_markdown(j.get('work_type', 'Unknown'))}\n"
+        msg += f"💰 {_escape_markdown(j.get('salary', 'Not listed'))} | 📅 {_escape_markdown(j.get('date', ''))}\n"
+        msg += f"🔗 {_safe_url(j['url'])}\n\n"
     
     if len(jobs) > 10:
         msg += f"... and {len(jobs) - 10} more. Check the app for all."
@@ -106,16 +129,17 @@ def format_jobs_email(jobs, title="New Remote Jobs Found"):
     """
     
     for j in jobs[:20]:
+        esc = html_escaper.escape
         html += f"""
         <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px;">
-            <h3 style="margin-top: 0;">{j['title']}</h3>
-            <p><strong>Company:</strong> {j['company']}</p>
-            <p><strong>Location:</strong> {j.get('location', 'Not specified')} ({j.get('country', 'Unknown')})</p>
-            <p><strong>Work Type:</strong> {j.get('work_type', 'Unknown')} | <strong>Type:</strong> {j.get('job_type', 'Unknown')}</p>
-            <p><strong>Salary:</strong> {j.get('salary', 'Not listed')}</p>
-            <p><strong>Posted:</strong> {j.get('date', 'Unknown')}</p>
-            <p><strong>Source:</strong> {j.get('source', 'Unknown')}</p>
-            <p><a href="{j['url']}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 3px;">Apply Now →</a></p>
+            <h3 style="margin-top: 0;">{esc(j['title'])}</h3>
+            <p><strong>Company:</strong> {esc(j['company'])}</p>
+            <p><strong>Location:</strong> {esc(j.get('location', 'Not specified'))} ({esc(j.get('country', 'Unknown'))})</p>
+            <p><strong>Work Type:</strong> {esc(j.get('work_type', 'Unknown'))} | <strong>Type:</strong> {esc(j.get('job_type', 'Unknown'))}</p>
+            <p><strong>Salary:</strong> {esc(j.get('salary', 'Not listed'))}</p>
+            <p><strong>Posted:</strong> {esc(j.get('date', 'Unknown'))}</p>
+            <p><strong>Source:</strong> {esc(j.get('source', 'Unknown'))}</p>
+            <p><a href="{esc(_safe_url(j['url']))}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 3px;">Apply Now →</a></p>
         </div>
         """
     
@@ -178,14 +202,14 @@ def format_jobs_slack(jobs, title="🆕 New Jobs Found"):
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"""*{j['title']}* @ {j['company']}
-🌍 {j.get('country', 'Unknown')} | 💼 {j.get('work_type', 'Unknown')}
-💰 {j.get('salary', 'Not listed')} | 📅 {j.get('date', '')}"""
+                "text": f"""*{_escape_markdown(j['title'])}* @ {_escape_markdown(j['company'])}
+🌍 {_escape_markdown(j.get('country', 'Unknown'))} | 💼 {_escape_markdown(j.get('work_type', 'Unknown'))}
+💰 {_escape_markdown(j.get('salary', 'Not listed'))} | 📅 {_escape_markdown(j.get('date', ''))}"""
             },
             "accessory": {
                 "type": "button",
                 "text": {"type": "plain_text", "text": "Apply"},
-                "url": j['url']
+                "url": _safe_url(j['url'])
             }
         })
     
