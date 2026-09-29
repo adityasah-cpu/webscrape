@@ -67,6 +67,28 @@ def set_security_headers(response: Response) -> Response:
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    # index.html is fully self-contained (no external scripts/styles/CDNs),
+    # so this can block all external resource loading outright while still
+    # allowing the page's existing inline <script>/<style>/onclick= handlers
+    # to work. Doesn't replace escaping untrusted job data (already done),
+    # but blocks the common "inject an external script/img tag" XSS pattern
+    # as defense-in-depth, plus clickjacking/base-tag/form-hijack protection.
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'"
+    )
+    # Disable browser features this app never uses, as defense-in-depth
+    # against a future XSS trying to abuse them (e.g. geolocation tracking).
+    response.headers['Permissions-Policy'] = (
+        "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+    )
     return response
 
 @app.errorhandler(429)

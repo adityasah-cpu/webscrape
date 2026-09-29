@@ -255,6 +255,22 @@ def test_security_headers_present_on_every_response(client):
     assert res.headers.get("X-XSS-Protection") == "1; mode=block"
 
 
+def test_csp_header_blocks_external_resources_by_default(client):
+    """Regression test: index.html has no external script/style/CDN
+    dependencies, so CSP can (and should) default-deny external origins
+    while still allowing the page's own inline script/style to run."""
+    res = client.get("/api/sources")
+    csp = res.headers.get("Content-Security-Policy", "")
+    assert "default-src 'self'" in csp
+    assert "object-src 'none'" in csp
+    assert "frame-ancestors 'none'" in csp
+
+
+def test_permissions_policy_header_present(client):
+    res = client.get("/api/sources")
+    assert "geolocation=()" in res.headers.get("Permissions-Policy", "")
+
+
 # ---------------- /api/fetch ----------------
 
 def _make_fake_scraper(name, jobs):
