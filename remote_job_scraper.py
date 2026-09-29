@@ -16,6 +16,7 @@ Or use the web UI:  streamlit run app.py
 
 import csv
 import html
+import logging
 import os
 import re
 import sys
@@ -25,6 +26,8 @@ from typing import Any, Dict, List
 
 import feedparser
 import requests
+
+logger = logging.getLogger(__name__)
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (job-scraper; personal use)"}
 TIMEOUT = 30
@@ -381,7 +384,7 @@ def scrape_greenhouse():
         try:
             data = get_json(f"https://boards-api.greenhouse.io/v1/boards/{co}/jobs")
         except Exception as e:
-            print(f"   ! Greenhouse/{co}: {e}")
+            logger.warning(f"Greenhouse/{co}: {e}")
             continue
         for j in data.get("jobs", []):
             loc = (j.get("location") or {}).get("name", "")
@@ -397,7 +400,7 @@ def scrape_lever():
         try:
             data = get_json(f"https://api.lever.co/v0/postings/{co}", params={"mode": "json"})
         except Exception as e:
-            print(f"   ! Lever/{co}: {e}")
+            logger.warning(f"Lever/{co}: {e}")
             continue
         for j in data:
             cats = j.get("categories") or {}
@@ -416,7 +419,7 @@ def scrape_ashby():
         try:
             data = get_json(f"https://api.ashbyhq.com/posting-api/job-board/{co}")
         except Exception as e:
-            print(f"   ! Ashby/{co}: {e}")
+            logger.warning(f"Ashby/{co}: {e}")
             continue
         for j in data.get("jobs", []):
             loc = j.get("location", "")
@@ -444,7 +447,8 @@ def scrape_internshala(max_pages=None):
                 "https://internshala.com/api/v2/internship_search_results/",
                 params={"offset": page * 20, "limit": 20, "search_filter": "work_from_home"}
             )
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Internshala request failed on page {page}: {e}")
             break
         results = data.get("internships", [])
         if not results:
@@ -477,7 +481,8 @@ def scrape_unstop(max_pages=None):
                 params={"page": page, "limit": 20, "category": "internships",
                         "search": "", "sort": "-posted_at"}
             )
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Unstop request failed on page {page}: {e}")
             break
         results = data.get("opportunities", [])
         if not results:
@@ -516,7 +521,7 @@ def scrape_firstnaukri():
                             date=date,
                             url=entry.get("link", "")))
     except Exception as e:
-        print(f"   FirstNaukri: {e}")
+        logger.warning(f"FirstNaukri: {e}")
     return jobs
 
 
@@ -549,7 +554,7 @@ def scrape_angellist():
                                 url=j.get("angellist_url", "")))
             time.sleep(1)
     except Exception as e:
-        print(f"   AngelList: {e}")
+        logger.warning(f"AngelList: {e}")
     return jobs
 
 
@@ -573,7 +578,7 @@ def scrape_devto():
                                     url=article.get("url", "")))
             time.sleep(1)
     except Exception as e:
-        print(f"   Dev.to: {e}")
+        logger.warning(f"Dev.to: {e}")
     return jobs
 
 
@@ -599,7 +604,7 @@ def scrape_upwork():
                             date=date,
                             url=entry.get("link", "")))
     except Exception as e:
-        print(f"   Upwork: {e}")
+        logger.warning(f"Upwork: {e}")
     return jobs
 
 
@@ -621,7 +626,7 @@ def scrape_toptal():
                             date=j.get("posted_at", "")[:10],
                             url=f"https://www.toptal.com/jobs/{j.get('slug')}" if j.get("slug") else ""))
     except Exception as e:
-        print(f"   Toptal: {e}")
+        logger.warning(f"Toptal: {e}")
     return jobs
 
 

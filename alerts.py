@@ -6,10 +6,13 @@ Send notifications of new jobs matching filters.
 import os
 import re
 import html as html_escaper
+import logging
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 def _safe_url(url):
@@ -57,7 +60,7 @@ def send_telegram(bot_token, chat_id, message):
         r = requests.post(url, json=data, timeout=10)
         return r.status_code == 200
     except Exception as e:
-        print(f"Telegram error: {e}")
+        logger.error(f"Telegram error: {e}")
         return False
 
 
@@ -111,7 +114,7 @@ def send_email(sender_email, sender_password, recipient_email, subject, html_bod
         
         return True
     except Exception as e:
-        print(f"Email error: {e}")
+        logger.error(f"Email error: {e}")
         return False
 
 
@@ -163,21 +166,28 @@ def format_jobs_email(jobs, title="New Remote Jobs Found"):
 def send_slack(webhook_url, message):
     """
     Send message via Slack webhook.
-    
+
     Args:
         webhook_url: From Slack incoming webhook
                      https://api.slack.com/messaging/webhooks
         message: Text or blocks (dict)
-    
+
     Returns:
         True if sent, False otherwise
     """
+    # webhook_url is caller-supplied (ultimately from the /api/test-alert
+    # request body) with no other validation upstream. Without this check,
+    # this function is a generic SSRF primitive: it would POST an
+    # attacker-controlled JSON body to any URL the caller names.
+    if not re.match(r"^https://hooks\.slack\.com/", webhook_url or "", re.IGNORECASE):
+        logger.error("Slack error: webhook_url must be a https://hooks.slack.com/ URL")
+        return False
     try:
         data = {"text": message} if isinstance(message, str) else message
         r = requests.post(webhook_url, json=data, timeout=10)
         return r.status_code == 200
     except Exception as e:
-        print(f"Slack error: {e}")
+        logger.error(f"Slack error: {e}")
         return False
 
 
@@ -247,7 +257,7 @@ def send_alert(jobs, alert_config):
         send_alert(jobs, config)
     """
     if not jobs:
-        print("No jobs to alert on.")
+        logger.info("No jobs to alert on.")
         return
     
     results = {}
@@ -274,7 +284,7 @@ def send_alert(jobs, alert_config):
         sent = send_slack(cfg["webhook_url"], blocks)
         results["slack"] = "✅" if sent else "❌"
     
-    print(f"Alerts sent: {results}")
+    logger.info(f"Alerts sent: {results}")
     return results
 
 

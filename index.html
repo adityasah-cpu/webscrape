@@ -1410,7 +1410,7 @@
                         </div>
                     </td>
                     <td><div class="job-company">${escapeHtml(job.company || "N/A")}</div></td>
-                    <td><span class="work-type-badge ${(job.work_type || "Remote").toLowerCase()}">${escapeHtml(job.work_type || "N/A")}</span></td>
+                    <td><span class="work-type-badge ${escapeHtml((job.work_type || "Remote").toLowerCase())}">${escapeHtml(job.work_type || "N/A")}</span></td>
                     <td><div style="font-weight:600; font-size:13px;">${escapeHtml(job.source || "N/A")}</div></td>
                 </tr>`;
             }).join("");
@@ -1582,7 +1582,7 @@
                                 <div class="job-company">${escapeHtml(job.company || "N/A")}</div>
                             </td>
                             <td>
-                                <span class="work-type-badge ${(job.work_type || "Remote").toLowerCase()}">
+                                <span class="work-type-badge ${escapeHtml((job.work_type || "Remote").toLowerCase())}">
                                     ${escapeHtml(job.work_type || "N/A")}
                                 </span>
                             </td>

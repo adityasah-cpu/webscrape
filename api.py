@@ -100,6 +100,15 @@ if not MYSQL_CONFIG['password']:
     logger.error("[ERROR] Database password not set in .env file!")
     raise ValueError("DB_PASSWORD environment variable is required")
 
+# The database name is interpolated directly into a CREATE DATABASE
+# statement (identifiers can't be parameterized with %s placeholders), so
+# validate it against a strict allowlist pattern rather than trusting it
+# blindly - it comes from DB_NAME in .env, not end-user input, but this
+# closes the gap in case that assumption ever changes.
+if not re.match(r'^[A-Za-z0-9_]+$', MYSQL_CONFIG['database']):
+    logger.error(f"Invalid DB_NAME: {MYSQL_CONFIG['database']!r}")
+    raise ValueError("DB_NAME must contain only letters, digits, and underscores")
+
 # In-memory cache for load_jobs_from_db() to avoid re-fetching/re-parsing the
 # entire jobs table on every request (e.g. /api/jobs, /api/stats, /api/match-resume
 # hitting within the same few seconds). Invalidated on any write (save/clear).
@@ -136,8 +145,8 @@ def init_db() -> bool:
         )
         cursor = conn.cursor()
 
-        # Create database if not exists
-        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {MYSQL_CONFIG['database']}")
+        # Create database if not exists (name already validated at module load)
+        cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{MYSQL_CONFIG['database']}`")
         cursor.close()
         conn.close()
 
@@ -819,8 +828,15 @@ def get_jobs() -> Any:
         sources = request.args.get("sources", "")
         domain = request.args.get("domain", "")
         fresher_only = request.args.get("fresher", "").lower() == "true"
-        page = int(request.args.get("page", 1))
-        limit = int(request.args.get("limit", 20))
+
+        # Bounds-check page/limit: negative page numbers previously fed
+        # Python's negative-index list slicing and silently returned
+        # unrelated jobs instead of an empty page or an error.
+        try:
+            page = max(int(request.args.get("page", 1)), 1)
+            limit = min(max(int(request.args.get("limit", 20)), 1), 1000)
+        except (ValueError, TypeError):
+            page, limit = 1, 20
 
         all_jobs = load_jobs_from_db()
 
@@ -964,6 +980,7 @@ def clear_jobs() -> Any:
 
 
 @app.route("/api/test-alert", methods=["POST"])
+@limiter.limit("5 per hour")
 def test_alert() -> Any:
     """Test alert configuration"""
     try:
@@ -1072,7 +1089,13 @@ if __name__ == "__main__":
         logger.info(f"Server: http://localhost:5000")
         logger.info("=" * 60)
         logger.info("API Ready to serve requests")
-        app.run(debug=True, port=5000)
+        # Debug mode enables Werkzeug's interactive debugger, which allows
+        # arbitrary code execution from the browser on an unhandled
+        # exception. Default to off; only enable via explicit opt-in in .env.
+        flask_debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+        if flask_debug:
+            logger.warning("FLASK_DEBUG is enabled - do not expose this server beyond localhost")
+        app.run(debug=flask_debug, port=5000)
     else:
         logger.error("Failed to initialize database. Please check:")
         logger.error("  - MySQL server is running")

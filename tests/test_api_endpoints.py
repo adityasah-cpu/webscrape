@@ -53,6 +53,35 @@ def test_get_jobs_handles_db_failure_gracefully(client, mocker):
     assert "boom" not in json.dumps(data)
 
 
+def test_get_jobs_negative_page_does_not_return_unrelated_data(client, mocker, sample_jobs):
+    """Regression test: page=-1 used to feed Python's negative-index list
+    slicing and silently return real (wrong) jobs instead of an empty page."""
+    mocker.patch.object(api_module, "load_jobs_from_db", return_value=sample_jobs)
+    res = client.get("/api/jobs?page=-1&limit=2")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["page"] == 1  # clamped to the minimum valid page
+    assert data["jobs"] == sample_jobs[:2]  # same as an ordinary page=1 request
+
+
+def test_get_jobs_non_numeric_page_falls_back_to_default(client, mocker, sample_jobs):
+    """Regression test: a non-numeric page/limit used to raise an uncaught
+    ValueError, turning a harmless malformed query into a 500."""
+    mocker.patch.object(api_module, "load_jobs_from_db", return_value=sample_jobs)
+    res = client.get("/api/jobs?page=abc&limit=xyz")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["page"] == 1
+    assert data["limit"] == 20
+
+
+def test_get_jobs_limit_is_capped(client, mocker, sample_jobs):
+    mocker.patch.object(api_module, "load_jobs_from_db", return_value=sample_jobs)
+    res = client.get("/api/jobs?limit=999999")
+    assert res.status_code == 200
+    assert res.get_json()["limit"] == 1000
+
+
 # ---------------- /api/stats ----------------
 
 def test_get_stats_returns_mysql_storage_label(client, mocker, sample_jobs):
