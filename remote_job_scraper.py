@@ -197,7 +197,11 @@ def fmt_salary(lo, hi=None, currency=""):
     def n(x):
         try:
             return f"{int(float(x)):,}"
-        except (TypeError, ValueError):
+        # ValueError/TypeError: malformed input (None, "abc"). OverflowError:
+        # float('inf')/float('nan')-shaped values, which int() can't convert -
+        # a third-party job board API returning a sentinel/unbounded salary
+        # value like this must not take down the whole scraper batch.
+        except (TypeError, ValueError, OverflowError):
             return ""
     lo, hi = n(lo), n(hi)
     if not lo and not hi:
@@ -212,7 +216,13 @@ def epoch_to_date(ts):
         if ts > 10**12:
             ts //= 1000
         return datetime.fromtimestamp(ts, tz=timezone.utc).date().isoformat()
-    except (TypeError, ValueError):
+    # ValueError/TypeError: malformed input. OverflowError/OSError: an
+    # out-of-range epoch value (e.g. negative or absurdly large) - datetime.
+    # fromtimestamp() raises OSError for these on Windows specifically, not
+    # just the ValueError/TypeError this used to only guard against. A
+    # single bad timestamp anywhere in a scraper's response must not lose
+    # the entire batch of otherwise-good jobs.
+    except (TypeError, ValueError, OverflowError, OSError):
         return ""
 
 

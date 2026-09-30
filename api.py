@@ -1173,7 +1173,15 @@ if __name__ == "__main__":
         flask_debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
         if flask_debug:
             logger.warning("FLASK_DEBUG is enabled - do not expose this server beyond localhost")
-        app.run(debug=flask_debug, port=5000)
+        # threaded=True: with 17 selectable scraper sources (several doing
+        # multi-page pagination with time.sleep(1) between pages), a single
+        # /api/fetch call can now take minutes. Werkzeug's dev server is
+        # single-threaded by default, which would freeze the ENTIRE app -
+        # every other endpoint, even the static page - for that whole
+        # duration. Safe to enable here since the one piece of shared
+        # mutable state (the in-memory jobs cache) already uses its own
+        # threading.Lock().
+        app.run(debug=flask_debug, port=5000, threaded=True)
     else:
         logger.error("Failed to initialize database. Please check:")
         logger.error("  - MySQL server is running")
