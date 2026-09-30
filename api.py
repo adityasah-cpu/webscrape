@@ -822,12 +822,21 @@ def match_resume() -> Any:
         if not file_storage or file_storage.filename == "":
             return jsonify({"success": False, "error": "No file selected"}), 400
 
+        original_filename = file_storage.filename
         try:
             resume_text = extract_text_from_resume(file_storage)
         except ValueError as ve:
+            logger.warning(f"Resume extraction failed for '{original_filename}': {ve}")
             return jsonify({"success": False, "error": str(ve)}), 400
 
+        logger.info(f"Resume '{original_filename}': extracted {len(resume_text)} characters")
+        # First 150 chars only, and only at DEBUG level - resume content is
+        # personal data, so this never appears in the default INFO-level
+        # console output, only if someone explicitly turns DEBUG logging on.
+        logger.debug(f"Resume '{original_filename}' text preview: {resume_text[:150]!r}")
+
         if len(resume_text) < MIN_RESUME_TEXT_CHARS:
+            logger.warning(f"Resume '{original_filename}': only {len(resume_text)} chars extracted, below the {MIN_RESUME_TEXT_CHARS}-char minimum")
             return jsonify({
                 "success": False,
                 "error": "Could not extract enough readable text from this resume. "
@@ -847,6 +856,9 @@ def match_resume() -> Any:
                 "error": "experience_level is required and must be 'fresher' or 'experienced'"
             }), 400
 
+        resume_domains = extract_resume_keywords(resume_text)
+        logger.info(f"Resume '{original_filename}': detected domains {resume_domains}, experience_level={experience_level}")
+
         all_jobs = load_jobs_from_db()
         if experience_level == "fresher":
             candidate_jobs = [j for j in all_jobs if is_fresher_job(j)]
@@ -854,12 +866,13 @@ def match_resume() -> Any:
             candidate_jobs = [j for j in all_jobs if is_experienced_job(j)]
 
         if not candidate_jobs:
+            logger.info(f"Resume '{original_filename}': no {experience_level} jobs in the DB to match against")
             return jsonify({
                 "success": True,
                 "matches": [],
                 "total_jobs_considered": 0,
                 "experience_level": experience_level,
-                "resume_domains": extract_resume_keywords(resume_text),
+                "resume_domains": resume_domains,
                 "message": f"No {experience_level} jobs available yet. Fetch jobs first, then upload your resume."
             })
 
@@ -877,12 +890,19 @@ def match_resume() -> Any:
         scored = score_job_match(resume_text, candidate_jobs)
         top_matches = scored[:top_n]
 
+        if top_matches:
+            top = top_matches[0]
+            logger.info(
+                f"Resume '{original_filename}': matched against {len(candidate_jobs)} {experience_level} jobs, "
+                f"top result '{top['title']}' @ {top.get('company')} ({top['match_score']}%)"
+            )
+
         return jsonify({
             "success": True,
             "matches": top_matches,
             "total_jobs_considered": len(candidate_jobs),
             "experience_level": experience_level,
-            "resume_domains": extract_resume_keywords(resume_text),
+            "resume_domains": resume_domains,
             "resume_chars_extracted": len(resume_text)
         })
 
