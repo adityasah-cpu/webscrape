@@ -365,6 +365,17 @@ def is_fresher_job(job: Dict[str, Any]) -> bool:
     # This ensures ONLY genuine fresher/internship jobs are shown
     return False
 
+def is_experienced_job(job: Dict[str, Any]) -> bool:
+    """Detect if a job is suitable for an experienced candidate.
+
+    Defined as the complement of is_fresher_job() so every job lands in
+    exactly one bucket: a listing either explicitly targets freshers/
+    interns (is_fresher_job), or it doesn't - and a listing with no
+    experience signal at all is treated as open to experienced candidates
+    by default, since that's the norm for real-world job postings that
+    don't call out "fresher" explicitly."""
+    return not is_fresher_job(job)
+
 # Domain keywords mapping - shared with resume matching
 DOMAIN_KEYWORDS = {
     'AIML': [
@@ -430,15 +441,17 @@ def filter_jobs(
     work_type: str = "",
     country: str = "",
     job_type: str = "",
-    fresher_only: bool = False,
+    experience_level: str = "",
     page: int = 1,
     limit: int = 20,
 ) -> Dict[str, Any]:
     """Filter jobs based on criteria"""
     filtered = all_jobs
 
-    if fresher_only:
+    if experience_level == "fresher":
         filtered = [j for j in filtered if is_fresher_job(j)]
+    elif experience_level == "experienced":
+        filtered = [j for j in filtered if is_experienced_job(j)]
 
     if keyword:
         keyword = keyword.lower()
@@ -692,22 +705,36 @@ def score_job_match(resume_text: str, jobs: List[Dict[str, Any]]) -> List[Dict[s
 
 @app.route("/api/sources", methods=["GET"])
 def get_sources() -> Any:
-    """Get all available sources"""
+    """Get all available sources, grouped to match remote_job_scraper.SCRAPERS"""
     sources = {
         "remote_boards": [
             {"id": "remotive", "name": "Remotive", "status": "✅"},
             {"id": "remoteok", "name": "RemoteOK", "status": "✅"},
             {"id": "himalayas", "name": "Himalayas", "status": "✅"},
-        ],
-        "freshers": [
-            {"id": "internshala", "name": "Internshala", "status": "✅"},
-            {"id": "firstnaukri", "name": "FirstNaukri", "status": "✅"},
+            {"id": "jobicy", "name": "Jobicy", "status": "✅"},
+            {"id": "weworkremotely", "name": "WeWorkRemotely", "status": "✅"},
         ],
         "all_jobs": [
             {"id": "arbeitnow", "name": "Arbeitnow", "status": "✅"},
+            {"id": "adzuna", "name": "Adzuna (India)", "status": "✅",
+             "note": "Requires free ADZUNA_APP_ID/ADZUNA_APP_KEY in .env"},
         ],
-        "career_pages": [],
-        "developer_jobs": []
+        "freshers": [
+            {"id": "internshala", "name": "Internshala", "status": "✅"},
+            {"id": "unstop", "name": "Unstop", "status": "✅"},
+            {"id": "firstnaukri", "name": "FirstNaukri", "status": "✅"},
+            {"id": "angellist", "name": "AngelList/Wellfound", "status": "✅"},
+        ],
+        "developer_jobs": [
+            {"id": "devto", "name": "Dev.to", "status": "✅"},
+            {"id": "upwork", "name": "Upwork", "status": "✅"},
+            {"id": "toptal", "name": "Toptal", "status": "✅"},
+        ],
+        "career_pages": [
+            {"id": "greenhouse", "name": "Greenhouse", "status": "✅"},
+            {"id": "lever", "name": "Lever", "status": "✅"},
+            {"id": "ashby", "name": "Ashby", "status": "✅"},
+        ],
     }
     return jsonify(sources)
 
@@ -743,12 +770,15 @@ def fetch_jobs() -> Any:
         jobs = rjs.dedupe(all_jobs)
         logger.info(f"Total unique jobs after deduplication: {len(jobs)}")
 
-        # Filter to keep only fresher jobs
-        fresher_jobs = [j for j in jobs if is_fresher_job(j)]
-        logger.info(f"Filtered to fresher jobs: {len(fresher_jobs)} jobs")
+        # Store both fresher and experienced roles - the fresher/experienced
+        # split now happens at query/match time (see is_fresher_job /
+        # is_experienced_job), not by discarding one bucket at fetch time.
+        fresher_count = sum(1 for j in jobs if is_fresher_job(j))
+        experienced_count = len(jobs) - fresher_count
+        logger.info(f"Fresher/internship: {fresher_count}, Experienced: {experienced_count}")
 
         # Add timestamps and domain detection to new jobs
-        for job in fresher_jobs:
+        for job in jobs:
             if 'added_at' not in job:
                 job['added_at'] = datetime.now().isoformat()
             # Add domain detection
@@ -756,7 +786,7 @@ def fetch_jobs() -> Any:
                 job['domains'] = detect_job_domain(job)
 
         # Save to database
-        save_jobs_to_db(fresher_jobs)
+        save_jobs_to_db(jobs)
 
         stats = get_statistics()
 
@@ -765,7 +795,9 @@ def fetch_jobs() -> Any:
             "jobs_count": len(jobs),
             "inserted": len(jobs),
             "skipped": 0,
-            "total_stored": len(fresher_jobs),
+            "total_stored": len(jobs),
+            "fresher_count": fresher_count,
+            "experienced_count": experienced_count,
             "status": status,
             "stats": stats,
             "last_fetch": datetime.now().isoformat()
@@ -802,14 +834,33 @@ def match_resume() -> Any:
                          "Try a different file (avoid scanned/image-only PDFs)."
             }), 422
 
+        # The candidate must say whether they're a fresher or experienced,
+        # since that determines which pool of stored jobs (fresher-only vs
+        # experienced-only) they get matched against - accepted from either
+        # the form body or a query param for flexibility.
+        experience_level = (request.form.get("experience_level")
+                             or request.args.get("experience_level")
+                             or "").strip().lower()
+        if experience_level not in ("fresher", "experienced"):
+            return jsonify({
+                "success": False,
+                "error": "experience_level is required and must be 'fresher' or 'experienced'"
+            }), 400
+
         all_jobs = load_jobs_from_db()
-        if not all_jobs:
+        if experience_level == "fresher":
+            candidate_jobs = [j for j in all_jobs if is_fresher_job(j)]
+        else:
+            candidate_jobs = [j for j in all_jobs if is_experienced_job(j)]
+
+        if not candidate_jobs:
             return jsonify({
                 "success": True,
                 "matches": [],
                 "total_jobs_considered": 0,
+                "experience_level": experience_level,
                 "resume_domains": extract_resume_keywords(resume_text),
-                "message": "No jobs available yet. Fetch jobs first, then upload your resume."
+                "message": f"No {experience_level} jobs available yet. Fetch jobs first, then upload your resume."
             })
 
         # Validate and bound top_n parameter
@@ -823,13 +874,14 @@ def match_resume() -> Any:
             top_n = 20
             logger.warning("Invalid top_n parameter, using default value of 20")
 
-        scored = score_job_match(resume_text, all_jobs)
+        scored = score_job_match(resume_text, candidate_jobs)
         top_matches = scored[:top_n]
 
         return jsonify({
             "success": True,
             "matches": top_matches,
-            "total_jobs_considered": len(all_jobs),
+            "total_jobs_considered": len(candidate_jobs),
+            "experience_level": experience_level,
             "resume_domains": extract_resume_keywords(resume_text),
             "resume_chars_extracted": len(resume_text)
         })
@@ -849,7 +901,11 @@ def get_jobs() -> Any:
         job_type = request.args.get("job_type", "")
         sources = request.args.get("sources", "")
         domain = request.args.get("domain", "")
-        fresher_only = request.args.get("fresher", "").lower() == "true"
+        # "fresher" | "experienced" | "" (all). Also accept the old boolean
+        # ?fresher=true param for backward compatibility.
+        experience_level = request.args.get("experience_level", "").lower()
+        if not experience_level and request.args.get("fresher", "").lower() == "true":
+            experience_level = "fresher"
 
         # Bounds-check page/limit: negative page numbers previously fed
         # Python's negative-index list slicing and silently returned
@@ -881,7 +937,7 @@ def get_jobs() -> Any:
                 for keyword in india_keywords
             )]
 
-        result = filter_jobs(all_jobs, keyword, work_type, country, job_type, fresher_only, page, limit)
+        result = filter_jobs(all_jobs, keyword, work_type, country, job_type, experience_level, page, limit)
         result["from_cache"] = False
         result["storage"] = "mysql"
 

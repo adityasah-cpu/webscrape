@@ -197,10 +197,30 @@ def test_match_resume_too_little_text_returns_422(client):
     assert res.status_code == 422
 
 
+def test_match_resume_missing_experience_level_returns_400(client, mocker, sample_jobs):
+    """Regression test: the candidate must say whether they're a fresher or
+    experienced - this determines which pool of stored jobs they get
+    matched against."""
+    mocker.patch.object(api_module, "load_jobs_from_db", return_value=sample_jobs)
+    resume_text = b"Machine learning engineer with TensorFlow experience. " * 3
+    data = {"resume": (io.BytesIO(resume_text), "resume.txt")}
+    res = client.post("/api/match-resume", data=data, content_type="multipart/form-data")
+    assert res.status_code == 400
+    assert "experience_level" in res.get_json()["error"]
+
+
+def test_match_resume_invalid_experience_level_returns_400(client, mocker, sample_jobs):
+    mocker.patch.object(api_module, "load_jobs_from_db", return_value=sample_jobs)
+    resume_text = b"Machine learning engineer with TensorFlow experience. " * 3
+    data = {"resume": (io.BytesIO(resume_text), "resume.txt"), "experience_level": "expert"}
+    res = client.post("/api/match-resume", data=data, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+
 def test_match_resume_no_jobs_in_db_returns_empty_matches(client, mocker):
     mocker.patch.object(api_module, "load_jobs_from_db", return_value=[])
     resume_text = b"Machine learning engineer with TensorFlow and PyTorch experience. " * 3
-    data = {"resume": (io.BytesIO(resume_text), "resume.txt")}
+    data = {"resume": (io.BytesIO(resume_text), "resume.txt"), "experience_level": "fresher"}
     res = client.post("/api/match-resume", data=data, content_type="multipart/form-data")
     assert res.status_code == 200
     body = res.get_json()
@@ -209,33 +229,62 @@ def test_match_resume_no_jobs_in_db_returns_empty_matches(client, mocker):
     assert "message" in body
 
 
-def test_match_resume_happy_path_ranks_relevant_job_first(client, mocker, sample_jobs):
+def test_match_resume_fresher_mode_only_matches_against_fresher_jobs(client, mocker, sample_jobs):
+    """sample_jobs has 2 fresher-classified jobs (Machine Learning Fresher,
+    Data Analyst Intern) and 2 experienced-classified jobs (Senior
+    Blockchain Engineer, Marketing Coordinator) - fresher mode must only
+    rank/consider the fresher subset."""
     mocker.patch.object(api_module, "load_jobs_from_db", return_value=sample_jobs)
     resume_text = (
         b"Machine learning engineer with deep learning, TensorFlow, PyTorch, "
         b"and artificial intelligence experience."
     )
-    data = {"resume": (io.BytesIO(resume_text), "resume.txt")}
+    data = {
+        "resume": (io.BytesIO(resume_text), "resume.txt"),
+        "experience_level": "fresher",
+    }
     res = client.post("/api/match-resume", data=data, content_type="multipart/form-data")
     assert res.status_code == 200
     body = res.get_json()
     assert body["success"] is True
-    assert body["total_jobs_considered"] == len(sample_jobs)
+    assert body["experience_level"] == "fresher"
+    assert body["total_jobs_considered"] == 2
     assert body["matches"][0]["title"] == "Machine Learning Fresher"
+    titles = [m["title"] for m in body["matches"]]
+    assert "Senior Blockchain Engineer" not in titles
+    assert "Marketing Coordinator" not in titles
+
+
+def test_match_resume_experienced_mode_only_matches_against_experienced_jobs(client, mocker, sample_jobs):
+    mocker.patch.object(api_module, "load_jobs_from_db", return_value=sample_jobs)
+    resume_text = b"Senior blockchain engineer with smart contract experience. " * 3
+    data = {
+        "resume": (io.BytesIO(resume_text), "resume.txt"),
+        "experience_level": "experienced",
+    }
+    res = client.post("/api/match-resume", data=data, content_type="multipart/form-data")
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["success"] is True
+    assert body["experience_level"] == "experienced"
+    assert body["total_jobs_considered"] == 2
+    titles = [m["title"] for m in body["matches"]]
+    assert "Machine Learning Fresher" not in titles
+    assert "Data Analyst Intern" not in titles
 
 
 def test_match_resume_top_n_is_capped_at_100(client, mocker, sample_jobs):
     mocker.patch.object(api_module, "load_jobs_from_db", return_value=sample_jobs)
     resume_text = b"Machine learning engineer with TensorFlow experience. " * 3
-    data = {"resume": (io.BytesIO(resume_text), "resume.txt")}
+    data = {"resume": (io.BytesIO(resume_text), "resume.txt"), "experience_level": "fresher"}
     res = client.post(
         "/api/match-resume?top_n=99999", data=data, content_type="multipart/form-data"
     )
     assert res.status_code == 200
-    # sample_jobs only has 4 entries, so this proves no error/crash from the
-    # oversized top_n rather than proving the exact cap (see test_helpers for
-    # the direct bounds-checking behavior).
-    assert len(res.get_json()["matches"]) == len(sample_jobs)
+    # sample_jobs only has 2 fresher-classified entries, so this proves no
+    # error/crash from the oversized top_n rather than proving the exact
+    # cap (see test_helpers for the direct bounds-checking behavior).
+    assert len(res.get_json()["matches"]) == 2
 
 
 # ---------------- / (index) ----------------
@@ -307,15 +356,21 @@ def test_fetch_jobs_scrapes_dedupes_filters_and_saves(client, mocker):
     assert res.status_code == 200
     body = res.get_json()
     assert body["success"] is True
-    assert body["jobs_count"] == 2  # both jobs scraped before fresher filtering
-    assert body["total_stored"] == 1  # only the fresher job passes is_fresher_job
+    assert body["jobs_count"] == 2
+    # Both fresher AND experienced jobs are now stored - the split happens
+    # at query/match time, not by discarding one bucket at fetch time.
+    assert body["total_stored"] == 2
+    assert body["fresher_count"] == 1
+    assert body["experienced_count"] == 1
     assert body["status"]["testsource"]["success"] is True
 
-    # Only the fresher job should have been handed to save_jobs_to_db
+    # Both jobs should have been handed to save_jobs_to_db, each tagged
+    # with domains via detect_job_domain()
     saved_jobs = save_mock.call_args[0][0]
-    assert len(saved_jobs) == 1
-    assert saved_jobs[0]["title"] == "Fresher Backend Intern"
-    assert saved_jobs[0]["domains"] == ["General"]  # detect_job_domain() applied
+    assert len(saved_jobs) == 2
+    titles = {j["title"] for j in saved_jobs}
+    assert titles == {"Fresher Backend Intern", "Senior Backend Engineer"}
+    assert all(j["domains"] == ["General"] for j in saved_jobs)
 
 
 def test_fetch_jobs_continues_when_one_scraper_fails(client, mocker):

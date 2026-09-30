@@ -49,6 +49,45 @@ class TestIsFresherJob:
         assert api_module.is_fresher_job(job) is True
 
 
+class TestIsExperiencedJob:
+    """is_experienced_job is defined as the complement of is_fresher_job,
+    so every job lands in exactly one bucket."""
+
+    def test_senior_role_is_experienced(self):
+        job = {"title": "Senior Software Engineer", "category": "", "description": ""}
+        assert api_module.is_experienced_job(job) is True
+
+    def test_years_of_experience_role_is_experienced(self):
+        job = {"title": "Backend Developer", "category": "", "description": "5+ years experience required"}
+        assert api_module.is_experienced_job(job) is True
+
+    def test_fresher_role_is_not_experienced(self):
+        job = {"title": "Fresher Software Engineer", "category": "", "description": ""}
+        assert api_module.is_experienced_job(job) is False
+
+    def test_internship_is_not_experienced(self):
+        job = {"title": "Data Analyst Intern", "category": "Internship", "description": ""}
+        assert api_module.is_experienced_job(job) is False
+
+    def test_no_markers_at_all_defaults_to_experienced(self):
+        """A generic listing with no fresher/experience signal at all is
+        treated as open to experienced candidates by default - that's the
+        norm for real-world postings that don't explicitly call out
+        'fresher'."""
+        job = {"title": "Software Engineer", "category": "Engineering", "description": ""}
+        assert api_module.is_experienced_job(job) is True
+
+    def test_every_job_is_exactly_one_of_fresher_or_experienced(self):
+        jobs = [
+            {"title": "Fresher Software Engineer", "category": "", "description": ""},
+            {"title": "Senior Software Engineer", "category": "", "description": ""},
+            {"title": "Software Engineer", "category": "", "description": ""},
+            {"title": "Graduate Trainee", "category": "", "description": ""},
+        ]
+        for job in jobs:
+            assert api_module.is_fresher_job(job) != api_module.is_experienced_job(job)
+
+
 # ---------------- detect_job_domain ----------------
 
 class TestDetectJobDomain:
@@ -138,10 +177,15 @@ class TestScoreJobMatch:
 # ---------------- filter_jobs ----------------
 
 class TestFilterJobs:
-    def test_fresher_only_filters_out_senior_roles(self, sample_jobs):
-        result = api_module.filter_jobs(sample_jobs, fresher_only=True, limit=50)
+    def test_fresher_experience_level_filters_out_senior_roles(self, sample_jobs):
+        result = api_module.filter_jobs(sample_jobs, experience_level="fresher", limit=50)
         titles = [j["title"] for j in result["jobs"]]
         assert "Senior Blockchain Engineer" not in titles
+
+    def test_experienced_experience_level_includes_senior_roles(self, sample_jobs):
+        result = api_module.filter_jobs(sample_jobs, experience_level="experienced", limit=50)
+        titles = [j["title"] for j in result["jobs"]]
+        assert "Senior Blockchain Engineer" in titles
 
     def test_keyword_filters_by_title_or_company(self, sample_jobs):
         result = api_module.filter_jobs(sample_jobs, keyword="datacorp", limit=50)

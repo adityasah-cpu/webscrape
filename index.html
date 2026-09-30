@@ -536,6 +536,37 @@
             padding: 8px 0;
         }
 
+        .experience-level-toggle {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .exp-radio {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            transition: all 0.15s ease;
+        }
+
+        .exp-radio:has(input:checked) {
+            border-color: var(--primary);
+            background: var(--primary-light);
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+
+        .exp-radio input {
+            accent-color: var(--primary);
+        }
+
         .analytics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -1007,7 +1038,7 @@
                 <div class="sidebar-title-text">JobHub</div>
             </div>
 
-            <div class="sidebar-section-title">Remote-only Boards</div>
+            <div class="sidebar-section-title">🌍 Remote-only Boards</div>
             <div class="source-item">
                 <input type="checkbox" id="remotive" value="remotive" class="source-item input">
                 <label for="remotive">Remotive</label>
@@ -1020,27 +1051,85 @@
                 <input type="checkbox" id="himalayas" value="himalayas" class="source-item input">
                 <label for="himalayas">Himalayas</label>
             </div>
+            <div class="source-item">
+                <input type="checkbox" id="jobicy" value="jobicy" class="source-item input">
+                <label for="jobicy">Jobicy</label>
+            </div>
+            <div class="source-item">
+                <input type="checkbox" id="weworkremotely" value="weworkremotely" class="source-item input">
+                <label for="weworkremotely">WeWorkRemotely</label>
+            </div>
 
-            <div class="sidebar-section-title">Freshers & Internships</div>
+            <div class="sidebar-section-title">🌐 All Jobs (Remote + Onsite)</div>
+            <div class="source-item">
+                <input type="checkbox" id="arbeitnow" value="arbeitnow" class="source-item input">
+                <label for="arbeitnow">Arbeitnow</label>
+            </div>
+            <div class="source-item">
+                <input type="checkbox" id="adzuna" value="adzuna" class="source-item input">
+                <label for="adzuna" title="Requires free ADZUNA_APP_ID/ADZUNA_APP_KEY in .env">Adzuna (India) ⓘ</label>
+            </div>
+
+            <div class="sidebar-section-title">🇮🇳 India — Freshers & Internships</div>
             <div class="source-item">
                 <input type="checkbox" id="internshala" value="internshala" class="source-item input">
                 <label for="internshala">Internshala</label>
             </div>
             <div class="source-item">
+                <input type="checkbox" id="unstop" value="unstop" class="source-item input">
+                <label for="unstop">Unstop</label>
+            </div>
+            <div class="source-item">
                 <input type="checkbox" id="firstnaukri" value="firstnaukri" class="source-item input">
                 <label for="firstnaukri">FirstNaukri</label>
             </div>
-
-            <div class="sidebar-section-title">General Jobs</div>
             <div class="source-item">
-                <input type="checkbox" id="arbeitnow" value="arbeitnow" class="source-item input">
-                <label for="arbeitnow">Arbeitnow</label>
+                <input type="checkbox" id="angellist" value="angellist" class="source-item input">
+                <label for="angellist">AngelList/Wellfound</label>
+            </div>
+
+            <div class="sidebar-section-title">💻 Developer & Freelance</div>
+            <div class="source-item">
+                <input type="checkbox" id="devto" value="devto" class="source-item input">
+                <label for="devto">Dev.to</label>
+            </div>
+            <div class="source-item">
+                <input type="checkbox" id="upwork" value="upwork" class="source-item input">
+                <label for="upwork">Upwork</label>
+            </div>
+            <div class="source-item">
+                <input type="checkbox" id="toptal" value="toptal" class="source-item input">
+                <label for="toptal">Toptal</label>
+            </div>
+
+            <div class="sidebar-section-title">🏢 Company Career Pages</div>
+            <div class="source-item">
+                <input type="checkbox" id="greenhouse" value="greenhouse" class="source-item input">
+                <label for="greenhouse">Greenhouse</label>
+            </div>
+            <div class="source-item">
+                <input type="checkbox" id="lever" value="lever" class="source-item input">
+                <label for="lever">Lever</label>
+            </div>
+            <div class="source-item">
+                <input type="checkbox" id="ashby" value="ashby" class="source-item input">
+                <label for="ashby">Ashby</label>
             </div>
 
             <div class="sidebar-section-title">📄 Resume Matching</div>
             <div class="resume-upload-box">
+                <div class="experience-level-toggle">
+                    <label class="exp-radio">
+                        <input type="radio" name="experienceLevel" value="fresher" id="expFresher">
+                        <span>🎓 Fresher (0-1 yrs)</span>
+                    </label>
+                    <label class="exp-radio">
+                        <input type="radio" name="experienceLevel" value="experienced" id="expExperienced">
+                        <span>💼 Experienced</span>
+                    </label>
+                </div>
                 <input type="file" id="resumeInput" accept=".pdf,.docx,.txt" style="display:none" onchange="handleResumeFileSelected()">
-                <button class="fetch-btn" onclick="document.getElementById('resumeInput').click()" id="resumeUploadBtn">
+                <button class="fetch-btn" onclick="triggerResumeUpload()" id="resumeUploadBtn">
                     📄 Upload Resume
                 </button>
                 <div id="resumeFileName" style="font-size:12px; color:#888; margin-top:6px;"></div>
@@ -1129,6 +1218,14 @@
                 <div class="filter-group">
                     <span class="filter-label">🌏 Region</span>
                     <input type="text" id="filterCountry" class="filter-input" placeholder="e.g., India, USA" onkeyup="renderJobs()">
+                </div>
+                <div class="filter-group">
+                    <span class="filter-label">👤 Experience</span>
+                    <select id="filterExperienceLevel" class="filter-input" onchange="renderJobs()">
+                        <option value="">All Levels</option>
+                        <option value="fresher">🎓 Fresher (0-1 yrs)</option>
+                        <option value="experienced">💼 Experienced</option>
+                    </select>
                 </div>
             </div>
 
@@ -1297,9 +1394,20 @@
                 "remotive": "Remotive",
                 "remoteok": "RemoteOK",
                 "himalayas": "Himalayas",
+                "jobicy": "Jobicy",
+                "weworkremotely": "WeWorkRemotely",
+                "arbeitnow": "Arbeitnow",
+                "adzuna": "Adzuna",
                 "internshala": "Internshala",
+                "unstop": "Unstop",
                 "firstnaukri": "FirstNaukri",
-                "arbeitnow": "Arbeitnow"
+                "angellist": "AngelList",
+                "devto": "Dev.to",
+                "upwork": "Upwork",
+                "toptal": "Toptal",
+                "greenhouse": "Greenhouse",
+                "lever": "Lever",
+                "ashby": "Ashby"
             };
             return mapping[sourceId] || sourceId;
         }
@@ -1340,21 +1448,43 @@
         let recommendedJobs = [];
         let currentModalJob = null;
 
+        function getSelectedExperienceLevel() {
+            const checked = document.querySelector('input[name="experienceLevel"]:checked');
+            return checked ? checked.value : null;
+        }
+
+        function triggerResumeUpload() {
+            if (!getSelectedExperienceLevel()) {
+                alert("Please select whether you're a Fresher or Experienced before uploading your resume.");
+                return;
+            }
+            document.getElementById("resumeInput").click();
+        }
+
         function handleResumeFileSelected() {
             const input = document.getElementById("resumeInput");
             const file = input.files[0];
             if (!file) return;
+
+            const experienceLevel = getSelectedExperienceLevel();
+            if (!experienceLevel) {
+                alert("Please select whether you're a Fresher or Experienced before uploading your resume.");
+                input.value = "";
+                return;
+            }
+
             document.getElementById("resumeFileName").textContent = file.name;
-            uploadResumeAndMatch(file);
+            uploadResumeAndMatch(file, experienceLevel);
         }
 
-        async function uploadResumeAndMatch(file) {
+        async function uploadResumeAndMatch(file, experienceLevel) {
             const btn = document.getElementById("resumeUploadBtn");
             btn.disabled = true;
             btn.textContent = "⏳ Matching...";
 
             const formData = new FormData();
             formData.append("resume", file);
+            formData.append("experience_level", experienceLevel);
 
             try {
                 const res = await fetch(`${API}/match-resume`, { method: "POST", body: formData });
@@ -1393,7 +1523,8 @@
             }
 
             section.style.display = "block";
-            meta.textContent = `Detected skills: ${(data.resume_domains || []).join(", ")} · ranked from ${data.total_jobs_considered} jobs`;
+            const levelLabel = data.experience_level === "experienced" ? "💼 Experienced" : "🎓 Fresher";
+            meta.textContent = `${levelLabel} · Detected skills: ${(data.resume_domains || []).join(", ")} · ranked from ${data.total_jobs_considered} jobs`;
 
             tbody.innerHTML = recommendedJobs.map((job, idx) => {
                 const score = job.match_score ?? 0;
@@ -1535,11 +1666,12 @@
             const domain = document.getElementById("filterDomain").value;
             const workType = document.getElementById("filterWorkType").value;
             const country = document.getElementById("filterCountry").value;
+            const experienceLevel = document.getElementById("filterExperienceLevel").value;
 
             try {
                 const sourcesParam = selectedSources.length > 0 ? selectedSources.join(",") : "";
                 const res = await fetch(
-                    `${API}/jobs?page=1&limit=1000&domain=${encodeURIComponent(domain)}&work_type=${encodeURIComponent(workType)}&country=${encodeURIComponent(country)}&sources=${encodeURIComponent(sourcesParam)}`
+                    `${API}/jobs?page=1&limit=1000&domain=${encodeURIComponent(domain)}&work_type=${encodeURIComponent(workType)}&country=${encodeURIComponent(country)}&sources=${encodeURIComponent(sourcesParam)}&experience_level=${encodeURIComponent(experienceLevel)}`
                 );
                 const data = await res.json();
                 allJobs = data.jobs;
