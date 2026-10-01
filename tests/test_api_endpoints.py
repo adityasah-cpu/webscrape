@@ -348,7 +348,7 @@ def test_fetch_jobs_scrapes_dedupes_filters_and_saves(client, mocker):
 
     mocker.patch.object(rjs, "SCRAPERS", [fake_scraper])
     mocker.patch.object(rjs, "dedupe", side_effect=lambda jobs: jobs)
-    save_mock = mocker.patch.object(api_module, "save_jobs_to_db", return_value=True)
+    save_mock = mocker.patch.object(api_module, "save_jobs_to_db", return_value={"saved": 2, "failed": 0})
     mocker.patch.object(api_module, "load_jobs_from_db", return_value=[])
 
     res = client.post("/api/fetch", json={"sources": ["testsource"]})
@@ -360,6 +360,7 @@ def test_fetch_jobs_scrapes_dedupes_filters_and_saves(client, mocker):
     # Both fresher AND experienced jobs are now stored - the split happens
     # at query/match time, not by discarding one bucket at fetch time.
     assert body["total_stored"] == 2
+    assert body["failed_to_store"] == 0
     assert body["fresher_count"] == 1
     assert body["experienced_count"] == 1
     assert body["status"]["testsource"]["success"] is True
@@ -390,7 +391,7 @@ def test_fetch_jobs_continues_when_one_scraper_fails(client, mocker):
 
     mocker.patch.object(rjs, "SCRAPERS", [good_scraper, broken_scraper])
     mocker.patch.object(rjs, "dedupe", side_effect=lambda jobs: jobs)
-    mocker.patch.object(api_module, "save_jobs_to_db", return_value=True)
+    mocker.patch.object(api_module, "save_jobs_to_db", return_value={"saved": 1, "failed": 0})
     mocker.patch.object(api_module, "load_jobs_from_db", return_value=[])
 
     res = client.post("/api/fetch", json={"sources": ["good", "broken"]})
@@ -463,14 +464,42 @@ def _old_schema_columns():
     ]
 
 
+def _make_schema_cursor(mocker, column_names, indexes, column_widths):
+    """A mock cursor whose fetchall() return value depends on which of the
+    three migration queries init_db() just ran (columns-exist check,
+    SHOW INDEX, column-width check) - a single fixed fetchall() return
+    value can't support all three since init_db() now runs all of them."""
+    cursor = mocker.MagicMock()
+
+    def fetchall_side_effect():
+        sql = cursor.execute.call_args[0][0]
+        if "CHARACTER_MAXIMUM_LENGTH" in sql:
+            return list(column_widths.items())
+        if "INFORMATION_SCHEMA.COLUMNS" in sql:
+            return [(name,) for name in column_names]
+        if "SHOW INDEX" in sql:
+            # SHOW INDEX FROM jobs columns: Table, Non_unique, Key_name,
+            # Seq_in_index, Column_name, ... - code reads row[2] (Key_name)
+            return [(None, None, name, None, None) for name in indexes]
+        return []
+
+    cursor.fetchall.side_effect = fetchall_side_effect
+    return cursor
+
+
 def test_init_db_adds_missing_columns_to_legacy_table(mocker):
     mock_conn_for_db_create = mocker.MagicMock()
     mock_conn_for_table = mocker.MagicMock()
     mocker.patch.object(api_module.mysql.connector, "connect", return_value=mock_conn_for_db_create)
     mocker.patch.object(api_module, "get_db_connection", return_value=mock_conn_for_table)
 
-    cursor = mock_conn_for_table.cursor.return_value
-    cursor.fetchall.return_value = _old_schema_columns()
+    cursor = _make_schema_cursor(
+        mocker,
+        column_names=[c[0] for c in _old_schema_columns()],
+        indexes=["PRIMARY", "url"],  # idx_source/idx_work_type/idx_country missing
+        column_widths={"category": 100, "country": 100, "location": 255},  # narrow, like the real legacy table
+    )
+    mock_conn_for_table.cursor.return_value = cursor
 
     result = api_module.init_db()
 
@@ -479,6 +508,35 @@ def test_init_db_adds_missing_columns_to_legacy_table(mocker):
     assert any("ADD COLUMN start_date" in sql for sql in executed_sql)
     assert any("ADD COLUMN end_date" in sql for sql in executed_sql)
     assert any("ADD COLUMN domains" in sql for sql in executed_sql)
+    assert any("MODIFY COLUMN category VARCHAR(500)" in sql for sql in executed_sql)
+    assert any("MODIFY COLUMN country VARCHAR(500)" in sql for sql in executed_sql)
+    assert any("MODIFY COLUMN location VARCHAR(500)" in sql for sql in executed_sql)
+    assert any("ADD INDEX idx_source" in sql for sql in executed_sql)
+    assert any("ADD INDEX idx_work_type" in sql for sql in executed_sql)
+    assert any("ADD INDEX idx_country" in sql for sql in executed_sql)
+    # country had no pre-existing index, so DROP INDEX must NOT be attempted
+    assert not any("DROP INDEX idx_country" in sql for sql in executed_sql)
+
+
+def test_init_db_drops_and_recreates_country_index_when_already_present(mocker):
+    mock_conn_for_db_create = mocker.MagicMock()
+    mock_conn_for_table = mocker.MagicMock()
+    mocker.patch.object(api_module.mysql.connector, "connect", return_value=mock_conn_for_db_create)
+    mocker.patch.object(api_module, "get_db_connection", return_value=mock_conn_for_table)
+
+    cursor = _make_schema_cursor(
+        mocker,
+        column_names=[c[0] for c in _old_schema_columns()] + ["start_date", "end_date", "domains"],
+        indexes=["PRIMARY", "url", "idx_country"],
+        column_widths={"category": 500, "country": 100, "location": 500},
+    )
+    mock_conn_for_table.cursor.return_value = cursor
+
+    api_module.init_db()
+
+    executed_sql = [call.args[0] for call in cursor.execute.call_args_list]
+    assert any("DROP INDEX idx_country" in sql for sql in executed_sql)
+    assert any("MODIFY COLUMN country VARCHAR(500)" in sql for sql in executed_sql)
 
 
 def test_init_db_skips_alter_when_schema_already_current(mocker):
@@ -487,13 +545,21 @@ def test_init_db_skips_alter_when_schema_already_current(mocker):
     mocker.patch.object(api_module.mysql.connector, "connect", return_value=mock_conn_for_db_create)
     mocker.patch.object(api_module, "get_db_connection", return_value=mock_conn_for_table)
 
-    cursor = mock_conn_for_table.cursor.return_value
-    cursor.fetchall.return_value = _old_schema_columns() + [("start_date",), ("end_date",), ("domains",)]
+    cursor = _make_schema_cursor(
+        mocker,
+        column_names=[c[0] for c in _old_schema_columns()] + ["start_date", "end_date", "domains"],
+        indexes=["PRIMARY", "url", "idx_source", "idx_work_type", "idx_country"],
+        column_widths={"category": 500, "country": 500, "location": 500},
+    )
+    mock_conn_for_table.cursor.return_value = cursor
 
     api_module.init_db()
 
     executed_sql = [call.args[0] for call in cursor.execute.call_args_list]
     assert not any("ADD COLUMN" in sql for sql in executed_sql)
+    assert not any("MODIFY COLUMN" in sql for sql in executed_sql)
+    assert not any("ADD INDEX" in sql for sql in executed_sql)
+    assert not any("DROP INDEX" in sql for sql in executed_sql)
 
 
 # ---------------- DB helper functions (load_jobs_from_db / save_jobs_to_db) ----------------
@@ -545,13 +611,68 @@ def test_save_jobs_to_db_invalidates_cache_and_upserts(mocker):
     }
     result = api_module.save_jobs_to_db([job])
 
-    assert result is True
+    assert result == {"saved": 1, "failed": 0}
     spy.assert_called_once()
     mock_conn.cursor.return_value.execute.assert_called_once()
     query_used = mock_conn.cursor.return_value.execute.call_args[0][0]
     assert "domains = VALUES(domains)" in query_used  # regression: upsert must refresh domains
 
 
-def test_save_jobs_to_db_returns_false_on_connection_failure(mocker):
+def test_save_jobs_to_db_returns_failed_count_on_connection_failure(mocker):
     mocker.patch.object(api_module, "get_db_connection", return_value=None)
-    assert api_module.save_jobs_to_db([{"url": "x"}]) is False
+    result = api_module.save_jobs_to_db([{"url": "x"}])
+    assert result == {"saved": 0, "failed": 1}
+
+
+def test_save_jobs_to_db_counts_per_row_failures_separately_from_successes(mocker):
+    """Regression test: save_jobs_to_db used to return a bare True/False for
+    the whole batch, so /api/fetch's total_stored count (len(jobs)) didn't
+    reflect actual persistence - a job that failed to insert (e.g. 'Data
+    too long for column') silently vanished with no visible sign anywhere
+    that it hadn't actually been saved."""
+    mock_conn = mocker.MagicMock()
+    mocker.patch.object(api_module, "get_db_connection", return_value=mock_conn)
+    # First insert succeeds, second raises a MySQL error (as a real
+    # "Data too long for column" failure would)
+    mock_conn.cursor.return_value.execute.side_effect = [None, api_module.Error("Data too long for column 'category'")]
+
+    jobs = [
+        {"source": "A", "title": "Job 1", "company": "Acme", "url": "https://example.com/1", "domains": ["General"]},
+        {"source": "A", "title": "Job 2", "company": "Acme", "url": "https://example.com/2", "domains": ["General"]},
+    ]
+    result = api_module.save_jobs_to_db(jobs)
+    assert result == {"saved": 1, "failed": 1}
+
+
+def test_truncate_for_column_shortens_oversized_values():
+    long_value = "x" * 1000
+    assert len(api_module._truncate_for_column(long_value, "category")) == 500
+    assert len(api_module._truncate_for_column(long_value, "title")) == 255
+    assert api_module._truncate_for_column(None, "title") is None
+    assert api_module._truncate_for_column("short", "title") == "short"
+
+
+def test_save_jobs_to_db_truncates_oversized_fields_instead_of_losing_the_job(mocker):
+    """Regression test: widening a column only moves the 'Data too long'
+    failure to the next unusually long value - truncation at the
+    application layer means no future oversized value in any field can
+    silently lose a job again."""
+    mock_conn = mocker.MagicMock()
+    mocker.patch.object(api_module, "get_db_connection", return_value=mock_conn)
+
+    job = {
+        "source": "Test", "title": "x" * 1000, "company": "Acme",
+        "work_type": "Remote", "country": "y" * 1000, "location": "z" * 1000,
+        "job_type": "Internship", "category": "c" * 1000, "salary": "",
+        "date": "2026-01-01", "start_date": "", "end_date": "",
+        "url": "https://example.com/x", "domains": ["General"],
+    }
+    result = api_module.save_jobs_to_db([job])
+
+    assert result == {"saved": 1, "failed": 0}
+    bound_params = mock_conn.cursor.return_value.execute.call_args[0][1]
+    # title, country, location, category are params 1, 4, 5, 7 (0-indexed)
+    assert len(bound_params[1]) == 255  # title
+    assert len(bound_params[4]) == 500  # country
+    assert len(bound_params[5]) == 500  # location
+    assert len(bound_params[7]) == 500  # category

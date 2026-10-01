@@ -180,7 +180,14 @@ def init_db() -> bool:
 
         cursor = conn.cursor()
 
-        # Create jobs table
+        # Create jobs table. category/country/location are VARCHAR(500) -
+        # several scrapers join multiple tags/countries into one string
+        # (e.g. Himalayas' category list, multi-country postings), which
+        # was overflowing the original VARCHAR(100)/VARCHAR(255) limits and
+        # silently losing those jobs (MySQL error 1406, caught per-row and
+        # logged, never surfaced anywhere else). country keeps an index via
+        # a 100-char prefix (an index can't cover a full long VARCHAR within
+        # InnoDB's key-length limit, but exact/prefix lookups still work).
         create_table = """
         CREATE TABLE IF NOT EXISTS jobs (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -188,10 +195,10 @@ def init_db() -> bool:
             title VARCHAR(255),
             company VARCHAR(255),
             work_type VARCHAR(50),
-            country VARCHAR(255),
-            location VARCHAR(255),
+            country VARCHAR(500),
+            location VARCHAR(500),
             job_type VARCHAR(50),
-            category VARCHAR(100),
+            category VARCHAR(500),
             salary VARCHAR(100),
             date VARCHAR(50),
             start_date VARCHAR(50),
@@ -201,7 +208,7 @@ def init_db() -> bool:
             domains JSON,
             INDEX idx_source (source),
             INDEX idx_work_type (work_type),
-            INDEX idx_country (country),
+            INDEX idx_country (country(100)),
             INDEX idx_url (url)
         )
         """
@@ -228,6 +235,60 @@ def init_db() -> bool:
         for column_name, alter_sql in expected_columns.items():
             if column_name not in existing_columns:
                 logger.warning(f"Migrating schema: adding missing column '{column_name}' to jobs table")
+                cursor.execute(alter_sql)
+                conn.commit()
+
+        # Find which indexes actually exist - this table turns out to
+        # predate idx_source/idx_work_type/idx_country entirely (SHOW INDEX
+        # confirmed only PRIMARY and the url unique index are present), so
+        # any migration step here must check before dropping/assuming an
+        # index exists rather than crashing init_db() outright.
+        cursor.execute("SHOW INDEX FROM jobs")
+        existing_indexes = {row[2] for row in cursor.fetchall()}  # row[2] = Key_name
+
+        # Widen columns that were observed too narrow for real-world scraped
+        # data (category/country joined multi-value strings overflowing
+        # VARCHAR(100)/VARCHAR(255), silently losing those jobs on every
+        # insert attempt - MySQL error 1406). A table created before this
+        # fix keeps its original narrower widths forever otherwise, since
+        # CREATE TABLE IF NOT EXISTS never touches an existing table.
+        target_widths = {"category": 500, "country": 500, "location": 500}
+        cursor.execute(
+            "SELECT COLUMN_NAME, CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS "
+            "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'jobs' "
+            "AND COLUMN_NAME IN ('category', 'country', 'location')",
+            (MYSQL_CONFIG['database'],)
+        )
+        current_widths = {row[0]: row[1] for row in cursor.fetchall()}
+
+        for column_name, target_width in target_widths.items():
+            current = current_widths.get(column_name)
+            if current is not None and current < target_width:
+                logger.warning(
+                    f"Migrating schema: widening column '{column_name}' "
+                    f"from VARCHAR({current}) to VARCHAR({target_width})"
+                )
+                if column_name == "country" and "idx_country" in existing_indexes:
+                    # country carries an index; MySQL can't fully index a
+                    # VARCHAR(500) utf8mb4 column within InnoDB's key-length
+                    # limit, so drop and recreate it with a prefix length.
+                    cursor.execute("ALTER TABLE jobs DROP INDEX idx_country")
+                    cursor.execute(f"ALTER TABLE jobs MODIFY COLUMN country VARCHAR({target_width})")
+                    existing_indexes.discard("idx_country")  # recreated below
+                else:
+                    cursor.execute(f"ALTER TABLE jobs MODIFY COLUMN {column_name} VARCHAR({target_width})")
+                conn.commit()
+
+        # Ensure the indexes the code has always assumed exist actually do -
+        # same class of drift as the columns above.
+        expected_indexes = {
+            "idx_source": "ALTER TABLE jobs ADD INDEX idx_source (source)",
+            "idx_work_type": "ALTER TABLE jobs ADD INDEX idx_work_type (work_type)",
+            "idx_country": "ALTER TABLE jobs ADD INDEX idx_country (country(100))",
+        }
+        for index_name, alter_sql in expected_indexes.items():
+            if index_name not in existing_indexes:
+                logger.warning(f"Migrating schema: adding missing index '{index_name}' to jobs table")
                 cursor.execute(alter_sql)
                 conn.commit()
 
@@ -282,12 +343,40 @@ def load_jobs_from_db(use_cache: bool = True) -> List[Dict[str, Any]]:
         logger.error(f"Failed to load jobs from database: {e}")
         return []
 
-def save_jobs_to_db(jobs: List[Dict[str, Any]]) -> bool:
-    """Save jobs to MySQL database"""
+# Must match the jobs table's actual VARCHAR column widths. Values are
+# truncated to these lengths before insert as a defensive, permanent fix -
+# widening a column only moves the same "Data too long for column" failure
+# to the next unusually long value some scraper eventually produces (seen
+# in practice: one Himalayas job's joined location list still exceeded a
+# freshly-widened VARCHAR(500)). Truncating here means no future oversized
+# value, in any field, from any source, can ever silently lose a job again.
+_COLUMN_MAX_LENGTHS = {
+    "source": 100, "title": 255, "company": 255, "work_type": 50,
+    "country": 500, "location": 500, "job_type": 50, "category": 500,
+    "salary": 100, "date": 50, "start_date": 50, "end_date": 50, "url": 500,
+}
+
+def _truncate_for_column(value: Any, column: str) -> Any:
+    if value is None:
+        return value
+    max_len = _COLUMN_MAX_LENGTHS.get(column)
+    text = str(value)
+    if max_len and len(text) > max_len:
+        return text[:max_len]
+    return value
+
+def save_jobs_to_db(jobs: List[Dict[str, Any]]) -> Dict[str, int]:
+    """Save jobs to MySQL database. Returns {"saved": N, "failed": N} so
+    callers can tell actual persistence success from attempted count -
+    per-row failures (e.g. a value too long for a column) are caught and
+    logged per job, but previously vanished silently since the caller only
+    ever saw a bare True/False for the whole batch."""
+    result = {"saved": 0, "failed": 0}
     try:
         conn = get_db_connection()
         if not conn:
-            return False
+            result["failed"] = len(jobs)
+            return result
 
         cursor = conn.cursor()
 
@@ -307,26 +396,39 @@ def save_jobs_to_db(jobs: List[Dict[str, Any]]) -> bool:
                     domains = VALUES(domains), added_at = NOW()
                 """
                 cursor.execute(insert_query, (
-                    job.get('source'), job.get('title'), job.get('company'),
-                    job.get('work_type'), job.get('country'), job.get('location'),
-                    job.get('job_type'), job.get('category'), job.get('salary'),
-                    job.get('date'), job.get('start_date'), job.get('end_date'),
-                    job.get('url'), domains, datetime.now()
+                    _truncate_for_column(job.get('source'), 'source'),
+                    _truncate_for_column(job.get('title'), 'title'),
+                    _truncate_for_column(job.get('company'), 'company'),
+                    _truncate_for_column(job.get('work_type'), 'work_type'),
+                    _truncate_for_column(job.get('country'), 'country'),
+                    _truncate_for_column(job.get('location'), 'location'),
+                    _truncate_for_column(job.get('job_type'), 'job_type'),
+                    _truncate_for_column(job.get('category'), 'category'),
+                    _truncate_for_column(job.get('salary'), 'salary'),
+                    _truncate_for_column(job.get('date'), 'date'),
+                    _truncate_for_column(job.get('start_date'), 'start_date'),
+                    _truncate_for_column(job.get('end_date'), 'end_date'),
+                    _truncate_for_column(job.get('url'), 'url'),
+                    domains, datetime.now()
                 ))
+                result["saved"] += 1
             except Error as e:
+                result["failed"] += 1
                 logger.error(f"Failed to insert job {job.get('url')}: {e}")
 
         conn.commit()
         cursor.close()
         conn.close()
         invalidate_jobs_cache()
-        return True
+        return result
     except Error as e:
         logger.error(f"Failed to save jobs to database: {e}")
-        return False
+        result["failed"] = len(jobs) - result["saved"]
+        return result
     except Exception as e:
         logger.error(f"Unexpected error while saving jobs: {e}")
-        return False
+        result["failed"] = len(jobs) - result["saved"]
+        return result
 
 def is_fresher_job(job: Dict[str, Any]) -> bool:
     """Detect if a job is ONLY for freshers/entry-level (0-1 years) or internships"""
@@ -786,7 +888,12 @@ def fetch_jobs() -> Any:
                 job['domains'] = detect_job_domain(job)
 
         # Save to database
-        save_jobs_to_db(jobs)
+        save_result = save_jobs_to_db(jobs)
+        if save_result["failed"]:
+            logger.warning(
+                f"{save_result['failed']} of {len(jobs)} jobs failed to save "
+                f"(see per-job 'Failed to insert job' errors above for why)"
+            )
 
         stats = get_statistics()
 
@@ -795,7 +902,8 @@ def fetch_jobs() -> Any:
             "jobs_count": len(jobs),
             "inserted": len(jobs),
             "skipped": 0,
-            "total_stored": len(jobs),
+            "total_stored": save_result["saved"],
+            "failed_to_store": save_result["failed"],
             "fresher_count": fresher_count,
             "experienced_count": experienced_count,
             "status": status,
