@@ -10,6 +10,7 @@ Run:
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import remote_job_scraper as rjs
+import enggroom_scraper
 import json
 import re
 from datetime import datetime, timedelta
@@ -368,6 +369,24 @@ def init_db() -> bool:
                 cursor.execute(alter_sql)
                 conn.commit()
 
+        # Resource index table - stores only metadata (discipline, resource
+        # type, title, link back to the source site), never the actual
+        # downloadable project content hosted there.
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS resources (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            source VARCHAR(100),
+            discipline VARCHAR(100),
+            resource_type VARCHAR(100),
+            title VARCHAR(255),
+            url VARCHAR(500) UNIQUE,
+            added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_discipline (discipline),
+            INDEX idx_resource_type (resource_type)
+        )
+        """)
+        conn.commit()
+
         cursor.close()
         conn.close()
         logger.info("Database initialized successfully")
@@ -509,6 +528,59 @@ def save_jobs_to_db(jobs: List[Dict[str, Any]]) -> Dict[str, int]:
         logger.error(f"Unexpected error while saving jobs: {e}")
         result["failed"] = len(jobs) - result["saved"]
         return result
+
+def save_resources_to_db(resources: List[Dict[str, Any]]) -> Dict[str, int]:
+    """Save resource index entries (metadata only) to MySQL."""
+    result = {"saved": 0, "failed": 0}
+    try:
+        conn = get_db_connection()
+        if not conn:
+            result["failed"] = len(resources)
+            return result
+
+        cursor = conn.cursor()
+        for r in resources:
+            try:
+                cursor.execute("""
+                    INSERT INTO resources (source, discipline, resource_type, title, url, added_at)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        source = VALUES(source), discipline = VALUES(discipline),
+                        resource_type = VALUES(resource_type), title = VALUES(title),
+                        added_at = NOW()
+                """, (
+                    r.get('source'), r.get('discipline'), r.get('resource_type'),
+                    r.get('title'), r.get('url'), datetime.now()
+                ))
+                result["saved"] += 1
+            except Error as e:
+                result["failed"] += 1
+                logger.error(f"Failed to insert resource {r.get('url')}: {e}")
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return result
+    except Error as e:
+        logger.error(f"Failed to save resources to database: {e}")
+        result["failed"] = len(resources) - result["saved"]
+        return result
+
+def load_resources_from_db() -> List[Dict[str, Any]]:
+    """Load all resource index entries from MySQL."""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return []
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM resources ORDER BY discipline, resource_type")
+        resources = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return resources
+    except Error as e:
+        logger.error(f"Failed to load resources from database: {e}")
+        return []
 
 def is_fresher_job(job: Dict[str, Any]) -> bool:
     """Detect if a job is ONLY for freshers/entry-level (0-1 years) or internships"""
@@ -903,6 +975,41 @@ def score_job_match(resume_text: str, jobs: List[Dict[str, Any]]) -> List[Dict[s
     return scored
 
 # ============ API ENDPOINTS ============
+
+@app.route("/api/resources/fetch", methods=["POST"])
+@limiter.limit("5 per minute")
+def fetch_resources() -> Any:
+    """Pull the EnggRoom resource index (discipline/resource-type/title/link
+    metadata only - not the underlying project content) and store it."""
+    try:
+        resources = enggroom_scraper.scrape_enggroom_resources()
+        result = save_resources_to_db(resources)
+        return jsonify({
+            "success": True,
+            "fetched": len(resources),
+            "saved": result["saved"],
+            "failed": result["failed"],
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch resources: {e}")
+        return jsonify({"success": False, "error": "Failed to fetch resources. Please try again."}), 500
+
+
+@app.route("/api/resources", methods=["GET"])
+def get_resources() -> Any:
+    """List the stored resource index, optionally filtered by discipline."""
+    try:
+        discipline = request.args.get("discipline", "")
+        resources = load_resources_from_db()
+        if discipline:
+            resources = [r for r in resources if r.get("discipline") == discipline]
+        return jsonify({"success": True, "resources": resources, "total": len(resources)})
+    except Exception as e:
+        logger.error(f"Failed to get resources: {e}")
+        return jsonify({"success": False, "error": "Failed to load resources. Please try again."}), 500
+
 
 @app.route("/api/sources", methods=["GET"])
 def get_sources() -> Any:
