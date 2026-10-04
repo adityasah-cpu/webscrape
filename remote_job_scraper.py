@@ -663,6 +663,41 @@ def scrape_toptal():
     return jobs
 
 
+# ---------------- Sources with no public, unauthenticated listing data ----------------
+#
+# HackerRank, GeeksforGeeks, and Naipunyam (AP govt skilling portal) were all
+# checked for a usable public API/RSS feed the way every other scraper in
+# this file has one. None exists: HackerRank's and GeeksforGeeks' jobs
+# sections are client-side-rendered and gated behind a logged-in account,
+# and Naipunyam's listings render via JavaScript with no server-side data
+# visible to an unauthenticated request. Getting real listings out of any
+# of them would require a headless browser driving an authenticated
+# session - a fundamentally different (and, for the two login-gated sites,
+# ToS-violating) approach, not a scraper. These three exist as selectable
+# sources so they show up honestly in the UI and in fetch results, rather
+# than being silently missing or faked - each one no-ops and logs why.
+
+def scrape_hackerrank():
+    """HackerRank jobs: no public API - listings are client-rendered and
+    require a logged-in account. Intentionally returns nothing."""
+    logger.warning("HackerRank: no public job-listing API available (login-gated, client-rendered) - skipped")
+    return []
+
+
+def scrape_geeksforgeeks():
+    """GeeksforGeeks jobs: no public API - listings are JavaScript-loaded
+    and gated behind login. Intentionally returns nothing."""
+    logger.warning("GeeksforGeeks: no public job-listing API available (login-gated, JS-rendered) - skipped")
+    return []
+
+
+def scrape_naipunyam():
+    """Naipunyam (AP govt skilling portal): no public API or server-rendered
+    listing data found. Intentionally returns nothing."""
+    logger.warning("Naipunyam: no public job-listing API available (JS-rendered, no visible server data) - skipped")
+    return []
+
+
 def extract_location(text):
     """Extract location from job description text."""
     text = (text or "").lower()
@@ -696,6 +731,8 @@ SCRAPERS = [
     scrape_devto, scrape_upwork, scrape_toptal,
     # Company career pages
     scrape_greenhouse, scrape_lever, scrape_ashby,
+    # No public API available - see note above each function
+    scrape_hackerrank, scrape_geeksforgeeks, scrape_naipunyam,
 ]
 
 

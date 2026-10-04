@@ -1110,6 +1110,23 @@
                 <label for="ashby">Ashby</label>
             </div>
 
+            <div class="sidebar-section-title">⚠️ No Public API (0 jobs)</div>
+            <div style="font-size:11px; color:var(--text-tertiary); margin:-8px 0 10px 2px; line-height:1.4;">
+                These sites have no public job-listing API — their job data is login-gated/JS-rendered. Selecting them is harmless but returns 0 jobs.
+            </div>
+            <div class="source-item">
+                <input type="checkbox" id="hackerrank" value="hackerrank" class="source-item input">
+                <label for="hackerrank">HackerRank</label>
+            </div>
+            <div class="source-item">
+                <input type="checkbox" id="geeksforgeeks" value="geeksforgeeks" class="source-item input">
+                <label for="geeksforgeeks">GeeksforGeeks</label>
+            </div>
+            <div class="source-item">
+                <input type="checkbox" id="naipunyam" value="naipunyam" class="source-item input">
+                <label for="naipunyam">Naipunyam (AP Govt)</label>
+            </div>
+
             <div class="sidebar-section-title">📄 Resume Matching</div>
             <div class="resume-upload-box">
                 <div class="experience-level-toggle">
@@ -1401,7 +1418,10 @@
                 "toptal": "Toptal",
                 "greenhouse": "Greenhouse",
                 "lever": "Lever",
-                "ashby": "Ashby"
+                "ashby": "Ashby",
+                "hackerrank": "HackerRank",
+                "geeksforgeeks": "GeeksforGeeks",
+                "naipunyam": "Naipunyam"
             };
             return mapping[sourceId] || sourceId;
         }

@@ -1043,6 +1043,14 @@ def get_sources() -> Any:
             {"id": "lever", "name": "Lever", "status": "✅"},
             {"id": "ashby", "name": "Ashby", "status": "✅"},
         ],
+        "no_public_api": [
+            {"id": "hackerrank", "name": "HackerRank", "status": "⚠️",
+             "note": "No public job-listing API - login-gated, client-rendered. Selecting this returns 0 jobs."},
+            {"id": "geeksforgeeks", "name": "GeeksforGeeks", "status": "⚠️",
+             "note": "No public job-listing API - login-gated, JS-rendered. Selecting this returns 0 jobs."},
+            {"id": "naipunyam", "name": "Naipunyam (AP Govt)", "status": "⚠️",
+             "note": "No public job-listing API found - JS-rendered with no visible server data. Selecting this returns 0 jobs."},
+        ],
     }
     return jsonify(sources)
 

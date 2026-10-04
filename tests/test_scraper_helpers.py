@@ -95,6 +95,26 @@ class TestJobFactory:
         assert len(j["description"]) == rjs.MAX_DESCRIPTION_CHARS
 
 
+class TestNoPublicApiScrapers:
+    """HackerRank, GeeksforGeeks, and Naipunyam have no public job-listing
+    API (login-gated or JS-rendered with no server-side data). These
+    scrapers exist so the sources are honestly selectable in the UI, but
+    must always return an empty list rather than fabricating data."""
+
+    def test_hackerrank_returns_empty(self):
+        assert rjs.scrape_hackerrank() == []
+
+    def test_geeksforgeeks_returns_empty(self):
+        assert rjs.scrape_geeksforgeeks() == []
+
+    def test_naipunyam_returns_empty(self):
+        assert rjs.scrape_naipunyam() == []
+
+    def test_all_three_are_registered_in_scrapers_list(self):
+        names = {s.__name__ for s in rjs.SCRAPERS}
+        assert {"scrape_hackerrank", "scrape_geeksforgeeks", "scrape_naipunyam"} <= names
+
+
 class TestDedupe:
     def test_removes_exact_duplicates(self):
         jobs = [
