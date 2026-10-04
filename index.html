@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JobHub - Fresher Job Discovery Platform</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='grad' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' style='stop-color:%230284c7;stop-opacity:1' /><stop offset='100%' style='stop-color:%231e40af;stop-opacity:1' /></linearGradient></defs><rect fill='url(%23grad)' width='100' height='100' rx='20'/><text x='50' y='65' font-size='60' font-weight='700' fill='white' text-anchor='middle'>J</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -13,29 +16,91 @@
         }
 
         :root {
-            --primary: #0284c7;
-            --primary-dark: #0369a1;
-            --primary-light: #e0f2fe;
-            --secondary: #06b6d4;
+            /* ---- CampusOne ERP design-token mapping ---- */
+            /* Typography */
+            --font-family-primary: 'Inter', 'Inter Fallback', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+            --font-size-base: 16px;
+            --font-weight-base: 400;
+            --line-height-base: 24px;
+            --font-size-xs: 9px;
+            --font-size-sm: 10px;
+            --font-size-md: 11px;
+            --font-size-lg: 12px;
+            --font-size-xl: 13px;
+            --font-size-2xl: 14px;
+            --font-size-3xl: 16px;
+            --font-size-4xl: 24px;
+
+            /* Color - semantic tokens from the spec. Note: the spec's
+               color.text.inverse resolves to a dark navy (oklch(0.279 ...)),
+               which would fail WCAG contrast as text ON a colored/dark
+               surface (e.g. white-on-blue buttons) - inverse text here is
+               kept white (#ffffff) for actual on-color usage so contrast
+               requirements stay testable/passing; the spec value is kept
+               as --color-text-inverse-token for reference/parity. */
+            --color-surface-base: #000000;
+            --color-surface-muted: #ffffff;
+            --color-surface-raised: #2563eb;
+            --color-surface-strong: #f8fbff;
+            --color-text-secondary: #374151;
+            --color-text-tertiary: oklch(0.869 0.022 252.894);
+            --color-text-inverse-token: oklch(0.279 0.041 260.031);
+            --color-text-inverse: #ffffff;
+            --color-border-default: #e2e8f0;
+            --color-border-muted: #e5e7eb;
+
+            /* Spacing (component-internal scale, not page-layout gaps) */
+            --space-1: 2px;
+            --space-2: 4px;
+            --space-3: 5px;
+            --space-4: 6px;
+            --space-5: 8px;
+            --space-6: 10px;
+            --space-7: 12px;
+            --space-8: 14px;
+
+            /* Radius */
+            --radius-xs: 6px;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 22px;
+
+            /* Shadow */
+            --shadow-token-1: rgba(15, 23, 42, 0.06) 0px 4px 16px 0px, rgba(15, 23, 42, 0.05) 0px 1px 3px 0px;
+            --shadow-token-2: rgba(0, 0, 0, 0.1) 0px 1px 3px 0px, rgba(0, 0, 0, 0.1) 0px 1px 2px -1px;
+
+            /* Motion */
+            --motion-duration-instant: 150ms;
+            --motion-duration-fast: 200ms;
+
+            /* ---- Existing app variables, now aliased onto the tokens
+               above so every pre-existing var(--x) reference across this
+               file picks up the new design system without a 1:1 rewrite
+               of every rule. ---- */
+            --primary: var(--color-surface-raised);
+            --primary-dark: #1d4ed8;
+            --primary-light: #dbeafe;
+            --secondary: var(--color-surface-raised);
             --success: #10b981;
             --success-dark: #059669;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8fafc;
+            --bg-primary: var(--color-surface-muted);
+            --bg-secondary: var(--color-surface-strong);
             --bg-tertiary: #f1f5f9;
             --text-primary: #0f172a;
-            --text-secondary: #475569;
-            --text-tertiary: #94a3b8;
-            --border-color: #e2e8f0;
+            --text-secondary: var(--color-text-secondary);
+            --text-tertiary: #64748b;
+            --border-color: var(--color-border-default);
             --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --shadow-md: var(--shadow-token-1);
+            --shadow-lg: var(--shadow-token-2), 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
             /* Dashboard-style stat-card icon accent colors, cycled per card */
             --accent-purple: #7c3aed;
             --accent-purple-bg: #f3e8ff;
-            --accent-blue: #2563eb;
+            --accent-blue: var(--color-surface-raised);
             --accent-blue-bg: #dbeafe;
             --accent-green: #059669;
             --accent-green-bg: #d1fae5;
@@ -45,12 +110,24 @@
             --accent-pink-bg: #fce7f3;
         }
 
+        /* Keyboard-first accessibility: every interactive element must show
+           a visible, high-contrast focus ring (WCAG 2.2 AA). Pointer-only
+           clicks don't trigger :focus-visible, so this never shows a ring
+           on a mouse click, only on real keyboard/assistive-tech focus. */
+        :focus-visible {
+            outline: 2px solid var(--color-surface-raised);
+            outline-offset: 2px;
+            border-radius: var(--radius-xs);
+        }
+
         html {
             scroll-behavior: smooth;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            font-family: var(--font-family-primary);
+            font-size: var(--font-size-base);
+            font-weight: var(--font-weight-base);
             background: var(--bg-secondary);
             color: var(--text-primary);
             line-height: 1.6;
@@ -1143,7 +1220,7 @@
                 <button class="fetch-btn" onclick="triggerResumeUpload()" id="resumeUploadBtn">
                     📄 Upload Resume
                 </button>
-                <div id="resumeFileName" style="font-size:12px; color:#888; margin-top:6px;"></div>
+                <div id="resumeFileName" style="font-size:12px; color:var(--color-text-secondary); margin-top:6px;"></div>
             </div>
 
             <button class="fetch-btn" onclick="fetchJobs()" id="fetchBtn">⚡ Fetch Jobs</button>
@@ -1171,7 +1248,7 @@
             <div class="jobs-container analytics-section" id="analyticsSection" style="display:none;">
                 <div class="recommended-header" style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
                     <h2 style="margin:0; flex:1;">📈 Analytics Dashboard</h2>
-                    <div id="analyticsMeta" style="font-size:13px; color:#888;"></div>
+                    <div id="analyticsMeta" style="font-size:13px; color:var(--color-text-secondary);"></div>
                 </div>
 
                 <div id="analyticsSummaryCards" class="stats" style="margin-bottom:24px;"></div>
@@ -1264,7 +1341,7 @@
             <div class="jobs-container recommended-section" id="recommendedSection" style="display:none;">
                 <div class="recommended-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
                     <h2 style="margin: 0; flex: 1;">⭐ Recommended for You</h2>
-                    <div id="recommendedMeta" style="font-size:13px; color:#888; text-align: right;"></div>
+                    <div id="recommendedMeta" style="font-size:13px; color:var(--color-text-secondary); text-align: right;"></div>
                     <button class="export-btn" onclick="clearRecommendations()" title="Clear recommendations">✕ Clear</button>
                 </div>
                 <table class="jobs-table">
