@@ -17,6 +17,20 @@ def make_file_storage(content: bytes, filename: str) -> FileStorage:
     return FileStorage(stream=io.BytesIO(content), filename=filename)
 
 
+class TestOversizedUploadReturnsJson:
+    def test_413_response_is_json_not_html(self, client):
+        """Regression test: Flask's default 413 response is an HTML error
+        page, which breaks the frontend's fetch().json() parsing."""
+        api_module.limiter.reset()  # other tests in this session share the in-memory limiter store
+        oversized = b"x" * (api_module.MAX_RESUME_SIZE_BYTES + 1)
+        data = {"resume": (io.BytesIO(oversized), "resume.txt")}
+        res = client.post("/api/match-resume", data=data, content_type="multipart/form-data")
+        assert res.status_code == 413
+        body = res.get_json()
+        assert body["success"] is False
+        assert "too large" in body["error"].lower()
+
+
 class TestExtractTextFromResume:
     def test_txt_file_decoded_directly(self):
         fs = make_file_storage(b"Python developer with 1 year experience.", "resume.txt")
@@ -73,6 +87,21 @@ class TestExtractTextFromResume:
     def test_pdf_parser_exception_wrapped_as_value_error(self, mocker):
         mocker.patch.object(api_module, "pdf_extract_text", side_effect=RuntimeError("corrupt stream"))
         fs = make_file_storage(b"broken pdf bytes", "resume.pdf")
+        with pytest.raises(ValueError, match="Could not parse this file"):
+            api_module.extract_text_from_resume(fs)
+
+    def test_image_upload_rejects_invalid_image_bytes(self):
+        fs = make_file_storage(b"not a real image", "resume.png")
+        with pytest.raises(ValueError, match="Could not parse this file"):
+            api_module.extract_text_from_resume(fs)
+
+    def test_image_upload_rejects_oversized_resolution(self, mocker):
+        mocker.patch.object(api_module, "MAX_OCR_IMAGE_PIXELS", 100)  # trivially small cap
+        import io as _io
+        from PIL import Image
+        buf = _io.BytesIO()
+        Image.new("RGB", (50, 50), "white").save(buf, format="PNG")  # 2500px > 100px cap
+        fs = make_file_storage(buf.getvalue(), "resume.png")
         with pytest.raises(ValueError, match="Could not parse this file"):
             api_module.extract_text_from_resume(fs)
 

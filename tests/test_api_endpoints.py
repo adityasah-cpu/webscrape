@@ -148,6 +148,33 @@ def test_export_unsupported_format_returns_400(client, mocker, sample_jobs):
     assert res.status_code == 400
 
 
+def test_export_csv_neutralizes_formula_injection(client, mocker):
+    """Regression test (CWE-1236): job data comes from external, uncontrolled
+    job boards. A listing titled e.g. '=HYPERLINK(...)' must not be written
+    into the CSV as a live formula that executes when opened in Excel/Sheets."""
+    malicious_job = {
+        "source": "Test", "title": '=HYPERLINK("http://evil.com","click")',
+        "company": "+cmd|'/C calc'!A1", "work_type": "Remote", "country": "India",
+        "location": "Remote", "job_type": "Full-time", "category": "@SUM(1+1)",
+        "salary": "-100", "date": "2026-01-01", "start_date": "", "end_date": "",
+        "url": "https://example.com/job", "description": "",
+    }
+    mocker.patch.object(api_module, "load_jobs_from_db", return_value=[malicious_job])
+    res = client.get("/api/export?format=csv")
+    assert res.status_code == 200
+    text = res.data.decode("utf-8")
+    assert "'=HYPERLINK" in text
+    assert "'+cmd" in text
+    assert "'@SUM" in text
+    assert "'-100" in text
+
+
+def test_csv_safe_leaves_normal_values_untouched():
+    assert api_module._csv_safe("Software Engineer") == "Software Engineer"
+    assert api_module._csv_safe("") == ""
+    assert api_module._csv_safe(None) is None
+
+
 # ---------------- /api/clear-jobs ----------------
 
 def test_clear_jobs_success_invalidates_cache(client, mocker):

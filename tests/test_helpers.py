@@ -229,3 +229,19 @@ class TestFilterJobs:
     def test_no_filters_returns_everything_within_limit(self, sample_jobs):
         result = api_module.filter_jobs(sample_jobs, limit=50)
         assert result["total"] == len(sample_jobs)
+
+    def test_none_valued_fields_do_not_crash_filtering(self):
+        """Regression test: a row with a NULL title/work_type/country/job_type
+        (legacy data, or a column that predates a NOT-NULL-by-convention
+        default) used to raise AttributeError from calling .lower() on None,
+        surfacing as a generic 500 instead of just filtering correctly."""
+        jobs = [{"title": None, "company": None, "work_type": None,
+                 "country": None, "job_type": None}]
+        result = api_module.filter_jobs(jobs, keyword="engineer", limit=50)
+        assert result["jobs"] == []
+        result = api_module.filter_jobs(jobs, work_type="Remote", limit=50)
+        assert result["jobs"] == []
+        result = api_module.filter_jobs(jobs, country="India", limit=50)
+        assert result["jobs"] == []
+        result = api_module.filter_jobs(jobs, job_type="Internship", limit=50)
+        assert result["jobs"] == []

@@ -733,10 +733,21 @@ def main():
         jobs = [j for j in jobs if any(k in j["title"].lower() for k in keywords)]
     jobs.sort(key=lambda j: j["date"], reverse=True)
 
+    # Job titles/companies/descriptions come from external, uncontrolled job
+    # boards - prefix any field starting with a formula-trigger character so
+    # Excel/Sheets render it as literal text instead of executing it when
+    # this CSV is opened (CSV/formula injection, CWE-1236).
+    formula_triggers = ("=", "+", "-", "@", "\t", "\r")
+    safe_jobs = [
+        {k: ("'" + v if isinstance(v, str) and v.startswith(formula_triggers) else v)
+         for k, v in j.items()}
+        for j in jobs
+    ]
+
     with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDS)
         writer.writeheader()
-        writer.writerows(jobs)
+        writer.writerows(safe_jobs)
     print(f"\nSaved {len(jobs)} unique jobs to {OUTPUT_FILE}")
 
 

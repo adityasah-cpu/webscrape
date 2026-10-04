@@ -22,6 +22,7 @@ from mysql.connector.abstracts import MySQLConnectionAbstract
 import io
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
+from werkzeug.exceptions import HTTPException
 from pdfminer.high_level import extract_text as pdf_extract_text
 import mammoth
 import fitz  # PyMuPDF - rasterizes PDF pages to images for OCR fallback
@@ -102,6 +103,15 @@ def ratelimit_handler(e: Exception) -> tuple:
         "retry_after": str(e.description)
     }), 429
 
+@app.errorhandler(413)
+def payload_too_large_handler(e: Exception) -> tuple:
+    """Flask's default 413 response is an HTML error page, which breaks the
+    frontend's fetch().json() parsing on an oversized resume upload."""
+    return jsonify({
+        "success": False,
+        "error": f"File too large. Maximum size is {MAX_RESUME_SIZE_BYTES // (1024 * 1024)} MB."
+    }), 413
+
 # Resume upload constraints
 # jpg/jpeg/png accepted directly for candidates who photograph a paper
 # resume rather than scanning it to PDF - OCR is the only way to read those.
@@ -131,8 +141,29 @@ def _get_ocr_reader():
                 logger.info(f"OCR reader ready in {time.time() - start:.1f}s")
     return _ocr_reader
 
+# Sanity cap on decoded pixel count before handing bytes to OCR. Without
+# this, a small, well-within-5MB file (a PNG "decompression bomb" - tiny on
+# disk, enormous once decoded) could force EasyOCR to allocate gigabytes of
+# memory for a single resume upload, a DoS vector MAX_CONTENT_LENGTH alone
+# doesn't guard against since it only limits the compressed upload size.
+MAX_OCR_IMAGE_PIXELS = 40_000_000  # ~40MP, well above any real scanned page
+
+def _validate_image_bytes(image_bytes: bytes) -> None:
+    from PIL import Image
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            width, height = img.size
+    except Exception as e:
+        raise ValueError(f"Not a valid image: {str(e)[:100]}")
+    if width * height > MAX_OCR_IMAGE_PIXELS:
+        raise ValueError(
+            f"Image resolution too large ({width}x{height}). "
+            f"Please use a smaller/compressed image."
+        )
+
 def _ocr_image_bytes(image_bytes: bytes) -> str:
     """Run OCR on a single image and return the recognized text."""
+    _validate_image_bytes(image_bytes)
     reader = _get_ocr_reader()
     results = reader.readtext(image_bytes, detail=0, paragraph=True)
     return "\n".join(results)
@@ -606,17 +637,17 @@ def filter_jobs(
 
     if keyword:
         keyword = keyword.lower()
-        filtered = [j for j in filtered if keyword in str(j.get('title', '')).lower() or
-                   keyword in str(j.get('company', '')).lower()]
+        filtered = [j for j in filtered if keyword in (j.get('title') or '').lower() or
+                   keyword in (j.get('company') or '').lower()]
 
     if work_type:
-        filtered = [j for j in filtered if j.get('work_type', '').lower() == work_type.lower()]
+        filtered = [j for j in filtered if (j.get('work_type') or '').lower() == work_type.lower()]
 
     if country:
-        filtered = [j for j in filtered if j.get('country', '').lower() == country.lower()]
+        filtered = [j for j in filtered if (j.get('country') or '').lower() == country.lower()]
 
     if job_type:
-        filtered = [j for j in filtered if j.get('job_type', '').lower() == job_type.lower()]
+        filtered = [j for j in filtered if (j.get('job_type') or '').lower() == job_type.lower()]
 
     total = len(filtered)
     pages = (total + limit - 1) // limit if limit > 0 else 1
@@ -979,6 +1010,11 @@ def fetch_jobs() -> Any:
             "last_fetch": datetime.now().isoformat()
         })
 
+    except HTTPException:
+        # Let Werkzeug/Flask exceptions (e.g. 413 Payload Too Large from a
+        # request body over MAX_CONTENT_LENGTH) reach their real error
+        # handler instead of being masked as a generic 500 here.
+        raise
     except Exception as e:
         logger.error(f"Failed to fetch jobs: {e}")
         return jsonify({"success": False, "error": "Failed to fetch jobs. Please try again."}), 500
@@ -1082,6 +1118,8 @@ def match_resume() -> Any:
             "resume_chars_extracted": len(resume_text)
         })
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to match resume: {e}")
         return jsonify({"success": False, "error": "Failed to process resume. Please try again."}), 500
@@ -1176,6 +1214,21 @@ def analytics() -> Any:
         return jsonify({"success": False, "error": "Failed to load analytics. Please try again."}), 500
 
 
+# Characters that Excel/LibreOffice/Google Sheets interpret as the start of
+# a formula if they're the first character of a CSV cell. Job title/company/
+# description come from 17 external, uncontrolled job-board listings - a
+# malicious or compromised listing titled e.g. '=HYPERLINK("http://evil.com")'
+# would execute as a live formula for anyone who exports and opens the CSV.
+_CSV_FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@", "\t", "\r")
+
+def _csv_safe(value: Any) -> Any:
+    """Neutralize formula-injection payloads (CWE-1236) by prefixing a
+    leading quote, which Excel/Sheets render literally instead of evaluating."""
+    text = str(value) if value is not None else ""
+    if text.startswith(_CSV_FORMULA_TRIGGER_CHARS):
+        return "'" + text
+    return value
+
 @app.route("/api/export", methods=["GET"])
 def export_jobs() -> Any:
     """Export jobs to CSV or JSON"""
@@ -1193,7 +1246,7 @@ def export_jobs() -> Any:
             writer.writeheader()
 
             for job in jobs:
-                row = {field: job.get(field, '') for field in fieldnames}
+                row = {field: _csv_safe(job.get(field, '')) for field in fieldnames}
                 writer.writerow(row)
 
             return output.getvalue(), 200, {
@@ -1281,6 +1334,8 @@ def test_alert() -> Any:
             "message": "Test alerts sent",
             "results": results
         })
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to send test alert: {e}")
         return jsonify({"success": False, "error": "Failed to send test alert. Check your alert configuration."}), 500
