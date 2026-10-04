@@ -24,6 +24,7 @@ from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 from pdfminer.high_level import extract_text as pdf_extract_text
 import mammoth
+import fitz  # PyMuPDF - rasterizes PDF pages to images for OCR fallback
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
@@ -102,11 +103,53 @@ def ratelimit_handler(e: Exception) -> tuple:
     }), 429
 
 # Resume upload constraints
-ALLOWED_RESUME_EXTENSIONS = {"pdf", "docx", "txt"}
+# jpg/jpeg/png accepted directly for candidates who photograph a paper
+# resume rather than scanning it to PDF - OCR is the only way to read those.
+ALLOWED_RESUME_EXTENSIONS = {"pdf", "docx", "txt", "jpg", "jpeg", "png"}
 MAX_RESUME_SIZE_BYTES = int(os.getenv('MAX_RESUME_SIZE', 5 * 1024 * 1024))  # 5 MB
 MIN_RESUME_TEXT_CHARS = int(os.getenv('MIN_RESUME_TEXT', 30))
+OCR_MAX_PAGES = int(os.getenv('OCR_MAX_PAGES', 5))  # cap worst-case OCR latency
 
 app.config['MAX_CONTENT_LENGTH'] = MAX_RESUME_SIZE_BYTES
+
+# EasyOCR's Reader takes ~30s to initialize (downloads/loads detection +
+# recognition models), so it's created lazily on first actual use rather
+# than at app startup, and cached as a singleton - re-creating it per
+# request would make every OCR-fallback resume take 30s longer than needed.
+_ocr_reader = None
+_ocr_reader_lock = threading.Lock()
+
+def _get_ocr_reader():
+    global _ocr_reader
+    if _ocr_reader is None:
+        with _ocr_reader_lock:
+            if _ocr_reader is None:  # re-check inside the lock
+                import easyocr
+                logger.info("Initializing OCR reader (first use - this takes ~30s)...")
+                start = time.time()
+                _ocr_reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+                logger.info(f"OCR reader ready in {time.time() - start:.1f}s")
+    return _ocr_reader
+
+def _ocr_image_bytes(image_bytes: bytes) -> str:
+    """Run OCR on a single image and return the recognized text."""
+    reader = _get_ocr_reader()
+    results = reader.readtext(image_bytes, detail=0, paragraph=True)
+    return "\n".join(results)
+
+def _ocr_pdf_bytes(pdf_bytes: bytes) -> str:
+    """Rasterize each PDF page to an image and OCR it, up to OCR_MAX_PAGES.
+    Used as a fallback when pdfminer finds no text layer (a scanned PDF)."""
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        page_count = min(len(doc), OCR_MAX_PAGES)
+        page_texts = []
+        for page_num in range(page_count):
+            pix = doc[page_num].get_pixmap(dpi=200)
+            page_texts.append(_ocr_image_bytes(pix.tobytes("png")))
+        return "\n".join(page_texts)
+    finally:
+        doc.close()
 
 # MySQL Configuration - Using environment variables
 MYSQL_CONFIG = {
@@ -725,8 +768,10 @@ def get_analytics(days: int = 14, top_n: int = 10) -> Dict[str, Any]:
 # ============ RESUME MATCHING HELPERS ============
 
 def extract_text_from_resume(file_storage: FileStorage) -> str:
-    """Extract text from uploaded resume (PDF, DOCX, or TXT).
-    Everything stays in memory - never written to disk."""
+    """Extract text from uploaded resume (PDF, DOCX, TXT, or an image).
+    Everything stays in memory - never written to disk. PDFs with no
+    extractable text layer (scanned/photographed resumes) and direct image
+    uploads fall back to OCR automatically."""
     filename = secure_filename(file_storage.filename or "")
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
 
@@ -737,18 +782,29 @@ def extract_text_from_resume(file_storage: FileStorage) -> str:
     if not raw_bytes:
         raise ValueError("Uploaded file is empty")
 
+    used_ocr = False
     try:
         if ext == "pdf":
             text = pdf_extract_text(io.BytesIO(raw_bytes))
+            if len((text or "").strip()) < MIN_RESUME_TEXT_CHARS:
+                # No usable text layer - likely a scanned/photographed PDF.
+                logger.info(f"'{filename}': pdfminer found no text layer, falling back to OCR")
+                used_ocr = True
+                text = _ocr_pdf_bytes(raw_bytes)
         elif ext == "docx":
             result = mammoth.extract_raw_text(io.BytesIO(raw_bytes))
             text = result.value
+        elif ext in ("jpg", "jpeg", "png"):
+            used_ocr = True
+            text = _ocr_image_bytes(raw_bytes)
         else:  # txt
             text = raw_bytes.decode("utf-8", errors="ignore")
     except Exception as e:
         raise ValueError(f"Could not parse this file: {str(e)[:100]}")
 
     text = (text or "").strip()
+    if used_ocr:
+        logger.info(f"'{filename}': OCR extracted {len(text)} characters")
     return text
 
 def extract_resume_keywords(resume_text: str) -> List[str]:

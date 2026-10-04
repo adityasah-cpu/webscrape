@@ -8,10 +8,12 @@ The job portal now includes a smart resume-matching feature that helps candidate
 ### 1. **Upload Your Resume**
 - Click the **"📄 Upload Resume"** button in the sidebar
 - Select a resume file in one of these formats:
-  - **PDF** (.pdf) — scanned or digital documents
+  - **PDF** (.pdf) — digital (text-layer) or scanned/photographed documents
   - **DOCX** (.docx) — Microsoft Word documents
   - **TXT** (.txt) — plain text files
+  - **JPG / JPEG / PNG** (.jpg, .jpeg, .png) — a photo or screenshot of a paper resume
 - The system extracts text and analyzes it instantly
+- You must also select whether you're a **Fresher** or **Experienced** candidate — this determines which job pool (fresher vs. experienced) your resume is matched against
 
 ### 2. **Skill Detection**
 The system automatically identifies which **domains/skills** your resume contains:
@@ -55,9 +57,12 @@ Your resume is analyzed for keywords in:
 ✅ **No File Creation** — Everything happens in RAM  
 ✅ **Secure Connection** — Flask server with local processing  
 
+### OCR for Scanned Resumes
+If a PDF has no extractable text layer (a scanned or "printed to PDF from an image" document), or a `.jpg`/`.jpeg`/`.png` is uploaded directly, the system automatically falls back to **OCR** (via EasyOCR, with PDF pages rasterized by PyMuPDF at 200 DPI) to read the characters. This is fully automatic — no separate option to select. OCR adds roughly 20-40 seconds of processing time on CPU, capped at the first 5 pages of a PDF (`OCR_MAX_PAGES`).
+
 ### File Size Limits
 - **Maximum file size:** 5 MB
-- **Minimum text extracted:** 30 characters (to prevent empty/image-only PDFs)
+- **Minimum text extracted:** 30 characters (below this, a PDF is treated as having no text layer and OCR is attempted)
 
 ### Supported Job Platforms
 The feature ranks jobs from these sources:
@@ -101,7 +106,7 @@ curl -X POST http://localhost:5000/api/match-resume \
 ```json
 {
   "success": false,
-  "error": "Unsupported file type: .doc. Allowed: pdf, docx, txt"
+  "error": "Unsupported file type: .doc. Allowed: pdf, docx, txt, jpg, jpeg, png"
 }
 ```
 
