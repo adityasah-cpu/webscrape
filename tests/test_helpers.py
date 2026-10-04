@@ -126,7 +126,18 @@ class TestBuildJobText:
     def test_missing_fields_do_not_raise_or_insert_none(self):
         job = {"title": "Just a Title"}
         text = api_module.build_job_text(job)
-        assert text == "Just a Title"
+        # Title is intentionally duplicated to weight it more heavily in TF-IDF.
+        assert text == "Just a Title Just a Title"
+        assert "None" not in text
+
+    def test_includes_description_when_present(self):
+        job = {"title": "Project Manager", "description": "Led infrastructure projects with PMP certification"}
+        text = api_module.build_job_text(job)
+        assert "PMP certification" in text
+
+    def test_description_missing_does_not_raise(self):
+        job = {"title": "Project Manager"}
+        text = api_module.build_job_text(job)
         assert "None" not in text
 
 

@@ -547,7 +547,7 @@ def test_init_db_skips_alter_when_schema_already_current(mocker):
 
     cursor = _make_schema_cursor(
         mocker,
-        column_names=[c[0] for c in _old_schema_columns()] + ["start_date", "end_date", "domains"],
+        column_names=[c[0] for c in _old_schema_columns()] + ["start_date", "end_date", "domains", "description"],
         indexes=["PRIMARY", "url", "idx_source", "idx_work_type", "idx_country"],
         column_widths={"category": 500, "country": 500, "location": 500},
     )

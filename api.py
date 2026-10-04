@@ -249,6 +249,7 @@ def init_db() -> bool:
             url VARCHAR(500) UNIQUE,
             added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             domains JSON,
+            description TEXT,
             INDEX idx_source (source),
             INDEX idx_work_type (work_type),
             INDEX idx_country (country(100)),
@@ -267,6 +268,7 @@ def init_db() -> bool:
             "start_date": "ALTER TABLE jobs ADD COLUMN start_date VARCHAR(50)",
             "end_date": "ALTER TABLE jobs ADD COLUMN end_date VARCHAR(50)",
             "domains": "ALTER TABLE jobs ADD COLUMN domains JSON",
+            "description": "ALTER TABLE jobs ADD COLUMN description TEXT",
         }
         cursor.execute(
             "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
@@ -397,6 +399,7 @@ _COLUMN_MAX_LENGTHS = {
     "source": 100, "title": 255, "company": 255, "work_type": 50,
     "country": 500, "location": 500, "job_type": 50, "category": 500,
     "salary": 100, "date": 50, "start_date": 50, "end_date": 50, "url": 500,
+    "description": 4000,
 }
 
 def _truncate_for_column(value: Any, column: str) -> Any:
@@ -429,14 +432,15 @@ def save_jobs_to_db(jobs: List[Dict[str, Any]]) -> Dict[str, int]:
             try:
                 insert_query = """
                 INSERT INTO jobs (source, title, company, work_type, country, location,
-                                 job_type, category, salary, date, start_date, end_date, url, domains, added_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                 job_type, category, salary, date, start_date, end_date, url,
+                                 domains, description, added_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     source = VALUES(source), title = VALUES(title), company = VALUES(company),
                     work_type = VALUES(work_type), country = VALUES(country), location = VALUES(location),
                     job_type = VALUES(job_type), category = VALUES(category), salary = VALUES(salary),
                     date = VALUES(date), start_date = VALUES(start_date), end_date = VALUES(end_date),
-                    domains = VALUES(domains), added_at = NOW()
+                    domains = VALUES(domains), description = VALUES(description), added_at = NOW()
                 """
                 cursor.execute(insert_query, (
                     _truncate_for_column(job.get('source'), 'source'),
@@ -452,7 +456,9 @@ def save_jobs_to_db(jobs: List[Dict[str, Any]]) -> Dict[str, int]:
                     _truncate_for_column(job.get('start_date'), 'start_date'),
                     _truncate_for_column(job.get('end_date'), 'end_date'),
                     _truncate_for_column(job.get('url'), 'url'),
-                    domains, datetime.now()
+                    domains,
+                    _truncate_for_column(job.get('description'), 'description'),
+                    datetime.now()
                 ))
                 result["saved"] += 1
             except Error as e:
@@ -817,8 +823,13 @@ def extract_resume_keywords(resume_text: str) -> List[str]:
     return matched or ["General"]
 
 def build_job_text(job: Dict[str, Any]) -> str:
-    """Build searchable text from a job object for TF-IDF matching."""
+    """Build searchable text from a job object for TF-IDF matching.
+    Title is repeated to weight it more heavily than the other short
+    fields, and the full description (when a scraper provided one) is
+    appended last so a resume's experience/projects/skills content has
+    actual job content to match against, not just a title and a few tags."""
     parts = [
+        job.get("title") or "",
         job.get("title") or "",
         job.get("company") or "",
         job.get("category") or "",
@@ -826,6 +837,7 @@ def build_job_text(job: Dict[str, Any]) -> str:
         job.get("work_type") or "",
         job.get("location") or "",
         " ".join(job.get("domains") or []),
+        job.get("description") or "",
     ]
     return " ".join(p for p in parts if p)
 

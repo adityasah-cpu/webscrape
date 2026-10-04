@@ -67,7 +67,12 @@ UNSTOP_PAGES = 2
 # Dev.to: Public API
 
 FIELDS = ["source", "title", "company", "work_type", "country", "location",
-          "job_type", "category", "salary", "date", "start_date", "end_date", "url"]
+          "job_type", "category", "salary", "date", "start_date", "end_date", "url", "description"]
+
+# Full job descriptions can run to tens of KB of HTML on some boards (e.g.
+# Greenhouse postings); cap at this length so a handful of oversized
+# descriptions can't blow up DB row size or TF-IDF vocabulary fit time.
+MAX_DESCRIPTION_CHARS = 4000
 
 
 # ---------------- Helpers ----------------
@@ -241,6 +246,7 @@ def job(
     start_date: str = "",
     end_date: str = "",
     url: str = "",
+    description: str = "",
 ) -> Dict[str, str]:
     location = clean(", ".join(flatten([location])))
     return {
@@ -257,6 +263,7 @@ def job(
         "start_date": str(start_date or "")[:10],
         "end_date": str(end_date or "")[:10],
         "url": url or "",
+        "description": clean(description)[:MAX_DESCRIPTION_CHARS],
     }
 
 
@@ -274,7 +281,8 @@ def scrape_remotive():
         job("Remotive", j.get("title"), j.get("company_name"),
             location=j.get("candidate_required_location"),
             job_type=norm_job_type(j.get("job_type")), category=j.get("category"),
-            salary=j.get("salary"), date=j.get("publication_date"), url=j.get("url"))
+            salary=j.get("salary"), date=j.get("publication_date"), url=j.get("url"),
+            description=j.get("description"))
         for j in data.get("jobs", [])
     ]
 
@@ -288,7 +296,8 @@ def scrape_remoteok():
         jobs.append(job("RemoteOK", j.get("position"), j.get("company"),
                         location=j.get("location"),
                         salary=fmt_salary(j.get("salary_min"), j.get("salary_max"), "USD"),
-                        date=j.get("date"), url=j.get("url")))
+                        date=j.get("date"), url=j.get("url"),
+                        description=j.get("description")))
     return jobs
 
 
@@ -308,7 +317,8 @@ def scrape_himalayas(max_pages=10):
                             category=" | ".join(flatten([j.get("categories")])[:3]),
                             salary=fmt_salary(j.get("minSalary"), j.get("maxSalary"), j.get("currency")),
                             date=epoch_to_date(j.get("pubDate")),
-                            url=j.get("applicationLink") or j.get("guid")))
+                            url=j.get("applicationLink") or j.get("guid"),
+                            description=j.get("description")))
         time.sleep(1)
     return jobs
 
@@ -320,7 +330,8 @@ def scrape_jobicy():
             location=j.get("jobGeo"), job_type=norm_job_type(j.get("jobType")),
             category=" | ".join(clean(c) for c in flatten([j.get("jobIndustry")])),
             salary=fmt_salary(j.get("annualSalaryMin"), j.get("annualSalaryMax"), j.get("salaryCurrency")),
-            date=j.get("pubDate"), url=j.get("url"))
+            date=j.get("pubDate"), url=j.get("url"),
+            description=j.get("jobDescription") or j.get("jobExcerpt"))
         for j in data.get("jobs", [])
     ]
 
@@ -336,7 +347,8 @@ def scrape_weworkremotely():
         jobs.append(job("WeWorkRemotely", title, company,
                         location=e.get("region", "Anywhere"),
                         job_type=norm_job_type(e.get("type")),
-                        category=e.get("category", ""), date=date, url=e.get("link")))
+                        category=e.get("category", ""), date=date, url=e.get("link"),
+                        description=e.get("summary")))
     return jobs
 
 
@@ -355,7 +367,8 @@ def scrape_arbeitnow(max_pages=5):
                             work_type=wt, location=j.get("location"),
                             job_type=norm_job_type(j.get("job_types")),
                             category=" | ".join(flatten([j.get("tags")])[:3]),
-                            date=epoch_to_date(j.get("created_at")), url=j.get("url")))
+                            date=epoch_to_date(j.get("created_at")), url=j.get("url"),
+                            description=j.get("description")))
         time.sleep(1)
     return jobs
 
@@ -381,7 +394,8 @@ def scrape_adzuna():
                                 job_type=norm_job_type(j.get("contract_time"), j.get("contract_type")),
                                 category=(j.get("category") or {}).get("label", ""),
                                 salary=fmt_salary(j.get("salary_min"), j.get("salary_max")),
-                                date=j.get("created"), url=j.get("redirect_url")))
+                                date=j.get("created"), url=j.get("redirect_url"),
+                                description=j.get("description")))
             time.sleep(1)
     return jobs
 
@@ -400,7 +414,8 @@ def scrape_greenhouse():
             loc = (j.get("location") or {}).get("name", "")
             jobs.append(job("Greenhouse", j.get("title"), co,
                             work_type=classify_work_type(loc, j.get("title")),
-                            location=loc, date=j.get("updated_at"), url=j.get("absolute_url")))
+                            location=loc, date=j.get("updated_at"), url=j.get("absolute_url"),
+                            description=j.get("content")))
     return jobs
 
 
@@ -419,7 +434,8 @@ def scrape_lever():
             jobs.append(job("Lever", j.get("text"), co, work_type=wt, location=loc,
                             job_type=norm_job_type(cats.get("commitment")),
                             category=cats.get("team", ""),
-                            date=epoch_to_date(j.get("createdAt")), url=j.get("hostedUrl")))
+                            date=epoch_to_date(j.get("createdAt")), url=j.get("hostedUrl"),
+                            description=j.get("descriptionPlain") or j.get("description")))
     return jobs
 
 
@@ -440,7 +456,8 @@ def scrape_ashby():
                             country=detect_countries(loc, addr_country),
                             job_type=norm_job_type(j.get("employmentType")),
                             category=j.get("department", ""),
-                            date=j.get("publishedAt"), url=j.get("jobUrl")))
+                            date=j.get("publishedAt"), url=j.get("jobUrl"),
+                            description=j.get("descriptionPlain")))
     return jobs
 
 
@@ -473,7 +490,8 @@ def scrape_internshala(max_pages=None):
                             salary=fmt_salary(j.get("stipend_min"), j.get("stipend_max"), "₹"),
                             date=j.get("start_date", "")[:10],
                             url=f"https://internshala.com/internship/{j.get('id')}"
-                            if j.get("id") else ""))
+                            if j.get("id") else "",
+                            description=j.get("internship_profile") or j.get("company_profile")))
         time.sleep(1)
     return jobs
 
@@ -529,7 +547,8 @@ def scrape_firstnaukri():
                             country="India",
                             job_type=norm_job_type("Full-time"),
                             date=date,
-                            url=entry.get("link", "")))
+                            url=entry.get("link", ""),
+                            description=summary))
     except Exception as e:
         logger.warning(f"FirstNaukri: {e}")
     return jobs
@@ -561,7 +580,8 @@ def scrape_angellist():
                                 job_type=norm_job_type(j.get("job_type")),
                                 category=j.get("tag_list", [{}])[0].get("name", "") if j.get("tag_list") else "",
                                 date=j.get("created_at", "")[:10],
-                                url=j.get("angellist_url", "")))
+                                url=j.get("angellist_url", ""),
+                                description=j.get("description")))
             time.sleep(1)
     except Exception as e:
         logger.warning(f"AngelList: {e}")
@@ -585,7 +605,8 @@ def scrape_devto():
                                     country=detect_countries(article.get("description", "")),
                                     category="Software Development",
                                     date=article.get("published_at", "")[:10],
-                                    url=article.get("url", "")))
+                                    url=article.get("url", ""),
+                                    description=article.get("description")))
             time.sleep(1)
     except Exception as e:
         logger.warning(f"Dev.to: {e}")
@@ -612,7 +633,8 @@ def scrape_upwork():
                             category="",
                             salary=extract_budget(description),
                             date=date,
-                            url=entry.get("link", "")))
+                            url=entry.get("link", ""),
+                            description=description))
     except Exception as e:
         logger.warning(f"Upwork: {e}")
     return jobs
@@ -634,7 +656,8 @@ def scrape_toptal():
                             category=j.get("skills", [{}])[0].get("name", "") if j.get("skills") else "",
                             salary=fmt_salary(j.get("budget_min"), j.get("budget_max"), "$"),
                             date=j.get("posted_at", "")[:10],
-                            url=f"https://www.toptal.com/jobs/{j.get('slug')}" if j.get("slug") else ""))
+                            url=f"https://www.toptal.com/jobs/{j.get('slug')}" if j.get("slug") else "",
+                            description=j.get("description")))
     except Exception as e:
         logger.warning(f"Toptal: {e}")
     return jobs

@@ -83,6 +83,16 @@ class TestJobFactory:
         j = rjs.job("Test", "Engineer", "Acme")
         assert j["job_type"] == "Unspecified"
         assert j["url"] == ""
+        assert j["description"] == ""
+
+    def test_description_html_stripped(self):
+        j = rjs.job("Test", "Engineer", "Acme", description="<p>Build <b>APIs</b> with Python</p>")
+        assert j["description"] == "Build APIs with Python"
+
+    def test_description_truncated_to_max_length(self):
+        long_text = "x" * (rjs.MAX_DESCRIPTION_CHARS + 500)
+        j = rjs.job("Test", "Engineer", "Acme", description=long_text)
+        assert len(j["description"]) == rjs.MAX_DESCRIPTION_CHARS
 
 
 class TestDedupe:

@@ -26,8 +26,10 @@ The system automatically identifies which **domains/skills** your resume contain
 ### 3. **Smart Job Ranking**
 The system uses **TF-IDF (Term Frequency-Inverse Document Frequency)** + **Cosine Similarity** to rank jobs:
 - Jobs with **higher match scores** appear at the top
-- Matching is based on: job title, company, category, job type, location, and domain tags
+- Matching is based on: job title (weighted double), company, category, job type, location, domain tags, **and the job's full description** (experience/requirements text), when the source scraper provides one
+- This means your resume's project, experience, and certification content is matched against real job content, not just a title — e.g. "PMP certification" or "ENOVIA/CATIA" in your resume will match a job description that mentions the same terms, even if neither appears in the job title
 - Scores are calculated as percentages (0-100%)
+- **Caveat:** not every job source exposes a full description (some boards only return a title + tags). Jobs without a description still match on title/category/domain alone, so their scores are naturally lower/noisier than jobs with rich description text. Fetching from more description-bearing sources (Remotive, RemoteOK, Himalayas, Arbeitnow, Adzuna, Greenhouse, Lever, Ashby) improves overall match quality.
 
 ### 4. **Match Score Color Coding**
 - 🟢 **Green (≥70%)** — Highly relevant jobs, strong match
