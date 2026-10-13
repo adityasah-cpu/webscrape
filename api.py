@@ -450,6 +450,8 @@ _COLUMN_MAX_LENGTHS = {
     "country": 500, "location": 500, "job_type": 50, "category": 500,
     "salary": 100, "date": 50, "start_date": 50, "end_date": 50, "url": 500,
     "description": 4000,
+    # resources table columns (reuses the same truncation helper/pattern)
+    "discipline": 100, "resource_type": 100,
 }
 
 def _truncate_for_column(value: Any, column: str) -> Any:
@@ -549,8 +551,12 @@ def save_resources_to_db(resources: List[Dict[str, Any]]) -> Dict[str, int]:
                         resource_type = VALUES(resource_type), title = VALUES(title),
                         added_at = NOW()
                 """, (
-                    r.get('source'), r.get('discipline'), r.get('resource_type'),
-                    r.get('title'), r.get('url'), datetime.now()
+                    _truncate_for_column(r.get('source'), 'source'),
+                    _truncate_for_column(r.get('discipline'), 'discipline'),
+                    _truncate_for_column(r.get('resource_type'), 'resource_type'),
+                    _truncate_for_column(r.get('title'), 'title'),
+                    _truncate_for_column(r.get('url'), 'url'),
+                    datetime.now()
                 ))
                 result["saved"] += 1
             except Error as e:

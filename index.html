@@ -166,7 +166,7 @@
             width: 44px;
             height: 44px;
             background: linear-gradient(135deg, var(--accent-purple) 0%, var(--primary) 100%);
-            border-radius: 10px;
+            border-radius: var(--radius-sm);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -201,7 +201,7 @@
             gap: 12px;
             padding: 12px 12px;
             margin-bottom: 8px;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
             transition: all 0.2s ease;
             user-select: none;
@@ -233,7 +233,7 @@
             background: var(--accent-purple);
             color: white;
             border: none;
-            border-radius: 10px;
+            border-radius: var(--radius-sm);
             font-size: 14px;
             font-weight: 700;
             cursor: pointer;
@@ -293,7 +293,7 @@
             background: var(--accent-green);
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             font-weight: 700;
             cursor: pointer;
             font-size: 13px;
@@ -349,7 +349,7 @@
         .filter-input {
             padding: 10px 14px;
             border: 2px solid var(--border-color);
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             font-size: 13px;
             background: var(--bg-primary);
             color: var(--text-primary);
@@ -446,7 +446,7 @@
             width: 100%;
             border-collapse: collapse;
             background: var(--bg-primary);
-            border-radius: 12px;
+            border-radius: var(--radius-md);
             overflow: hidden;
             box-shadow: var(--shadow-md);
         }
@@ -586,7 +586,7 @@
             padding: 3px 8px;
             background: rgba(2, 132, 199, 0.15);
             color: var(--primary);
-            border-radius: 12px;
+            border-radius: var(--radius-md);
             font-size: 11px;
             font-weight: 600;
             margin-right: 4px;
@@ -625,7 +625,7 @@
             color: var(--text-secondary);
             cursor: pointer;
             padding: 6px 10px;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             border: 1px solid var(--border-color);
             transition: all 0.15s ease;
         }
@@ -650,7 +650,7 @@
         .analytics-card {
             background: #fff;
             border: 1px solid var(--primary-light);
-            border-radius: 12px;
+            border-radius: var(--radius-md);
             padding: 18px;
         }
 
@@ -763,7 +763,7 @@
             text-align: center;
             color: var(--text-secondary);
             background: linear-gradient(135deg, rgba(2, 132, 199, 0.05) 0%, rgba(2, 132, 199, 0.02) 100%);
-            border-radius: 12px;
+            border-radius: var(--radius-md);
             border: 2px dashed var(--primary-light);
         }
 
@@ -817,7 +817,7 @@
             background: var(--bg-primary);
             margin: 5% auto;
             padding: 40px;
-            border-radius: 16px;
+            border-radius: var(--radius-lg);
             width: 90%;
             max-width: 750px;
             max-height: 85vh;
@@ -873,7 +873,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
         }
 
         .modal-close:hover {
@@ -905,7 +905,7 @@
             padding: 16px;
             background: linear-gradient(135deg, var(--primary-light) 0%, rgba(2, 132, 199, 0.05) 100%);
             border-left: 4px solid var(--primary);
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             transition: all 0.2s ease;
         }
 
@@ -937,7 +937,7 @@
             white-space: pre-wrap;
             background: var(--bg-secondary);
             padding: 20px;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             border-left: 4px solid var(--secondary);
         }
 
@@ -955,7 +955,7 @@
             background: var(--accent-purple);
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             font-weight: 700;
             cursor: pointer;
             font-size: 14px;
@@ -977,7 +977,7 @@
             background: var(--bg-secondary);
             color: var(--text-primary);
             border: 2px solid var(--border-color);
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             font-weight: 700;
             cursor: pointer;
             font-size: 14px;
@@ -1216,7 +1216,7 @@
                         <span>💼 Experienced</span>
                     </label>
                 </div>
-                <input type="file" id="resumeInput" accept=".pdf,.docx,.txt" style="display:none" onchange="handleResumeFileSelected()">
+                <input type="file" id="resumeInput" accept=".pdf,.docx,.txt,.jpg,.jpeg,.png" style="display:none" onchange="handleResumeFileSelected()">
                 <button class="fetch-btn" onclick="triggerResumeUpload()" id="resumeUploadBtn">
                     📄 Upload Resume
                 </button>
