@@ -767,6 +767,41 @@
             border: 2px dashed var(--primary-light);
         }
 
+        .pagination-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 4px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .pagination-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: var(--bg-tertiary);
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .empty-icon {
             font-size: 80px;
             margin-bottom: 24px;
@@ -1285,7 +1320,7 @@
             <div class="filters">
                 <div class="filter-group">
                     <span class="filter-label">🎓 Domain</span>
-                    <select id="filterDomain" class="filter-input" onchange="renderJobs()">
+                    <select id="filterDomain" class="filter-input" onchange="renderJobs(1)">
                         <option value="All">All Domains</option>
                         <option value="AIML">🤖 AI/ML</option>
                         <option value="Data Analytics">📊 Data Analytics</option>
@@ -1296,7 +1331,7 @@
                 </div>
                 <div class="filter-group">
                     <span class="filter-label">📍 Type</span>
-                    <select id="filterWorkType" class="filter-input" onchange="renderJobs()">
+                    <select id="filterWorkType" class="filter-input" onchange="renderJobs(1)">
                         <option value="">All Types</option>
                         <option value="Remote">🌍 Remote</option>
                         <option value="Hybrid">🏢 Hybrid</option>
@@ -1305,11 +1340,11 @@
                 </div>
                 <div class="filter-group">
                     <span class="filter-label">🌏 Region</span>
-                    <input type="text" id="filterCountry" class="filter-input" placeholder="e.g., India, USA" onkeyup="renderJobs()">
+                    <input type="text" id="filterCountry" class="filter-input" placeholder="e.g., India, USA" onkeyup="renderJobs(1)">
                 </div>
                 <div class="filter-group">
                     <span class="filter-label">👤 Experience</span>
-                    <select id="filterExperienceLevel" class="filter-input" onchange="renderJobs()">
+                    <select id="filterExperienceLevel" class="filter-input" onchange="renderJobs(1)">
                         <option value="">All Levels</option>
                         <option value="fresher">🎓 Fresher (0-1 yrs)</option>
                         <option value="experienced">💼 Experienced</option>
@@ -1381,6 +1416,13 @@
                         </tr>
                     </tbody>
                 </table>
+                <div class="pagination-bar" id="paginationBar" style="display:none;">
+                    <span id="paginationSummary"></span>
+                    <div class="pagination-controls">
+                        <button class="pagination-btn" id="prevPageBtn" onclick="goToPage(currentPage - 1)">&larr; Prev</button>
+                        <button class="pagination-btn" id="nextPageBtn" onclick="goToPage(currentPage + 1)">Next &rarr;</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1454,6 +1496,9 @@
         let allJobs = [];
         let selectedSources = [];
         let currentJobIndex = -1;
+        let currentPage = 1;
+        const JOBS_PER_PAGE = 50;
+        let totalPages = 1;
 
         // XSS Protection: Escape HTML characters to prevent injection attacks
         function escapeHtml(text) {
@@ -1526,7 +1571,7 @@
                 const data = await res.json();
 
                 document.getElementById("lastFetch").textContent = `✅ Last fetch: ${new Date().toLocaleTimeString()}`;
-                await renderJobs();
+                await renderJobs(1);
             } catch (e) {
                 console.error("Fetch failed:", e);
                 alert("Failed to fetch jobs. Please try again.");
@@ -1753,7 +1798,8 @@
             }
         }
 
-        async function renderJobs() {
+        async function renderJobs(page) {
+            if (page) currentPage = page;
             const domain = document.getElementById("filterDomain").value;
             const workType = document.getElementById("filterWorkType").value;
             const country = document.getElementById("filterCountry").value;
@@ -1762,20 +1808,24 @@
             try {
                 const sourcesParam = selectedSources.length > 0 ? selectedSources.join(",") : "";
                 const res = await fetch(
-                    `${API}/jobs?page=1&limit=1000&domain=${encodeURIComponent(domain)}&work_type=${encodeURIComponent(workType)}&country=${encodeURIComponent(country)}&sources=${encodeURIComponent(sourcesParam)}&experience_level=${encodeURIComponent(experienceLevel)}`
+                    `${API}/jobs?page=${currentPage}&limit=${JOBS_PER_PAGE}&domain=${encodeURIComponent(domain)}&work_type=${encodeURIComponent(workType)}&country=${encodeURIComponent(country)}&sources=${encodeURIComponent(sourcesParam)}&experience_level=${encodeURIComponent(experienceLevel)}`
                 );
                 const data = await res.json();
                 allJobs = data.jobs;
+                totalPages = data.pages || 1;
 
-                const total = allJobs.length;
-                const remote = allJobs.filter(j => j.work_type === "Remote").length;
-                const hybrid = allJobs.filter(j => j.work_type === "Hybrid").length;
-                const onsite = allJobs.filter(j => j.work_type === "Onsite").length;
+                // Stat cards read the server's totals over the FULL filtered set
+                // (data.total, data.work_type_breakdown), not just this page's
+                // rows - the dataset can exceed one page, and computing these
+                // from allJobs.length/.filter() would silently undercount
+                // once it does.
+                const breakdown = data.work_type_breakdown || {};
+                document.getElementById("jobsTotal").textContent = data.total ?? allJobs.length;
+                document.getElementById("jobsRemote").textContent = breakdown.Remote || 0;
+                document.getElementById("jobsHybrid").textContent = breakdown.Hybrid || 0;
+                document.getElementById("jobsOnsite").textContent = breakdown.Onsite || 0;
 
-                document.getElementById("jobsTotal").textContent = total;
-                document.getElementById("jobsRemote").textContent = remote;
-                document.getElementById("jobsHybrid").textContent = hybrid;
-                document.getElementById("jobsOnsite").textContent = onsite;
+                renderPaginationBar(data.total || 0);
 
                 const tbody = document.getElementById("jobsTableBody");
                 if (allJobs.length === 0) {
@@ -1818,6 +1868,26 @@
             } catch (e) {
                 console.error("Render failed:", e);
             }
+        }
+
+        function goToPage(page) {
+            if (page < 1 || page > totalPages) return;
+            renderJobs(page);
+        }
+
+        function renderPaginationBar(total) {
+            const bar = document.getElementById("paginationBar");
+            if (total === 0) {
+                bar.style.display = "none";
+                return;
+            }
+            bar.style.display = "flex";
+            const start = (currentPage - 1) * JOBS_PER_PAGE + 1;
+            const end = Math.min(currentPage * JOBS_PER_PAGE, total);
+            document.getElementById("paginationSummary").textContent =
+                `Showing ${start}-${end} of ${total} jobs · Page ${currentPage} of ${totalPages}`;
+            document.getElementById("prevPageBtn").disabled = currentPage <= 1;
+            document.getElementById("nextPageBtn").disabled = currentPage >= totalPages;
         }
 
         function showJobModal(job) {
@@ -1874,45 +1944,21 @@
         }
 
         function exportToCSV() {
-            if (allJobs.length === 0) {
+            const shownTotal = parseInt(document.getElementById("jobsTotal").textContent, 10) || 0;
+            if (shownTotal === 0) {
                 alert("No jobs to export. Please fetch jobs first.");
                 return;
             }
 
-            const headers = ["Title", "Company", "Work Type", "Location", "Country", "Job Type", "Salary", "Posted Date", "Start Date", "Deadline", "Source", "Domains", "URL"];
-            const rows = allJobs.map(job => [
-                `"${(job.title || "N/A").replace(/"/g, '""')}"`,
-                `"${(job.company || "N/A").replace(/"/g, '""')}"`,
-                `"${(job.work_type || "N/A").replace(/"/g, '""')}"`,
-                `"${(job.location || "N/A").replace(/"/g, '""')}"`,
-                `"${(job.country || "N/A").replace(/"/g, '""')}"`,
-                `"${(job.job_type || "N/A").replace(/"/g, '""')}"`,
-                `"${(job.salary || "N/A").replace(/"/g, '""')}"`,
-                `"${(job.date || "N/A").replace(/"/g, '""')}"`,
-                `"${(job.start_date || "Not specified").replace(/"/g, '""')}"`,
-                `"${(job.end_date || "Not specified").replace(/"/g, '""')}"`,
-                `"${(job.source || "N/A").replace(/"/g, '""')}"`,
-                `"${(job.domains || []).join(", ").replace(/"/g, '""')}"`,
-                `"${(job.url || "N/A").replace(/"/g, '""')}"`
-            ]);
-
-            const csvContent = [headers.join(","), ...rows.map(row => row.join(","))].join("\n");
-            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-            const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-
-            const domain = document.getElementById("filterDomain").value;
-            const date = new Date().toISOString().split("T")[0];
-            const filename = domain === "All" ? `jobs_${date}.csv` : `jobs_${domain.replace(/\//g, "_")}_${date}.csv`;
-
-            link.setAttribute("href", url);
-            link.setAttribute("download", filename);
-            link.style.visibility = "hidden";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            alert(`✅ Exported ${allJobs.length} jobs to ${filename}`);
+            // Exports via the backend's /api/export endpoint rather than
+            // building the CSV client-side from `allJobs`: that array is
+            // only the current page (so a client-side export silently
+            // dropped every job beyond it), and the backend applies
+            // formula-injection sanitization (CWE-1236) that a hand-rolled
+            // client-side CSV builder does not - job data comes from 17+
+            // external, uncontrolled sources, so a listing titled e.g.
+            // '=HYPERLINK(...)' must never reach the file as a live formula.
+            window.location.href = `${API}/export?format=csv`;
         }
 
         window.onclick = function(event) {

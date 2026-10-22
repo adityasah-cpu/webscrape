@@ -226,6 +226,17 @@ class TestFilterJobs:
         assert len(page2["jobs"]) == 2
         assert page2["jobs"][0]["id"] != result["jobs"][0]["id"]
 
+    def test_work_type_breakdown_covers_full_filtered_set_not_just_the_page(self):
+        """Regression test: the frontend's stat cards used to be computed
+        from only the returned page's jobs, silently undercounting once the
+        dataset grew past a single page. The breakdown must reflect every
+        matching job, independent of page/limit."""
+        jobs = [{"work_type": "Remote"} for _ in range(5)] + \
+               [{"work_type": "Onsite"} for _ in range(3)]
+        result = api_module.filter_jobs(jobs, page=1, limit=2)
+        assert len(result["jobs"]) == 2  # page is still capped
+        assert result["work_type_breakdown"] == {"Remote": 5, "Onsite": 3}  # breakdown isn't
+
     def test_no_filters_returns_everything_within_limit(self, sample_jobs):
         result = api_module.filter_jobs(sample_jobs, limit=50)
         assert result["total"] == len(sample_jobs)

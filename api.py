@@ -79,7 +79,14 @@ def set_security_headers(response: Response) -> Response:
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline'; "
+        # The Inter font (CampusOne design-token pass) is loaded from Google
+        # Fonts: its stylesheet comes from fonts.googleapis.com, and that
+        # stylesheet's own @font-face rules pull the actual font files from
+        # fonts.gstatic.com. Without allowlisting both, the browser silently
+        # blocks the request and the page falls back to the system font -
+        # confirmed live via a blocked network request in Audit #9.
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data:; "
         "connect-src 'self'; "
         "object-src 'none'; "
@@ -730,6 +737,15 @@ def filter_jobs(
     total = len(filtered)
     pages = (total + limit - 1) // limit if limit > 0 else 1
 
+    # Computed over the full filtered set, before pagination slicing, so the
+    # frontend's stat cards stay accurate even when total exceeds one page -
+    # counting only the returned page (or an earlier hardcoded single-page
+    # fetch) silently undercounted once the dataset grew past that page size.
+    work_type_breakdown: Dict[str, int] = {}
+    for j in filtered:
+        wt = j.get('work_type') or 'Unknown'
+        work_type_breakdown[wt] = work_type_breakdown.get(wt, 0) + 1
+
     start = (page - 1) * limit
     end = start + limit
 
@@ -738,7 +754,8 @@ def filter_jobs(
         "total": total,
         "page": page,
         "pages": pages,
-        "limit": limit
+        "limit": limit,
+        "work_type_breakdown": work_type_breakdown,
     }
 
 def get_statistics() -> Dict[str, Any]:
