@@ -10,10 +10,10 @@ a résumé (including scanned/photographed ones via OCR) to get TF-IDF-ranked jo
 ## 🏗️ Architecture
 
 ```
-Browser (index.html, ~1,930 lines, no build step, no external JS libs)
+Browser (index.html, ~2,000 lines, no build step, no external JS libs)
     │  fetch() calls to same-origin REST API
     ▼
-Flask API (api.py, ~1,560 lines)
+Flask API (api.py, ~1,580 lines)
     │
     ├── remote_job_scraper.py  →  20 scraper functions: 17 hit real external
     │                              job-board APIs/RSS feeds, 3 (HackerRank,
@@ -43,6 +43,11 @@ Flask API (api.py, ~1,560 lines)
 - Direct image uploads (`.jpg`/`.jpeg`/`.png`) also route straight to OCR
 - Guarded against decompression-bomb images (Pillow dimension check, 40MP cap) before any OCR work begins
 
+### Job list pagination (new)
+- `GET /api/jobs` returns 50 jobs per page by default, with real `page`/`pages`/`total` metadata
+- The frontend's job table has working Prev/Next pagination controls; filters reset to page 1 automatically
+- Stat cards (Jobs Found / Remote / Hybrid / Onsite) are computed **server-side** over the full filtered set (`work_type_breakdown` in the API response), not just the current page — this used to silently undercount once the dataset passed 1,000 rows
+
 ---
 
 ## 📁 Complete File Structure
@@ -53,18 +58,17 @@ job_portal/
 ├── remote_job_scraper.py     # 17 real job-board scrapers + 3 honest no-op stubs
 ├── enggroom_scraper.py       # EnggRoom.com resource index scraper (metadata only)
 ├── alerts.py                 # Telegram / Email / Slack notification senders
-├── index.html                # Entire frontend (HTML/CSS/JS, no build step), ~1,930 lines
+├── index.html                # Entire frontend (HTML/CSS/JS, no build step), ~2,000 lines
 ├── .env                      # Environment variables (gitignored) — DB config, CORS, resume limits
 ├── requirements.txt          # Python dependencies
 ├── requirements-dev.txt      # Dev/test-only dependencies (pytest, pytest-cov, pytest-mock)
 ├── pytest.ini                # pytest configuration
 ├── PROJECT_OVERVIEW.md       # This file — full project handoff doc
-├── PROJECT_STATUS_REPORT.md  # Earlier point-in-time status snapshot
+├── PROJECT_STATUS_REPORT.md  # Earlier point-in-time status snapshot (superseded by this file)
 ├── COMPREHENSIVE_AUDIT_REPORT.md
 ├── API_DOCUMENTATION.md      # Full endpoint reference
 ├── RESUME_FEATURE_GUIDE.md   # User-facing guide to résumé-matching + OCR
-├── SECURITY_AUDIT_2.md .. SECURITY_AUDIT_6.md  # Chronological audit history
-├── server.log                # Application log file (local, not meaningful in git)
+├── SECURITY_AUDIT_2.md .. SECURITY_AUDIT_6.md  # Chronological audit history (rounds 1-6)
 ├── job_finder_complete.zip   # Older project archive — stale, safe to ignore/delete
 ├── tests/
 │   ├── conftest.py                  # Shared pytest fixtures (mocks DB, sample_jobs fixture)
@@ -94,17 +98,18 @@ job_portal/
 | **OCR for Scanned Resumes** | Automatic fallback when no text layer found; verified against a simulated scan | ✅ Working |
 | **Job-description matching** | 12 of 17 sources capture full job descriptions; matching uses them, not just titles | ✅ Verified: top match score rose after description data was populated |
 | **Analytics Dashboard** | Summary cards, jobs-added timeline, domain/work-type/source/country/company breakdowns | ✅ Working |
-| **CSV / JSON Export** | Both formats; CSV formula-injection protected (CWE-1236 fix) | ✅ Working |
+| **CSV / JSON Export** | Both formats; single sanitized code path (see Fixed Issues below) | ✅ Working |
+| **Job table pagination** | Real Prev/Next pagination (50/page); stats computed server-side over the full result set | ✅ Working |
 | **EnggRoom Resource Index** | Category/resource-type/link metadata (not the underlying project content) | ✅ Working, stored in `resources` table |
 | **Rate Limiting** | Global 200/hr · 50/min, stricter per-route limits on expensive/destructive endpoints | ✅ Working |
 | **In-Memory Jobs Cache** | 15s TTL, auto-invalidated on writes | ✅ Working |
 | **Schema Auto-Migration** | `init_db()` diffs actual columns/indexes/widths against expected and migrates | ✅ Verified live against the real database multiple times |
-| **Security Headers** | CSP, X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Permissions-Policy | ✅ Present, verified to actually block an injected external script |
+| **Security Headers** | CSP (now allowlists Google Fonts), X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Permissions-Policy | ✅ Present, verified live with zero console errors |
 | **XSS Protection** | All scraped/external job data HTML-escaped everywhere rendered | ✅ Fixed and verified |
-| **CSV Formula Injection Fix** | Job data from external boards is sanitized before CSV export | ✅ Fixed (Audit #6) |
+| **CSV Formula Injection Fix** | Single sanitized export code path (UI button now hits the same endpoint the fix lives in) | ✅ Fixed (Audits #6 and #9) |
 | **OCR Memory-DoS Guard** | Pillow dimension check rejects oversized/decompression-bomb images before OCR | ✅ Fixed (Audit #6) |
 | **413 Handling** | Oversized uploads return clean JSON, not a masked 500 or raw HTML error page | ✅ Fixed (Audit #6) |
-| **Design-token Theme** | CampusOne-spec tokens (Inter font, color/spacing/radius/shadow/motion) applied; colored icon-badge stat cards; global `:focus-visible`; fixed low-contrast text | ✅ Applied |
+| **Design-token Theme** | CampusOne-spec tokens (Inter font, color/spacing/radius/shadow/motion) applied; colored icon-badge stat cards; global `:focus-visible`; fixed low-contrast text; Inter font now actually loads | ✅ Applied and verified |
 
 ### API Endpoints (All Working)
 | Method | Path | Purpose |
@@ -112,10 +117,10 @@ job_portal/
 | GET | `/api/sources` | List available scraper sources (incl. the 3 no-public-API ones) for UI checkboxes |
 | POST | `/api/fetch` | Scrape selected sources, classify fresher/experienced, upsert into MySQL |
 | POST | `/api/match-resume` | Upload résumé + experience level, get ranked job matches |
-| GET | `/api/jobs` | Filtered/paginated job listing |
+| GET | `/api/jobs` | Filtered/paginated job listing (50/page default), with `total` + `work_type_breakdown` over the full filtered set |
 | GET | `/api/stats` | Aggregate counts (work type, country, category, source) |
 | GET | `/api/analytics` | Dashboard data (time series, top-N breakdowns) |
-| GET | `/api/export` | CSV (sanitized) or JSON export |
+| GET | `/api/export` | CSV (sanitized, uncapped) or JSON export — the only export code path now (see Fixed Issues) |
 | GET | `/api/db-info` | Connection/health summary |
 | DELETE | `/api/clear-jobs` | Wipe all stored jobs |
 | POST | `/api/test-alert` | Send a test notification via configured channel |
@@ -127,10 +132,20 @@ job_portal/
 | GET | `/` | Serves the frontend |
 
 ### Testing
-- **161 automated tests** across 8 test files, **all passing**
+- **162 automated tests** across 8 test files, **all passing**
 - **80% coverage** on `api.py` (`pytest --cov=api --cov-report=term-missing`)
 - All tests mock DB access at the boundary — the suite never touches real MySQL data, safe to run anytime
-- Coverage includes: fresher/domain detection, resume text extraction (PDF/DOCX/TXT/image, including both OCR fallback branches and OCR input validation), TF-IDF matching/ranking, every API endpoint, pagination edge cases, config validation, SSRF protection, security headers, CSV formula-injection neutralization, the three no-op stub scrapers, and the EnggRoom resource index
+- Coverage includes: fresher/domain detection, resume text extraction (PDF/DOCX/TXT/image, including both OCR fallback branches and OCR input validation), TF-IDF matching/ranking, every API endpoint, pagination edge cases, config validation, SSRF protection, security headers, CSV formula-injection neutralization, the server-side work-type breakdown calculation, the three no-op stub scrapers, and the EnggRoom resource index
+
+---
+
+## 🔧 Recently Fixed Issues (this round)
+
+A project-report audit (documented live as an HTML report artifact) surfaced three issues, all now fixed and verified:
+
+1. **CSV export vulnerability was still live.** The Audit #6 formula-injection fix (CWE-1236) only touched the backend `/api/export` endpoint — but the UI's "Export CSV" button called a completely separate, client-side-only `exportToCSV()` function that built the CSV by hand with no sanitization, so the fix never actually protected a real user. **Fix:** the button now navigates to `/api/export?format=csv` directly; the client-side CSV builder was removed.
+2. **Job list silently capped at 1,000 rows.** `renderJobs()` fetched a single page with a hardcoded `limit=1000` and computed the "Jobs Found"/Remote/Hybrid/Onsite stat cards from that capped array — once the database passed 1,000 jobs (it had: 1,605), roughly 600 jobs became invisible in the table, undercounted in stats, and silently missing from exports, with no indication to the user. **Fix:** `filter_jobs()` now returns a `work_type_breakdown` computed over the entire filtered set before pagination slicing; the frontend has real Prev/Next pagination (50 jobs/page) instead of trying to load everything at once.
+3. **CSP blocked the Google Fonts (Inter) import.** The design-token theme pass added a Google Fonts `<link>`, but the CSP header never allowlisted `fonts.googleapis.com`/`fonts.gstatic.com`, so the browser silently blocked it and the page fell back to the system font. **Fix:** both hosts added narrowly to `style-src`/`font-src`. Verified live: zero console errors, font requests return `200`.
 
 ---
 
@@ -185,7 +200,7 @@ python api.py
 
 ### Running Tests
 ```bash
-pytest                                        # run all 161 tests
+pytest                                        # run all 162 tests
 pytest --cov=api --cov-report=term-missing    # with coverage report
 ```
 
@@ -198,8 +213,8 @@ When `FLASK_DEBUG=True`, Werkzeug's auto-reloader has been observed to spuriousl
 
 | Metric | Value |
 |---|---|
-| Lines of code | api.py 1,556 · remote_job_scraper.py 792 · enggroom_scraper.py 84 · alerts.py 315 · index.html 1,929 (~4,676 total) |
-| Test count | 161 automated tests, all passing |
+| Lines of code | api.py ~1,580 · remote_job_scraper.py 792 · enggroom_scraper.py 84 · alerts.py 315 · index.html ~2,000 (~4,800 total) |
+| Test count | 162 automated tests, all passing |
 | Test coverage | 80% on `api.py` |
 | Scraper count | 17 working job-board scrapers + 3 honest no-op stubs + 1 EnggRoom resource-index scraper |
 | Job domains | 5 (AIML, Data Analytics, Blockchain, AR/VR, Cybersecurity) + General fallback |
@@ -208,15 +223,16 @@ When `FLASK_DEBUG=True`, Werkzeug's auto-reloader has been observed to spuriousl
 | Max resume size | 5 MB (`MAX_RESUME_SIZE`) |
 | Min resume text chars | 30 (`MIN_RESUME_TEXT`) |
 | Cache TTL | 15 seconds |
+| Jobs per page | 50 (with real pagination) |
 | Rate limits | 200/hr · 50/min global; stricter per-route (fetch 5/min, resume match 10/min, clear-jobs 3/min, test-alert 5/hr) |
 | Database | MySQL — `jobs` table + `resources` table |
 | Frontend | Single-page vanilla HTML/CSS/JS, no build step, no external JS framework (Inter font loaded from Google Fonts) |
 
 ---
 
-## 🔐 Security Status (Post-Audit #6)
+## 🔐 Security Status (Post-Audit #9)
 
-### ✅ Fixed, chronologically (full detail in `SECURITY_AUDIT_2.md` → `SECURITY_AUDIT_6.md`)
+### ✅ Fixed, chronologically (full detail in `SECURITY_AUDIT_2.md` → `SECURITY_AUDIT_6.md` + this file's "Recently Fixed Issues" section for #7-#9)
 - Credentials moved out of source into `.env` (gitignored)
 - A hardcoded MySQL password was scrubbed from **all** git history (`git-filter-repo`, force-pushed, independently re-verified against a fresh clone) and rotated
 - XSS: all scraped/external data HTML-escaped everywhere rendered, including a class-name injection spot
@@ -224,13 +240,15 @@ When `FLASK_DEBUG=True`, Werkzeug's auto-reloader has been observed to spuriousl
 - `/api/test-alert` rate-limited to 5/hour (was previously unbounded — a Gmail credential-testing oracle)
 - Flask debug mode defaults to `False`, read from `.env`, warns on startup if enabled
 - SQL identifiers (database name) validated against an allowlist before use in `CREATE DATABASE`
-- CSP, Permissions-Policy, X-Frame-Options, X-Content-Type-Options headers present and verified to actually block an injected external `<script>` tag
+- CSP, Permissions-Policy, X-Frame-Options, X-Content-Type-Options headers present and verified to actually block an injected external `<script>` tag, while correctly allowlisting the Google Fonts hosts the theme needs
 - `pip-audit` against `requirements.txt`: zero known CVEs
 - A live data-loss bug (jobs silently failing to insert on too-narrow columns + missing indexes) fixed with defensive per-field truncation — verified: 0 failures across repeated re-fetches after the fix
-- **CSV/Formula Injection (CWE-1236)**: job titles/descriptions from external boards are sanitized before CSV export, in both `/api/export` and the standalone scraper CLI
+- **CSV/Formula Injection (CWE-1236)**: fixed twice — once in the backend endpoint (Audit #6), then for real once the UI's actual export button was found to bypass that fix entirely and was repointed at the sanitized endpoint (Audit #9)
 - **OCR decompression-bomb guard**: resume images are dimension-checked via Pillow before any OCR work
 - **413 masking bug**: Werkzeug's oversized-upload exception was being swallowed by routes' own broad `except Exception` and surfaced as a generic 500; fixed by re-raising `HTTPException` before the generic handler
 - **`filter_jobs()` None-crash**: brought in line with the rest of the codebase's `(x.get(...) or '')` null-guard convention
+- **1,000-row silent data cap**: fixed with server-side aggregate counts and real frontend pagination
+- **A tracked `server.log` file** containing a stale Werkzeug debugger PIN was untracked (it had been in the public repo since the first commit)
 
 ### ⚠️ Known, Accepted Limitations (documented, not oversights)
 - **No authentication** on any endpoint — local single-user project only
@@ -249,13 +267,13 @@ When `FLASK_DEBUG=True`, Werkzeug's auto-reloader has been observed to spuriousl
 2. Open `http://localhost:5000` in a browser
 3. Pick job sources in the sidebar (5 categories, 20 checkboxes) → click "⚡ Fetch Jobs"
 4. Upload a résumé (.pdf/.docx/.txt/.jpg/.jpeg/.png) via "📄 Upload Resume," selecting Fresher or Experienced first
-5. Use the filter bar (Domain / Type / Region / Experience) to narrow the main job table
+5. Use the filter bar (Domain / Type / Region / Experience) to narrow the main job table — use Prev/Next at the bottom to page through results beyond the first 50
 6. "⭐ Recommended for You" section shows ranked matches after a résumé upload
 
 ### Key Areas to Read First
 - **`api.py`** — core logic: DB layer, matching, OCR, filtering, classification, all routes
 - **`remote_job_scraper.py`** — all 20 scraper functions (17 real + 3 honest stubs); good place to understand how each source's data shape differs
-- **`tests/`** — 161 tests are the best source of truth for expected behavior; start with `test_helpers.py` and `conftest.py`
+- **`tests/`** — 162 tests are the best source of truth for expected behavior; start with `test_helpers.py` and `conftest.py`
 - **`index.html`** — frontend; vanilla JS, no build step, every API call goes through `/api/*`
 - **`.env`** — local config; never commit this file (it's gitignored)
 
@@ -263,18 +281,19 @@ When `FLASK_DEBUG=True`, Werkzeug's auto-reloader has been observed to spuriousl
 ```bash
 python -c "from api import init_db; init_db()"   # check/repair DB schema
 pytest                                            # run the test suite
-curl http://localhost:5000/api/sources            # list scraper sources + status
-curl http://localhost:5000/api/db-info             # DB connection + row counts
-curl http://localhost:5000/api/cache-info           # in-memory cache status
+curl http://localhost:5000/api/sources             # list scraper sources + status
+curl http://localhost:5000/api/db-info              # DB connection + row counts
+curl http://localhost:5000/api/cache-info            # in-memory cache status
+curl "http://localhost:5000/api/jobs?page=1&limit=50"  # paginated job listing
 ```
 
 ### Recommended Reading Order
 1. This file (`PROJECT_OVERVIEW.md`)
 2. `API_DOCUMENTATION.md` — full endpoint request/response reference
 3. `RESUME_FEATURE_GUIDE.md` — résumé matching + OCR, user-facing
-4. `SECURITY_AUDIT_6.md` (and the earlier numbered audits for history)
+4. `SECURITY_AUDIT_6.md` (and the earlier numbered audits for history) + this file's "Recently Fixed Issues" section for what happened after
 5. `tests/conftest.py` → `tests/test_helpers.py` — how DB mocking works and the core business logic's expected behavior
 
 ---
 
-*Document generated 2026-10-13, reflecting the repo as of commit `bb61793`. For anything newer, check `git log`.*
+*Document generated 2026-10-22, reflecting the repo as of commit `e4bd76b`. For anything newer, check `git log`.*
