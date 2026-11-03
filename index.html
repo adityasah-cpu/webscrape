@@ -49,6 +49,18 @@
             --color-border-default: #e2e8f0;
             --color-border-muted: #e5e7eb;
 
+            /* ---- "Trustworthy Corporate Blue & Soft Neutral" palette ----
+               60% dominant / 30% primary / 10% accent split: white page
+               background, royal blue for primary chrome/links, teal for
+               primary CTAs (Upload Resume / Apply Now / Check ATS Score),
+               charcoal body text, cool-gray card surfaces. */
+            --color-bg-dominant: #ffffff;
+            --color-primary-corporate: #2563eb;
+            --color-cta: #0d9488;
+            --color-cta-hover: #0b7a70;
+            --color-text-charcoal: #1f2937;
+            --color-surface-card: #f3f4f6;
+
             /* Spacing (component-internal scale, not page-layout gaps) */
             --space-1: 2px;
             --space-2: 4px;
@@ -86,10 +98,10 @@
             --success-dark: #059669;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --bg-primary: var(--color-surface-muted);
-            --bg-secondary: var(--color-surface-strong);
+            --bg-primary: var(--color-bg-dominant);
+            --bg-secondary: var(--color-surface-card);
             --bg-tertiary: #f1f5f9;
-            --text-primary: #0f172a;
+            --text-primary: var(--color-text-charcoal);
             --text-secondary: var(--color-text-secondary);
             --text-tertiary: #64748b;
             --border-color: var(--color-border-default);
@@ -230,7 +242,7 @@
         .fetch-btn {
             width: 100%;
             padding: 13px 16px;
-            background: var(--accent-purple);
+            background: var(--color-cta);
             color: white;
             border: none;
             border-radius: var(--radius-sm);
@@ -243,7 +255,7 @@
         }
 
         .fetch-btn:hover:not(:disabled) {
-            background: #6d28d9;
+            background: var(--color-cta-hover);
         }
 
         .fetch-btn:active:not(:disabled) {
@@ -988,7 +1000,7 @@
         .btn-apply {
             flex: 1;
             padding: 13px 20px;
-            background: var(--accent-purple);
+            background: var(--color-cta);
             color: white;
             border: none;
             border-radius: var(--radius-sm);
@@ -1000,7 +1012,7 @@
         }
 
         .btn-apply:hover {
-            background: #6d28d9;
+            background: var(--color-cta-hover);
         }
 
         .btn-apply:active {
