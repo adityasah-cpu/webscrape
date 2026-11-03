@@ -11,6 +11,7 @@ from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import remote_job_scraper as rjs
 import enggroom_scraper
+import hackathon_scraper
 import json
 import re
 from datetime import datetime, timedelta
@@ -406,6 +407,25 @@ def init_db() -> bool:
         """)
         conn.commit()
 
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS hackathons (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            source VARCHAR(100),
+            title VARCHAR(255),
+            organizer VARCHAR(255),
+            location VARCHAR(255),
+            prize_amount VARCHAR(100),
+            themes VARCHAR(500),
+            registrations_count VARCHAR(50),
+            submission_dates VARCHAR(100),
+            time_left VARCHAR(100),
+            url VARCHAR(500) UNIQUE,
+            added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_source (source)
+        )
+        """)
+        conn.commit()
+
         cursor.close()
         conn.close()
         logger.info("Database initialized successfully")
@@ -471,6 +491,9 @@ _COLUMN_MAX_LENGTHS = {
     "description": 4000,
     # resources table columns (reuses the same truncation helper/pattern)
     "discipline": 100, "resource_type": 100,
+    # hackathons table columns
+    "organizer": 255, "prize_amount": 100, "themes": 500,
+    "registrations_count": 50, "submission_dates": 100, "time_left": 100,
 }
 
 def _truncate_for_column(value: Any, column: str) -> Any:
@@ -605,6 +628,72 @@ def load_resources_from_db() -> List[Dict[str, Any]]:
         return resources
     except Error as e:
         logger.error(f"Failed to load resources from database: {e}")
+        return []
+
+def save_hackathons_to_db(hackathons: List[Dict[str, Any]]) -> Dict[str, int]:
+    """Save hackathon listings to MySQL."""
+    result = {"saved": 0, "failed": 0}
+    try:
+        conn = get_db_connection()
+        if not conn:
+            result["failed"] = len(hackathons)
+            return result
+
+        cursor = conn.cursor()
+        for h in hackathons:
+            try:
+                cursor.execute("""
+                    INSERT INTO hackathons (source, title, organizer, location, prize_amount,
+                                           themes, registrations_count, submission_dates,
+                                           time_left, url, added_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        source = VALUES(source), title = VALUES(title), organizer = VALUES(organizer),
+                        location = VALUES(location), prize_amount = VALUES(prize_amount),
+                        themes = VALUES(themes), registrations_count = VALUES(registrations_count),
+                        submission_dates = VALUES(submission_dates), time_left = VALUES(time_left),
+                        added_at = NOW()
+                """, (
+                    _truncate_for_column(h.get('source'), 'source'),
+                    _truncate_for_column(h.get('title'), 'title'),
+                    _truncate_for_column(h.get('organizer'), 'organizer'),
+                    _truncate_for_column(h.get('location'), 'location'),
+                    _truncate_for_column(h.get('prize_amount'), 'prize_amount'),
+                    _truncate_for_column(h.get('themes'), 'themes'),
+                    _truncate_for_column(h.get('registrations_count'), 'registrations_count'),
+                    _truncate_for_column(h.get('submission_dates'), 'submission_dates'),
+                    _truncate_for_column(h.get('time_left'), 'time_left'),
+                    _truncate_for_column(h.get('url'), 'url'),
+                    datetime.now()
+                ))
+                result["saved"] += 1
+            except Error as e:
+                result["failed"] += 1
+                logger.error(f"Failed to insert hackathon {h.get('url')}: {e}")
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return result
+    except Error as e:
+        logger.error(f"Failed to save hackathons to database: {e}")
+        result["failed"] = len(hackathons) - result["saved"]
+        return result
+
+def load_hackathons_from_db() -> List[Dict[str, Any]]:
+    """Load all hackathon listings from MySQL, most recently added first."""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return []
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM hackathons ORDER BY added_at DESC")
+        hackathons = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return hackathons
+    except Error as e:
+        logger.error(f"Failed to load hackathons from database: {e}")
         return []
 
 def is_fresher_job(job: Dict[str, Any]) -> bool:
@@ -1115,6 +1204,38 @@ def get_resources() -> Any:
     except Exception as e:
         logger.error(f"Failed to get resources: {e}")
         return jsonify({"success": False, "error": "Failed to load resources. Please try again."}), 500
+
+
+@app.route("/api/hackathons/fetch", methods=["POST"])
+@limiter.limit("5 per minute")
+def fetch_hackathons() -> Any:
+    """Pull currently-open hackathons from Devpost's public API and store
+    them."""
+    try:
+        hackathons = hackathon_scraper.scrape_devpost_hackathons()
+        result = save_hackathons_to_db(hackathons)
+        return jsonify({
+            "success": True,
+            "fetched": len(hackathons),
+            "saved": result["saved"],
+            "failed": result["failed"],
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch hackathons: {e}")
+        return jsonify({"success": False, "error": "Failed to fetch hackathons. Please try again."}), 500
+
+
+@app.route("/api/hackathons", methods=["GET"])
+def get_hackathons() -> Any:
+    """List the stored hackathon listings."""
+    try:
+        hackathons = load_hackathons_from_db()
+        return jsonify({"success": True, "hackathons": hackathons, "total": len(hackathons)})
+    except Exception as e:
+        logger.error(f"Failed to get hackathons: {e}")
+        return jsonify({"success": False, "error": "Failed to load hackathons. Please try again."}), 500
 
 
 @app.route("/api/sources", methods=["GET"])

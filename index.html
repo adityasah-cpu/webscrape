@@ -1268,6 +1268,12 @@
                 <div id="atsFileName" style="font-size:12px; color:var(--color-text-secondary); margin-top:6px;"></div>
             </div>
 
+            <div class="sidebar-section-title">🏆 Hackathons</div>
+            <div style="font-size:11px; color:var(--text-tertiary); margin:-8px 0 10px 2px; line-height:1.4;">
+                Currently-open hackathons from Devpost.
+            </div>
+            <button class="fetch-btn" onclick="fetchHackathons()" id="fetchHackathonsBtn">🏆 Fetch Hackathons</button>
+
             <button class="fetch-btn" onclick="fetchJobs()" id="fetchBtn">⚡ Fetch Jobs</button>
         </div>
 
@@ -1387,6 +1393,26 @@
             </div>
 
             <!-- RECOMMENDED FOR YOU (hidden until resume is matched) -->
+            <div class="jobs-container hackathons-section" id="hackathonsSection" style="display:none;">
+                <div class="recommended-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <h2 style="margin: 0; flex: 1;">🏆 Hackathons</h2>
+                    <div id="hackathonsMeta" style="font-size:13px; color:var(--text-secondary);"></div>
+                    <button class="export-btn" onclick="clearHackathons()" title="Hide hackathons">✕ Clear</button>
+                </div>
+                <table class="jobs-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">Hackathon</th>
+                            <th style="width: 20%;">Organizer</th>
+                            <th style="width: 15%;">Prize</th>
+                            <th style="width: 15%;">Location</th>
+                            <th style="width: 15%;">Deadline</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hackathonsTableBody"></tbody>
+                </table>
+            </div>
+
             <div class="jobs-container ats-section" id="atsSection" style="display:none;">
                 <div class="recommended-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
                     <h2 style="margin: 0; flex: 1;">🎯 ATS Score</h2>
@@ -1781,6 +1807,72 @@
             document.getElementById("atsScoreValue").textContent = "—";
             document.getElementById("atsFeedback").textContent = "";
             document.getElementById("atsScoreCircle").style.borderColor = "var(--border-color)";
+        }
+
+        // ---------------- Hackathons ----------------
+
+        async function fetchHackathons() {
+            const btn = document.getElementById("fetchHackathonsBtn");
+            btn.disabled = true;
+            btn.textContent = "⏳ Fetching...";
+
+            try {
+                const fetchRes = await fetch(`${API}/hackathons/fetch`, { method: "POST" });
+                const fetchData = await fetchRes.json();
+                if (!fetchData.success) {
+                    alert(fetchData.error || "Failed to fetch hackathons.");
+                    return;
+                }
+
+                const listRes = await fetch(`${API}/hackathons`);
+                const listData = await listRes.json();
+                renderHackathons(listData.hackathons || []);
+            } catch (e) {
+                console.error("Hackathon fetch failed:", e);
+                alert("Failed to fetch hackathons. Please try again.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "🏆 Fetch Hackathons";
+            }
+        }
+
+        function renderHackathons(hackathons) {
+            const section = document.getElementById("hackathonsSection");
+            const tbody = document.getElementById("hackathonsTableBody");
+            const meta = document.getElementById("hackathonsMeta");
+
+            section.style.display = "block";
+            meta.textContent = `${hackathons.length} open hackathon${hackathons.length === 1 ? "" : "s"} · from Devpost`;
+
+            if (hackathons.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">
+                    <div class="empty-icon">🏆</div>
+                    <div class="empty-title">No Hackathons Found</div>
+                    <div class="empty-text">Click "Fetch Hackathons" to pull currently-open listings from Devpost.</div>
+                </div></td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = hackathons.map(h => `
+                <tr onclick="window.open('${escapeHtml(h.url || '#')}', '_blank')">
+                    <td>
+                        <div class="job-title-wrapper">
+                            <div class="job-title">${escapeHtml(h.title || "N/A")}</div>
+                            <div class="job-domains">
+                                ${escapeHtml(h.themes || "").split(",").filter(t => t.trim()).slice(0, 2).map(t => `<span class="domain-badge">${escapeHtml(t.trim())}</span>`).join('')}
+                            </div>
+                        </div>
+                    </td>
+                    <td><div class="job-company">${escapeHtml(h.organizer || "N/A")}</div></td>
+                    <td><div style="font-weight:600; font-size:13px;">${escapeHtml(h.prize_amount || "N/A")}</div></td>
+                    <td><div style="font-size:13px;">${escapeHtml(h.location || "Online")}</div></td>
+                    <td><div style="font-size:13px;">${escapeHtml(h.time_left || h.submission_dates || "N/A")}</div></td>
+                </tr>
+            `).join("");
+        }
+
+        function clearHackathons() {
+            document.getElementById("hackathonsSection").style.display = "none";
         }
 
         // ---------------- Analytics Dashboard ----------------
