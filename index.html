@@ -1310,6 +1310,10 @@
                         <div id="chartJobsOverTime" class="bar-chart-vertical"></div>
                     </div>
                     <div class="analytics-card">
+                        <div class="analytics-card-title">⏱️ Fetched</div>
+                        <div id="chartRecency" class="bar-chart-horizontal"></div>
+                    </div>
+                    <div class="analytics-card">
                         <div class="analytics-card-title">🎓 Domain Distribution</div>
                         <div id="chartByDomain" class="bar-chart-horizontal"></div>
                     </div>
@@ -1972,6 +1976,7 @@
 
                 document.getElementById("analyticsDaysLabel").textContent = data.jobs_over_time.length;
                 renderBarChartVertical("chartJobsOverTime", data.jobs_over_time);
+                renderBarChartHorizontal("chartRecency", (data.recency_breakdown || []).map(b => ({ name: b.label, count: b.count })));
                 renderBarChartHorizontal("chartByDomain", objectToSortedItems(data.by_domain));
                 renderBarChartHorizontal("chartByWorkType", objectToSortedItems(data.by_work_type));
                 renderBarChartHorizontal("chartTopSources", data.top_sources);

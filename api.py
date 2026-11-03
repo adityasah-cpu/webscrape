@@ -930,6 +930,7 @@ def get_analytics(days: int = 14, top_n: int = 10) -> Dict[str, Any]:
             "summary": {"total_jobs": 0, "added_today": 0, "added_this_week": 0,
                         "total_companies": 0, "total_sources": 0},
             "jobs_over_time": [],
+            "recency_breakdown": [],
             "by_domain": {},
             "by_work_type": {},
             "top_sources": [],
@@ -950,6 +951,21 @@ def get_analytics(days: int = 14, top_n: int = 10) -> Dict[str, Any]:
 
     added_today = 0
     added_this_week = 0
+
+    # Buckets jobs by how long ago they were fetched (added_at), in order
+    # from most to least recent, so the analytics page can show something
+    # like "42 jobs fetched today, 310 fetched this month" instead of only
+    # a daily time-series chart - a quicker read of overall dataset freshness.
+    recency_buckets = [
+        ("Today", 0, 0),
+        ("Yesterday", 1, 1),
+        ("This week", 2, 6),
+        ("This month", 7, 29),
+        ("1-3 months ago", 30, 89),
+        ("Over 3 months ago", 90, None),
+    ]
+    recency_counts: Dict[str, int] = {label: 0 for label, _, _ in recency_buckets}
+    unknown_fetch_date_count = 0
 
     for job in jobs:
         for domain in (job.get('domains') or ['General']):
@@ -978,6 +994,14 @@ def get_analytics(days: int = 14, top_n: int = 10) -> Dict[str, Any]:
             if day_key in day_counts:
                 day_counts[day_key] += 1
 
+            days_ago = (today - added_date).days
+            for label, lo, hi in recency_buckets:
+                if days_ago >= lo and (hi is None or days_ago <= hi):
+                    recency_counts[label] += 1
+                    break
+        else:
+            unknown_fetch_date_count += 1
+
     def top(counts: Dict[str, int], n: int) -> List[Dict[str, Any]]:
         return [
             {"name": name, "count": count}
@@ -989,6 +1013,14 @@ def get_analytics(days: int = 14, top_n: int = 10) -> Dict[str, Any]:
         for day in sorted(day_counts.keys())
     ]
 
+    recency_breakdown = [
+        {"label": label, "count": recency_counts[label]}
+        for label, _, _ in recency_buckets
+        if recency_counts[label] > 0
+    ]
+    if unknown_fetch_date_count:
+        recency_breakdown.append({"label": "Unknown fetch date", "count": unknown_fetch_date_count})
+
     return {
         "summary": {
             "total_jobs": len(jobs),
@@ -998,6 +1030,7 @@ def get_analytics(days: int = 14, top_n: int = 10) -> Dict[str, Any]:
             "total_sources": len({j.get('source') for j in jobs if j.get('source')}),
         },
         "jobs_over_time": jobs_over_time,
+        "recency_breakdown": recency_breakdown,
         "by_domain": domain_counts,
         "by_work_type": work_type_counts,
         "top_sources": top(source_counts, top_n),

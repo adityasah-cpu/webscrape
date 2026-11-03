@@ -60,6 +60,23 @@ class TestGetAnalytics:
         assert len(result["top_sources"]) == 1
         assert len(result["top_companies"]) == 1
 
+    def test_recency_breakdown_buckets_jobs_by_how_long_ago_fetched(self, mocker, analytics_jobs):
+        mocker.patch.object(api_module, "load_jobs_from_db", return_value=analytics_jobs)
+        result = api_module.get_analytics()
+        breakdown = {b["label"]: b["count"] for b in result["recency_breakdown"]}
+        # analytics_jobs: today, yesterday, 5 days ago, 40 days ago
+        assert breakdown["Today"] == 1
+        assert breakdown["Yesterday"] == 1
+        assert breakdown["This week"] == 1
+        assert breakdown["1-3 months ago"] == 1
+        assert sum(breakdown.values()) == 4
+
+    def test_recency_breakdown_omits_empty_buckets(self, mocker, analytics_jobs):
+        mocker.patch.object(api_module, "load_jobs_from_db", return_value=analytics_jobs)
+        result = api_module.get_analytics()
+        labels = [b["label"] for b in result["recency_breakdown"]]
+        assert "Over 3 months ago" not in labels  # no fixture job is that old
+
 
 class TestAnalyticsEndpoint:
     def test_returns_success_and_expected_keys(self, client, mocker, analytics_jobs):
