@@ -237,6 +237,17 @@ class TestFilterJobs:
         assert len(result["jobs"]) == 2  # page is still capped
         assert result["work_type_breakdown"] == {"Remote": 5, "Onsite": 3}  # breakdown isn't
 
+    def test_internship_count_covers_full_filtered_set(self):
+        jobs = [
+            {"work_type": "Remote", "job_type": "Internship"},
+            {"work_type": "Onsite", "job_type": "Contract, Internship"},  # comma-joined job_type
+            {"work_type": "Remote", "job_type": "Full-time"},
+            {"work_type": "Onsite", "job_type": "Unspecified"},
+        ]
+        result = api_module.filter_jobs(jobs, page=1, limit=2)
+        assert len(result["jobs"]) == 2  # page is still capped
+        assert result["internship_count"] == 2  # breakdown isn't
+
     def test_no_filters_returns_everything_within_limit(self, sample_jobs):
         result = api_module.filter_jobs(sample_jobs, limit=50)
         assert result["total"] == len(sample_jobs)

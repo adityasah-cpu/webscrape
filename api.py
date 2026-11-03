@@ -754,9 +754,15 @@ def filter_jobs(
     # counting only the returned page (or an earlier hardcoded single-page
     # fetch) silently undercounted once the dataset grew past that page size.
     work_type_breakdown: Dict[str, int] = {}
+    internship_count = 0
     for j in filtered:
         wt = j.get('work_type') or 'Unknown'
         work_type_breakdown[wt] = work_type_breakdown.get(wt, 0) + 1
+        # job_type can be a comma-joined combination (e.g. "Contract,
+        # Internship"), from norm_job_type() - not a single enum value - so
+        # this checks for Internship as a component, not an exact match.
+        if 'internship' in (j.get('job_type') or '').lower():
+            internship_count += 1
 
     start = (page - 1) * limit
     end = start + limit
@@ -768,6 +774,7 @@ def filter_jobs(
         "pages": pages,
         "limit": limit,
         "work_type_breakdown": work_type_breakdown,
+        "internship_count": internship_count,
     }
 
 def get_statistics() -> Dict[str, Any]:

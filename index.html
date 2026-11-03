@@ -416,9 +416,10 @@
             color: var(--accent-purple);
         }
 
-        .stat-item:nth-child(4n+2)::before { content: '🌍'; background: var(--accent-blue-bg); color: var(--accent-blue); }
-        .stat-item:nth-child(4n+3)::before { content: '🏢'; background: var(--accent-green-bg); color: var(--accent-green); }
-        .stat-item:nth-child(4n+4)::before { content: '📍'; background: var(--accent-orange-bg); color: var(--accent-orange); }
+        .stat-item:nth-child(5n+2)::before { content: '🌍'; background: var(--accent-blue-bg); color: var(--accent-blue); }
+        .stat-item:nth-child(5n+3)::before { content: '🏢'; background: var(--accent-green-bg); color: var(--accent-green); }
+        .stat-item:nth-child(5n+4)::before { content: '📍'; background: var(--accent-orange-bg); color: var(--accent-orange); }
+        .stat-item:nth-child(5n+5)::before { content: '🎓'; background: var(--accent-pink-bg); color: var(--accent-pink); }
 
         .stat-value {
             font-size: 32px;
@@ -1379,6 +1380,10 @@
                     <div class="stat-value" id="jobsOnsite">0</div>
                     <div class="stat-label">Onsite</div>
                 </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="jobsInternship">0</div>
+                    <div class="stat-label">Internship</div>
+                </div>
             </div>
 
             <!-- RECOMMENDED FOR YOU (hidden until resume is matched) -->
@@ -1912,6 +1917,7 @@
                 document.getElementById("jobsRemote").textContent = breakdown.Remote || 0;
                 document.getElementById("jobsHybrid").textContent = breakdown.Hybrid || 0;
                 document.getElementById("jobsOnsite").textContent = breakdown.Onsite || 0;
+                document.getElementById("jobsInternship").textContent = data.internship_count || 0;
 
                 renderPaginationBar(data.total || 0);
 
