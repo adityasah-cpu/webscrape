@@ -116,9 +116,10 @@ class TestExtractTextFromResume:
 
 
 class TestEvaluateAtsScore:
-    """evaluate_ats_score() talks to an external service (CUTM AI Gateway)
-    whose exact contract isn't confirmed live yet, so these tests exercise
-    the defensive handling: several plausible response shapes, and every
+    """evaluate_ats_score() talks to an external service (CUTM AI Gateway).
+    These tests cover both the confirmed-live response shape (ats_score,
+    summary, critical_issues, actionable_recommendations, missing_keywords)
+    and the older guessed-field fallbacks kept for robustness, plus every
     failure mode turning into a clear ValueError rather than a crash."""
 
     def _mock_response(self, mocker, status_code=200, json_data=None, json_raises=False):
@@ -147,6 +148,30 @@ class TestEvaluateAtsScore:
         assert result["score"] == 65.3
         assert "action verbs" in result["feedback"]
         assert "skills section" in result["feedback"]
+
+    def test_success_with_confirmed_live_response_shape(self, mocker):
+        """Regression test: the real service returns ats_score plus
+        several separate improvement-guidance fields, not a single
+        "feedback" key - this used to silently fall back to the generic
+        'No improvement suggestions provided.' message for every real
+        response because none of the guessed key names matched."""
+        mocker.patch.object(
+            api_module.requests, "post",
+            return_value=self._mock_response(mocker, json_data={
+                "ats_score": 85, "match_percentage": 95, "rating": "Strong Match",
+                "summary": "Strong backend engineer with solid metrics.",
+                "critical_issues": ["Missing GitHub/portfolio link"],
+                "actionable_recommendations": ["Include a GitHub link", "Add AWS services to skills"],
+                "missing_keywords": ["AWS Services", "Testing Frameworks"],
+            })
+        )
+        result = api_module.evaluate_ats_score("resume.pdf", b"bytes")
+        assert result["score"] == 85.0  # ats_score preferred over match_percentage
+        assert "Strong backend engineer" in result["feedback"]
+        assert "Missing GitHub/portfolio link" in result["feedback"]
+        assert "Include a GitHub link" in result["feedback"]
+        assert "AWS Services" in result["feedback"]
+        assert result["feedback"] != "No improvement suggestions provided."
 
     def test_missing_score_raises_value_error(self, mocker):
         mocker.patch.object(

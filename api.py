@@ -1084,13 +1084,16 @@ def evaluate_ats_score(filename: str, raw_bytes: bytes) -> Dict[str, Any]:
     """Forward a resume file to the CUTM AI Gateway's ATS-evaluation endpoint
     and normalize its response to {"score": float, "feedback": str}.
 
-    The exact request/response contract for ATS_API_URL hasn't been
-    confirmed against a live deployment yet (every method 404s as of this
-    writing), so this is deliberately defensive: it tries a couple of
-    plausible field-name variants for the score/feedback keys rather than
-    assuming one, and raises a clear, specific ValueError for every failure
-    mode (service unreachable, non-200, unexpected shape) so the route can
-    turn that into an honest error response instead of a generic 500.
+    Confirmed live response shape (2026-11-03): {"ats_score": 85,
+    "match_percentage": 95, "rating": "...", "summary": "...",
+    "category_breakdown": {...}, "matched_keywords": [...],
+    "missing_keywords": [...], "strengths": [...],
+    "critical_issues": [...], "actionable_recommendations": [...], ...}.
+    "feedback" is built from summary + actionable_recommendations +
+    critical_issues rather than one field, since the real response spreads
+    improvement guidance across several keys - none of which are a plain
+    "feedback" field. Key-name fallbacks are kept for score in case the
+    service's schema changes again.
     """
     try:
         response = requests.post(
@@ -1115,18 +1118,10 @@ def evaluate_ats_score(filename: str, raw_bytes: bytes) -> Dict[str, Any]:
     except ValueError:
         raise ValueError("ATS scoring service returned an unreadable response.")
 
-    # Try a few plausible key names for each field rather than assuming one,
-    # since the live contract isn't confirmed yet.
     score = None
-    for key in ("score", "ats_score", "atsScore", "match_score"):
+    for key in ("ats_score", "score", "atsScore", "match_score", "match_percentage"):
         if key in data:
             score = data[key]
-            break
-
-    feedback = None
-    for key in ("feedback", "context", "suggestions", "improvements", "message"):
-        if key in data:
-            feedback = data[key]
             break
 
     if score is None:
@@ -1136,6 +1131,39 @@ def evaluate_ats_score(filename: str, raw_bytes: bytes) -> Dict[str, Any]:
         score = round(float(score), 1)
     except (TypeError, ValueError):
         raise ValueError("ATS scoring service returned a non-numeric score.")
+
+    # Build feedback from the real response's several improvement-guidance
+    # fields rather than one key - "summary" gives the overall read,
+    # "actionable_recommendations" is the actual to-do list, and
+    # "critical_issues" flags anything that needs fixing first.
+    sections = []
+    summary = data.get("summary")
+    if summary:
+        sections.append(str(summary))
+
+    critical_issues = data.get("critical_issues")
+    if critical_issues:
+        items = "\n".join(f"- {item}" for item in critical_issues)
+        sections.append(f"Critical issues:\n{items}")
+
+    recommendations = data.get("actionable_recommendations")
+    if recommendations:
+        items = "\n".join(f"- {item}" for item in recommendations)
+        sections.append(f"Recommendations:\n{items}")
+
+    missing_keywords = data.get("missing_keywords")
+    if missing_keywords:
+        sections.append(f"Missing keywords: {', '.join(missing_keywords)}")
+
+    feedback = "\n\n".join(sections) if sections else None
+
+    # Fall back to older guessed field names in case the service's schema
+    # changes again and stops returning the fields checked above.
+    if not feedback:
+        for key in ("feedback", "context", "suggestions", "improvements", "message"):
+            if data.get(key):
+                feedback = data[key]
+                break
 
     if isinstance(feedback, list):
         feedback = "\n".join(str(item) for item in feedback)
