@@ -18,6 +18,7 @@ import threading
 import time
 import os
 import mysql.connector
+import requests
 from mysql.connector import Error
 from mysql.connector.abstracts import MySQLConnectionAbstract
 import io
@@ -129,6 +130,14 @@ MIN_RESUME_TEXT_CHARS = int(os.getenv('MIN_RESUME_TEXT', 30))
 OCR_MAX_PAGES = int(os.getenv('OCR_MAX_PAGES', 5))  # cap worst-case OCR latency
 
 app.config['MAX_CONTENT_LENGTH'] = MAX_RESUME_SIZE_BYTES
+
+# External ATS-scoring service (CUTM AI Gateway). As of this writing the
+# endpoint is not yet live on the server (confirmed: every method 404s) -
+# the integration below is built defensively against that, and against the
+# response shape being slightly different than assumed once it does go
+# live, since the exact contract hasn't been confirmed yet.
+ATS_API_URL = os.getenv('ATS_API_URL', 'https://qwen.cutm.ac.in/api/ats/evaluate')
+ATS_API_TIMEOUT = int(os.getenv('ATS_API_TIMEOUT', 30))
 
 # EasyOCR's Reader takes ~30s to initialize (downloads/loads detection +
 # recognition models), so it's created lazily on first actual use rather
@@ -939,6 +948,70 @@ def extract_text_from_resume(file_storage: FileStorage) -> str:
         logger.info(f"'{filename}': OCR extracted {len(text)} characters")
     return text
 
+def evaluate_ats_score(filename: str, raw_bytes: bytes) -> Dict[str, Any]:
+    """Forward a resume file to the CUTM AI Gateway's ATS-evaluation endpoint
+    and normalize its response to {"score": float, "feedback": str}.
+
+    The exact request/response contract for ATS_API_URL hasn't been
+    confirmed against a live deployment yet (every method 404s as of this
+    writing), so this is deliberately defensive: it tries a couple of
+    plausible field-name variants for the score/feedback keys rather than
+    assuming one, and raises a clear, specific ValueError for every failure
+    mode (service unreachable, non-200, unexpected shape) so the route can
+    turn that into an honest error response instead of a generic 500.
+    """
+    try:
+        response = requests.post(
+            ATS_API_URL,
+            files={"file": (filename, raw_bytes)},
+            timeout=ATS_API_TIMEOUT,
+        )
+    except requests.exceptions.Timeout:
+        raise ValueError("ATS scoring service timed out. Please try again.")
+    except requests.exceptions.ConnectionError:
+        raise ValueError("ATS scoring service is currently unreachable.")
+    except requests.exceptions.RequestException as e:
+        raise ValueError(f"ATS scoring request failed: {str(e)[:150]}")
+
+    if response.status_code != 200:
+        raise ValueError(
+            f"ATS scoring service returned an error (HTTP {response.status_code})."
+        )
+
+    try:
+        data = response.json()
+    except ValueError:
+        raise ValueError("ATS scoring service returned an unreadable response.")
+
+    # Try a few plausible key names for each field rather than assuming one,
+    # since the live contract isn't confirmed yet.
+    score = None
+    for key in ("score", "ats_score", "atsScore", "match_score"):
+        if key in data:
+            score = data[key]
+            break
+
+    feedback = None
+    for key in ("feedback", "context", "suggestions", "improvements", "message"):
+        if key in data:
+            feedback = data[key]
+            break
+
+    if score is None:
+        raise ValueError("ATS scoring service response did not include a score.")
+
+    try:
+        score = round(float(score), 1)
+    except (TypeError, ValueError):
+        raise ValueError("ATS scoring service returned a non-numeric score.")
+
+    if isinstance(feedback, list):
+        feedback = "\n".join(str(item) for item in feedback)
+    elif feedback is not None and not isinstance(feedback, str):
+        feedback = str(feedback)
+
+    return {"score": score, "feedback": feedback or "No improvement suggestions provided."}
+
 def extract_resume_keywords(resume_text: str) -> List[str]:
     """Detect which domains a resume's text touches using domain keyword vocabulary."""
     text = resume_text.lower()
@@ -1261,6 +1334,55 @@ def match_resume() -> Any:
     except Exception as e:
         logger.error(f"Failed to match resume: {e}")
         return jsonify({"success": False, "error": "Failed to process resume. Please try again."}), 500
+
+
+@app.route("/api/ats-score", methods=["POST"])
+@limiter.limit("10 per minute")
+def ats_score() -> Any:
+    """Upload a resume and get an ATS compatibility score + improvement
+    feedback from the CUTM AI Gateway. The file is forwarded to the
+    external service and otherwise never persisted, same as résumé
+    matching. The external endpoint isn't confirmed live as of this
+    writing - a failure here (unreachable/timeout/unexpected response)
+    surfaces as a clear 502, not a generic 500."""
+    try:
+        if "resume" not in request.files:
+            return jsonify({"success": False, "error": "No resume file provided (expected form field 'resume')"}), 400
+
+        file_storage = request.files["resume"]
+        if not file_storage or file_storage.filename == "":
+            return jsonify({"success": False, "error": "No file selected"}), 400
+
+        filename = secure_filename(file_storage.filename or "")
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        if ext not in ALLOWED_RESUME_EXTENSIONS:
+            return jsonify({
+                "success": False,
+                "error": f"Unsupported file type: .{ext}. Allowed: {', '.join(ALLOWED_RESUME_EXTENSIONS)}"
+            }), 400
+
+        raw_bytes = file_storage.read()
+        if not raw_bytes:
+            return jsonify({"success": False, "error": "Uploaded file is empty"}), 400
+
+        try:
+            result = evaluate_ats_score(filename, raw_bytes)
+        except ValueError as ve:
+            logger.warning(f"ATS scoring failed for '{filename}': {ve}")
+            return jsonify({"success": False, "error": str(ve)}), 502
+
+        logger.info(f"ATS score for '{filename}': {result['score']}")
+        return jsonify({
+            "success": True,
+            "score": result["score"],
+            "feedback": result["feedback"],
+        })
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get ATS score: {e}")
+        return jsonify({"success": False, "error": "Failed to get ATS score. Please try again."}), 500
 
 
 @app.route("/api/jobs", methods=["GET"])

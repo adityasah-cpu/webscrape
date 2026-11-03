@@ -314,6 +314,60 @@ def test_match_resume_top_n_is_capped_at_100(client, mocker, sample_jobs):
     assert len(res.get_json()["matches"]) == 2
 
 
+# ---------------- /api/ats-score ----------------
+
+def test_ats_score_no_file_field_returns_400(client):
+    res = client.post("/api/ats-score", data={})
+    assert res.status_code == 400
+    assert "resume" in res.get_json()["error"]
+
+
+def test_ats_score_empty_filename_returns_400(client):
+    data = {"resume": (io.BytesIO(b""), "")}
+    res = client.post("/api/ats-score", data=data, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+
+def test_ats_score_unsupported_extension_returns_400(client):
+    data = {"resume": (io.BytesIO(b"some content"), "resume.doc")}
+    res = client.post("/api/ats-score", data=data, content_type="multipart/form-data")
+    assert res.status_code == 400
+    assert "Unsupported file type" in res.get_json()["error"]
+
+
+def test_ats_score_empty_file_returns_400(client):
+    data = {"resume": (io.BytesIO(b""), "resume.pdf")}
+    res = client.post("/api/ats-score", data=data, content_type="multipart/form-data")
+    assert res.status_code == 400
+    assert "empty" in res.get_json()["error"].lower()
+
+
+def test_ats_score_success(client, mocker):
+    mocker.patch.object(
+        api_module, "evaluate_ats_score",
+        return_value={"score": 78.5, "feedback": "Add more quantified achievements."}
+    )
+    data = {"resume": (io.BytesIO(b"some resume content"), "resume.pdf")}
+    res = client.post("/api/ats-score", data=data, content_type="multipart/form-data")
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["success"] is True
+    assert body["score"] == 78.5
+    assert body["feedback"] == "Add more quantified achievements."
+
+
+def test_ats_score_external_service_failure_returns_502(client, mocker):
+    mocker.patch.object(
+        api_module, "evaluate_ats_score",
+        side_effect=ValueError("ATS scoring service is currently unreachable.")
+    )
+    data = {"resume": (io.BytesIO(b"some resume content"), "resume.pdf")}
+    res = client.post("/api/ats-score", data=data, content_type="multipart/form-data")
+    assert res.status_code == 502
+    assert res.get_json()["success"] is False
+    assert "unreachable" in res.get_json()["error"]
+
+
 # ---------------- / (index) ----------------
 
 def test_index_serves_html(client):

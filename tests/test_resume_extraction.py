@@ -113,3 +113,93 @@ class TestExtractTextFromResume:
         fs = make_file_storage(b"bytes", "Resume.PDF")
         text = api_module.extract_text_from_resume(fs)
         assert text == "enough text here to clear the OCR fallback threshold"
+
+
+class TestEvaluateAtsScore:
+    """evaluate_ats_score() talks to an external service (CUTM AI Gateway)
+    whose exact contract isn't confirmed live yet, so these tests exercise
+    the defensive handling: several plausible response shapes, and every
+    failure mode turning into a clear ValueError rather than a crash."""
+
+    def _mock_response(self, mocker, status_code=200, json_data=None, json_raises=False):
+        resp = mocker.Mock()
+        resp.status_code = status_code
+        if json_raises:
+            resp.json.side_effect = ValueError("not json")
+        else:
+            resp.json.return_value = json_data or {}
+        return resp
+
+    def test_success_with_score_and_feedback_keys(self, mocker):
+        mocker.patch.object(
+            api_module.requests, "post",
+            return_value=self._mock_response(mocker, json_data={"score": 82, "feedback": "Add metrics."})
+        )
+        result = api_module.evaluate_ats_score("resume.pdf", b"bytes")
+        assert result == {"score": 82.0, "feedback": "Add metrics."}
+
+    def test_success_with_alternate_key_names(self, mocker):
+        mocker.patch.object(
+            api_module.requests, "post",
+            return_value=self._mock_response(mocker, json_data={"ats_score": "65.3", "suggestions": ["Use action verbs", "Add a skills section"]})
+        )
+        result = api_module.evaluate_ats_score("resume.pdf", b"bytes")
+        assert result["score"] == 65.3
+        assert "action verbs" in result["feedback"]
+        assert "skills section" in result["feedback"]
+
+    def test_missing_score_raises_value_error(self, mocker):
+        mocker.patch.object(
+            api_module.requests, "post",
+            return_value=self._mock_response(mocker, json_data={"feedback": "looks fine"})
+        )
+        with pytest.raises(ValueError, match="did not include a score"):
+            api_module.evaluate_ats_score("resume.pdf", b"bytes")
+
+    def test_non_numeric_score_raises_value_error(self, mocker):
+        mocker.patch.object(
+            api_module.requests, "post",
+            return_value=self._mock_response(mocker, json_data={"score": "not-a-number"})
+        )
+        with pytest.raises(ValueError, match="non-numeric score"):
+            api_module.evaluate_ats_score("resume.pdf", b"bytes")
+
+    def test_non_200_status_raises_value_error(self, mocker):
+        mocker.patch.object(
+            api_module.requests, "post",
+            return_value=self._mock_response(mocker, status_code=404)
+        )
+        with pytest.raises(ValueError, match="HTTP 404"):
+            api_module.evaluate_ats_score("resume.pdf", b"bytes")
+
+    def test_unparseable_json_raises_value_error(self, mocker):
+        mocker.patch.object(
+            api_module.requests, "post",
+            return_value=self._mock_response(mocker, json_raises=True)
+        )
+        with pytest.raises(ValueError, match="unreadable response"):
+            api_module.evaluate_ats_score("resume.pdf", b"bytes")
+
+    def test_timeout_raises_value_error(self, mocker):
+        mocker.patch.object(
+            api_module.requests, "post",
+            side_effect=api_module.requests.exceptions.Timeout()
+        )
+        with pytest.raises(ValueError, match="timed out"):
+            api_module.evaluate_ats_score("resume.pdf", b"bytes")
+
+    def test_connection_error_raises_value_error(self, mocker):
+        mocker.patch.object(
+            api_module.requests, "post",
+            side_effect=api_module.requests.exceptions.ConnectionError()
+        )
+        with pytest.raises(ValueError, match="unreachable"):
+            api_module.evaluate_ats_score("resume.pdf", b"bytes")
+
+    def test_missing_feedback_falls_back_to_default_message(self, mocker):
+        mocker.patch.object(
+            api_module.requests, "post",
+            return_value=self._mock_response(mocker, json_data={"score": 50})
+        )
+        result = api_module.evaluate_ats_score("resume.pdf", b"bytes")
+        assert result["feedback"] == "No improvement suggestions provided."

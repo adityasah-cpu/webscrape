@@ -1258,6 +1258,15 @@
                 <div id="resumeFileName" style="font-size:12px; color:var(--color-text-secondary); margin-top:6px;"></div>
             </div>
 
+            <div class="sidebar-section-title">🎯 ATS Score Checker</div>
+            <div class="resume-upload-box">
+                <input type="file" id="atsInput" accept=".pdf,.docx,.txt,.jpg,.jpeg,.png" style="display:none" onchange="handleAtsFileSelected()">
+                <button class="fetch-btn" onclick="document.getElementById('atsInput').click()" id="atsUploadBtn">
+                    🎯 Check ATS Score
+                </button>
+                <div id="atsFileName" style="font-size:12px; color:var(--color-text-secondary); margin-top:6px;"></div>
+            </div>
+
             <button class="fetch-btn" onclick="fetchJobs()" id="fetchBtn">⚡ Fetch Jobs</button>
         </div>
 
@@ -1373,6 +1382,23 @@
             </div>
 
             <!-- RECOMMENDED FOR YOU (hidden until resume is matched) -->
+            <div class="jobs-container ats-section" id="atsSection" style="display:none;">
+                <div class="recommended-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <h2 style="margin: 0; flex: 1;">🎯 ATS Score</h2>
+                    <button class="export-btn" onclick="clearAtsScore()" title="Clear ATS score">✕ Clear</button>
+                </div>
+                <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+                    <div id="atsScoreCircle" style="flex-shrink:0; width: 120px; height: 120px; border-radius: 50%; display:flex; align-items:center; justify-content:center; flex-direction:column; border: 8px solid var(--border-color); font-weight:800;">
+                        <span id="atsScoreValue" style="font-size: 28px; line-height:1;">—</span>
+                        <span style="font-size: 11px; color: var(--text-secondary); margin-top:4px;">/ 100</span>
+                    </div>
+                    <div style="flex: 1; min-width: 240px;">
+                        <div style="font-size:13px; font-weight:700; color: var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">How to improve</div>
+                        <div id="atsFeedback" style="font-size:14px; line-height:1.6; white-space: pre-line;"></div>
+                    </div>
+                </div>
+            </div>
+
             <div class="jobs-container recommended-section" id="recommendedSection" style="display:none;">
                 <div class="recommended-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
                     <h2 style="margin: 0; flex: 1;">⭐ Recommended for You</h2>
@@ -1688,6 +1714,68 @@
             document.getElementById("recommendedSection").style.display = "none";
             document.getElementById("resumeFileName").textContent = "";
             document.getElementById("resumeInput").value = "";
+        }
+
+        // ---------------- ATS Score Checker ----------------
+
+        function handleAtsFileSelected() {
+            const input = document.getElementById("atsInput");
+            const file = input.files[0];
+            if (!file) return;
+
+            document.getElementById("atsFileName").textContent = file.name;
+            uploadAndCheckAtsScore(file);
+        }
+
+        async function uploadAndCheckAtsScore(file) {
+            const btn = document.getElementById("atsUploadBtn");
+            btn.disabled = true;
+            btn.textContent = "⏳ Checking...";
+
+            const formData = new FormData();
+            formData.append("resume", file);
+
+            try {
+                const res = await fetch(`${API}/ats-score`, { method: "POST", body: formData });
+                const data = await res.json();
+
+                if (!data.success) {
+                    alert(data.error || "Failed to get ATS score.");
+                    return;
+                }
+
+                renderAtsScore(data);
+            } catch (e) {
+                console.error("ATS score check failed:", e);
+                alert("Failed to upload/check ATS score. Please try again.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "🎯 Check ATS Score";
+            }
+        }
+
+        function renderAtsScore(data) {
+            const section = document.getElementById("atsSection");
+            const circle = document.getElementById("atsScoreCircle");
+            const value = document.getElementById("atsScoreValue");
+            const feedback = document.getElementById("atsFeedback");
+
+            section.style.display = "block";
+            value.textContent = data.score;
+            feedback.textContent = data.feedback || "No improvement suggestions provided.";
+
+            const color = data.score >= 70 ? "var(--accent-green)" : data.score >= 40 ? "var(--accent-orange)" : "var(--danger)";
+            circle.style.borderColor = color;
+            value.style.color = color;
+        }
+
+        function clearAtsScore() {
+            document.getElementById("atsSection").style.display = "none";
+            document.getElementById("atsFileName").textContent = "";
+            document.getElementById("atsInput").value = "";
+            document.getElementById("atsScoreValue").textContent = "—";
+            document.getElementById("atsFeedback").textContent = "";
+            document.getElementById("atsScoreCircle").style.borderColor = "var(--border-color)";
         }
 
         // ---------------- Analytics Dashboard ----------------
