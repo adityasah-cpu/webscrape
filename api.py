@@ -137,7 +137,10 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_RESUME_SIZE_BYTES
 # response shape being slightly different than assumed once it does go
 # live, since the exact contract hasn't been confirmed yet.
 ATS_API_URL = os.getenv('ATS_API_URL', 'https://qwen.cutm.ac.in/api/ats/evaluate')
-ATS_API_TIMEOUT = int(os.getenv('ATS_API_TIMEOUT', 30))
+# Confirmed live: this endpoint takes ~2 minutes to respond (an LLM call
+# behind the scenes), not the few seconds a typical REST call would take -
+# a short timeout here would abort valid, still-processing requests.
+ATS_API_TIMEOUT = int(os.getenv('ATS_API_TIMEOUT', 180))
 
 # EasyOCR's Reader takes ~30s to initialize (downloads/loads detection +
 # recognition models), so it's created lazily on first actual use rather
