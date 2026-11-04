@@ -186,8 +186,10 @@ def test_clear_jobs_success_invalidates_cache(client, mocker):
 
     assert res.status_code == 200
     assert res.get_json()["success"] is True
-    mock_conn.cursor.return_value.execute.assert_called_once_with("DELETE FROM jobs")
-    spy.assert_called_once()
+    mock_conn.cursor.return_value.execute.assert_called_once_with(
+        "DELETE FROM jobs WHERE owner_email = %s", ("test@example.com",)
+    )
+    spy.assert_called_once_with("test@example.com")
 
 
 def test_clear_jobs_db_connection_failure(client, mocker):
@@ -628,8 +630,8 @@ def test_init_db_skips_alter_when_schema_already_current(mocker):
 
     cursor = _make_schema_cursor(
         mocker,
-        column_names=[c[0] for c in _old_schema_columns()] + ["start_date", "end_date", "domains", "description"],
-        indexes=["PRIMARY", "url", "idx_source", "idx_work_type", "idx_country"],
+        column_names=[c[0] for c in _old_schema_columns()] + ["start_date", "end_date", "domains", "description", "owner_email"],
+        indexes=["PRIMARY", "uq_owner_url", "idx_owner_email", "idx_source", "idx_work_type", "idx_country"],
         column_widths={"category": 500, "country": 500, "location": 500},
     )
     mock_conn_for_table.cursor.return_value = cursor
@@ -654,7 +656,7 @@ def test_load_jobs_from_db_parses_domains_json(mocker):
     ]
     mocker.patch.object(api_module, "get_db_connection", return_value=mock_conn)
 
-    jobs = api_module.load_jobs_from_db(use_cache=False)
+    jobs = api_module.load_jobs_from_db("test@example.com", use_cache=False)
 
     assert jobs[0]["domains"] == ["Data Science and Machine Learning", "Data Analytics"]
     assert jobs[1]["domains"] == ["General"]  # malformed JSON falls back gracefully
@@ -662,7 +664,7 @@ def test_load_jobs_from_db_parses_domains_json(mocker):
 
 def test_load_jobs_from_db_returns_empty_list_on_connection_failure(mocker):
     mocker.patch.object(api_module, "get_db_connection", return_value=None)
-    assert api_module.load_jobs_from_db(use_cache=False) == []
+    assert api_module.load_jobs_from_db("test@example.com", use_cache=False) == []
 
 
 def test_load_jobs_from_db_uses_cache_on_second_call(mocker):
@@ -671,8 +673,8 @@ def test_load_jobs_from_db_uses_cache_on_second_call(mocker):
     mock_cursor.fetchall.return_value = [{"id": 1, "title": "Cached job", "domains": None}]
     get_conn_mock = mocker.patch.object(api_module, "get_db_connection", return_value=mock_conn)
 
-    first = api_module.load_jobs_from_db()
-    second = api_module.load_jobs_from_db()
+    first = api_module.load_jobs_from_db("test@example.com")
+    second = api_module.load_jobs_from_db("test@example.com")
 
     assert first == second
     get_conn_mock.assert_called_once()  # second call served from cache, no new DB hit
@@ -690,10 +692,10 @@ def test_save_jobs_to_db_invalidates_cache_and_upserts(mocker):
         "date": "2026-01-01", "start_date": "", "end_date": "",
         "url": "https://example.com/x", "domains": ["General"],
     }
-    result = api_module.save_jobs_to_db([job])
+    result = api_module.save_jobs_to_db([job], "test@example.com")
 
     assert result == {"saved": 1, "failed": 0}
-    spy.assert_called_once()
+    spy.assert_called_once_with("test@example.com")
     mock_conn.cursor.return_value.execute.assert_called_once()
     query_used = mock_conn.cursor.return_value.execute.call_args[0][0]
     assert "domains = VALUES(domains)" in query_used  # regression: upsert must refresh domains
@@ -701,7 +703,7 @@ def test_save_jobs_to_db_invalidates_cache_and_upserts(mocker):
 
 def test_save_jobs_to_db_returns_failed_count_on_connection_failure(mocker):
     mocker.patch.object(api_module, "get_db_connection", return_value=None)
-    result = api_module.save_jobs_to_db([{"url": "x"}])
+    result = api_module.save_jobs_to_db([{"url": "x"}], "test@example.com")
     assert result == {"saved": 0, "failed": 1}
 
 
@@ -721,7 +723,7 @@ def test_save_jobs_to_db_counts_per_row_failures_separately_from_successes(mocke
         {"source": "A", "title": "Job 1", "company": "Acme", "url": "https://example.com/1", "domains": ["General"]},
         {"source": "A", "title": "Job 2", "company": "Acme", "url": "https://example.com/2", "domains": ["General"]},
     ]
-    result = api_module.save_jobs_to_db(jobs)
+    result = api_module.save_jobs_to_db(jobs, "test@example.com")
     assert result == {"saved": 1, "failed": 1}
 
 
@@ -748,12 +750,13 @@ def test_save_jobs_to_db_truncates_oversized_fields_instead_of_losing_the_job(mo
         "date": "2026-01-01", "start_date": "", "end_date": "",
         "url": "https://example.com/x", "domains": ["General"],
     }
-    result = api_module.save_jobs_to_db([job])
+    result = api_module.save_jobs_to_db([job], "test@example.com")
 
     assert result == {"saved": 1, "failed": 0}
     bound_params = mock_conn.cursor.return_value.execute.call_args[0][1]
-    # title, country, location, category are params 1, 4, 5, 7 (0-indexed)
-    assert len(bound_params[1]) == 255  # title
-    assert len(bound_params[4]) == 500  # country
-    assert len(bound_params[5]) == 500  # location
-    assert len(bound_params[7]) == 500  # category
+    # owner_email, source, title, company, work_type, country, location, job_type, category...
+    # title is index 2, country is 5, location is 6, category is 8
+    assert len(bound_params[2]) == 255  # title
+    assert len(bound_params[5]) == 500  # country
+    assert len(bound_params[6]) == 500  # location
+    assert len(bound_params[8]) == 500  # category

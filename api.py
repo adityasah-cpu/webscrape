@@ -345,16 +345,28 @@ if not re.match(r'^[A-Za-z0-9_]+$', MYSQL_CONFIG['database']):
 # In-memory cache for load_jobs_from_db() to avoid re-fetching/re-parsing the
 # entire jobs table on every request (e.g. /api/jobs, /api/stats, /api/match-resume
 # hitting within the same few seconds). Invalidated on any write (save/clear).
+# Keyed per-user (by owner_email) - a single shared cache would leak one
+# user's jobs into another user's response for up to JOBS_CACHE_TTL_SECONDS.
 JOBS_CACHE_TTL_SECONDS = int(os.getenv('JOBS_CACHE_TTL_SECONDS', 15))
 MAX_JOBS_FETCH = int(os.getenv('MAX_JOBS_FETCH', 5000))  # Safety cap on rows loaded per query
-_jobs_cache = {"data": None, "timestamp": 0}
+_jobs_cache: Dict[str, Dict[str, Any]] = {}
 _jobs_cache_lock = threading.Lock()
 
-def invalidate_jobs_cache() -> None:
-    """Clear the in-memory jobs cache after a write (insert/delete)."""
+def invalidate_jobs_cache(owner_email: Optional[str] = None) -> None:
+    """Clear one user's in-memory jobs cache entry after a write (insert/delete).
+    If owner_email is None, clear all users' cache entries (useful for test teardown)."""
     with _jobs_cache_lock:
-        _jobs_cache["data"] = None
-        _jobs_cache["timestamp"] = 0
+        if owner_email is None:
+            _jobs_cache.clear()
+        else:
+            _jobs_cache.pop(owner_email, None)
+
+def current_user_email() -> Optional[str]:
+    """The signed-in user's email, used as the ownership key for every
+    per-user table. None only when called outside the login gate (the gate
+    itself guarantees a session exists for every protected route)."""
+    user = session.get("user")
+    return user.get("email") if user else None
 
 def get_db_connection() -> Optional[MySQLConnectionAbstract]:
     """Get MySQL connection"""
@@ -402,6 +414,7 @@ def init_db() -> bool:
         create_table = """
         CREATE TABLE IF NOT EXISTS jobs (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            owner_email VARCHAR(255),
             source VARCHAR(100),
             title VARCHAR(255),
             company VARCHAR(255),
@@ -414,14 +427,15 @@ def init_db() -> bool:
             date VARCHAR(50),
             start_date VARCHAR(50),
             end_date VARCHAR(50),
-            url VARCHAR(500) UNIQUE,
+            url VARCHAR(500),
             added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             domains JSON,
             description TEXT,
             INDEX idx_source (source),
             INDEX idx_work_type (work_type),
             INDEX idx_country (country(100)),
-            INDEX idx_url (url)
+            INDEX idx_owner_email (owner_email),
+            UNIQUE KEY uq_owner_url (owner_email, url)
         )
         """
         cursor.execute(create_table)
@@ -437,6 +451,7 @@ def init_db() -> bool:
             "end_date": "ALTER TABLE jobs ADD COLUMN end_date VARCHAR(50)",
             "domains": "ALTER TABLE jobs ADD COLUMN domains JSON",
             "description": "ALTER TABLE jobs ADD COLUMN description TEXT",
+            "owner_email": "ALTER TABLE jobs ADD COLUMN owner_email VARCHAR(255)",
         }
         cursor.execute(
             "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
@@ -458,6 +473,29 @@ def init_db() -> bool:
         # index exists rather than crashing init_db() outright.
         cursor.execute("SHOW INDEX FROM jobs")
         existing_indexes = {row[2] for row in cursor.fetchall()}  # row[2] = Key_name
+
+        # Per-user jobs migration: the old schema uniqued on `url` alone,
+        # which breaks the moment two different users scrape the same real
+        # external job (same URL, different owner_email) - the second
+        # user's insert would silently collide with the first user's row.
+        # Drop that old single-column constraint (its auto-generated index
+        # name matches the column name, "url") and the separate explicit
+        # idx_url index, then add a composite (owner_email, url) uniqueness
+        # instead, which allows the same URL once per user.
+        if "url" in existing_indexes:
+            logger.warning("Migrating schema: dropping old single-column UNIQUE(url) on jobs table")
+            cursor.execute("ALTER TABLE jobs DROP INDEX `url`")
+            conn.commit()
+            existing_indexes.discard("url")
+        if "idx_url" in existing_indexes:
+            cursor.execute("ALTER TABLE jobs DROP INDEX idx_url")
+            conn.commit()
+            existing_indexes.discard("idx_url")
+        if "uq_owner_url" not in existing_indexes:
+            logger.warning("Migrating schema: adding composite UNIQUE(owner_email, url) on jobs table")
+            cursor.execute("ALTER TABLE jobs ADD UNIQUE KEY uq_owner_url (owner_email, url)")
+            conn.commit()
+            existing_indexes.add("uq_owner_url")
 
         # Widen columns that were observed too narrow for real-world scraped
         # data (category/country joined multi-value strings overflowing
@@ -498,6 +536,7 @@ def init_db() -> bool:
             "idx_source": "ALTER TABLE jobs ADD INDEX idx_source (source)",
             "idx_work_type": "ALTER TABLE jobs ADD INDEX idx_work_type (work_type)",
             "idx_country": "ALTER TABLE jobs ADD INDEX idx_country (country(100))",
+            "idx_owner_email": "ALTER TABLE jobs ADD INDEX idx_owner_email (owner_email)",
         }
         for index_name, alter_sql in expected_indexes.items():
             if index_name not in existing_indexes:
@@ -511,21 +550,52 @@ def init_db() -> bool:
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS resources (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            owner_email VARCHAR(255),
             source VARCHAR(100),
             discipline VARCHAR(100),
             resource_type VARCHAR(100),
             title VARCHAR(255),
-            url VARCHAR(500) UNIQUE,
+            url VARCHAR(500),
             added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_discipline (discipline),
-            INDEX idx_resource_type (resource_type)
+            INDEX idx_resource_type (resource_type),
+            INDEX idx_owner_email (owner_email),
+            UNIQUE KEY uq_owner_url (owner_email, url)
         )
         """)
         conn.commit()
 
+        # Migrate an existing resources table created before per-user
+        # ownership existed, same reasoning as the jobs table above.
+        cursor.execute(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+            "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'resources'",
+            (MYSQL_CONFIG['database'],)
+        )
+        resources_columns = {row[0] for row in cursor.fetchall()}
+        if "owner_email" not in resources_columns:
+            logger.warning("Migrating schema: adding missing column 'owner_email' to resources table")
+            cursor.execute("ALTER TABLE resources ADD COLUMN owner_email VARCHAR(255)")
+            conn.commit()
+
+        cursor.execute("SHOW INDEX FROM resources")
+        resources_indexes = {row[2] for row in cursor.fetchall()}
+        if "url" in resources_indexes:
+            cursor.execute("ALTER TABLE resources DROP INDEX `url`")
+            conn.commit()
+            resources_indexes.discard("url")
+        if "uq_owner_url" not in resources_indexes:
+            logger.warning("Migrating schema: adding composite UNIQUE(owner_email, url) on resources table")
+            cursor.execute("ALTER TABLE resources ADD UNIQUE KEY uq_owner_url (owner_email, url)")
+            conn.commit()
+        if "idx_owner_email" not in resources_indexes:
+            cursor.execute("ALTER TABLE resources ADD INDEX idx_owner_email (owner_email)")
+            conn.commit()
+
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS hackathons (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            owner_email VARCHAR(255),
             source VARCHAR(100),
             title VARCHAR(255),
             organizer VARCHAR(255),
@@ -535,12 +605,41 @@ def init_db() -> bool:
             registrations_count VARCHAR(50),
             submission_dates VARCHAR(100),
             time_left VARCHAR(100),
-            url VARCHAR(500) UNIQUE,
+            url VARCHAR(500),
             added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_source (source)
+            INDEX idx_source (source),
+            INDEX idx_owner_email (owner_email),
+            UNIQUE KEY uq_owner_url (owner_email, url)
         )
         """)
         conn.commit()
+
+        # Migrate an existing hackathons table created before per-user
+        # ownership existed, same reasoning as jobs/resources above.
+        cursor.execute(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+            "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'hackathons'",
+            (MYSQL_CONFIG['database'],)
+        )
+        hackathons_columns = {row[0] for row in cursor.fetchall()}
+        if "owner_email" not in hackathons_columns:
+            logger.warning("Migrating schema: adding missing column 'owner_email' to hackathons table")
+            cursor.execute("ALTER TABLE hackathons ADD COLUMN owner_email VARCHAR(255)")
+            conn.commit()
+
+        cursor.execute("SHOW INDEX FROM hackathons")
+        hackathons_indexes = {row[2] for row in cursor.fetchall()}
+        if "url" in hackathons_indexes:
+            cursor.execute("ALTER TABLE hackathons DROP INDEX `url`")
+            conn.commit()
+            hackathons_indexes.discard("url")
+        if "uq_owner_url" not in hackathons_indexes:
+            logger.warning("Migrating schema: adding composite UNIQUE(owner_email, url) on hackathons table")
+            cursor.execute("ALTER TABLE hackathons ADD UNIQUE KEY uq_owner_url (owner_email, url)")
+            conn.commit()
+        if "idx_owner_email" not in hackathons_indexes:
+            cursor.execute("ALTER TABLE hackathons ADD INDEX idx_owner_email (owner_email)")
+            conn.commit()
 
         cursor.close()
         conn.close()
@@ -553,15 +652,17 @@ def init_db() -> bool:
         logger.error(f"Unexpected error during database initialization: {e}")
         return False
 
-def load_jobs_from_db(use_cache: bool = True) -> List[Dict[str, Any]]:
-    """Load jobs from MySQL database, with a short-lived in-memory cache to
-    avoid repeatedly re-fetching/re-parsing the full table on rapid successive
-    requests. Capped at MAX_JOBS_FETCH rows as a safety limit."""
+def load_jobs_from_db(owner_email: str, use_cache: bool = True) -> List[Dict[str, Any]]:
+    """Load one user's jobs from MySQL, with a short-lived in-memory cache to
+    avoid repeatedly re-fetching/re-parsing their rows on rapid successive
+    requests. Capped at MAX_JOBS_FETCH rows as a safety limit. Every caller
+    must pass the signed-in user's email - there is no "load everyone's
+    jobs" path, by design, now that jobs are per-user."""
     if use_cache:
         with _jobs_cache_lock:
-            age = time.time() - _jobs_cache["timestamp"]
-            if _jobs_cache["data"] is not None and age < JOBS_CACHE_TTL_SECONDS:
-                return _jobs_cache["data"]
+            entry = _jobs_cache.get(owner_email)
+            if entry is not None and (time.time() - entry["timestamp"]) < JOBS_CACHE_TTL_SECONDS:
+                return entry["data"]
 
     try:
         conn = get_db_connection()
@@ -569,7 +670,10 @@ def load_jobs_from_db(use_cache: bool = True) -> List[Dict[str, Any]]:
             return []
 
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM jobs ORDER BY added_at DESC LIMIT %s", (MAX_JOBS_FETCH,))
+        cursor.execute(
+            "SELECT * FROM jobs WHERE owner_email = %s ORDER BY added_at DESC LIMIT %s",
+            (owner_email, MAX_JOBS_FETCH)
+        )
         jobs = cursor.fetchall()
 
         # Parse JSON fields
@@ -585,8 +689,7 @@ def load_jobs_from_db(use_cache: bool = True) -> List[Dict[str, Any]]:
         conn.close()
 
         with _jobs_cache_lock:
-            _jobs_cache["data"] = jobs
-            _jobs_cache["timestamp"] = time.time()
+            _jobs_cache[owner_email] = {"data": jobs, "timestamp": time.time()}
 
         return jobs
     except Error as e:
@@ -621,12 +724,13 @@ def _truncate_for_column(value: Any, column: str) -> Any:
         return text[:max_len]
     return value
 
-def save_jobs_to_db(jobs: List[Dict[str, Any]]) -> Dict[str, int]:
-    """Save jobs to MySQL database. Returns {"saved": N, "failed": N} so
-    callers can tell actual persistence success from attempted count -
-    per-row failures (e.g. a value too long for a column) are caught and
-    logged per job, but previously vanished silently since the caller only
-    ever saw a bare True/False for the whole batch."""
+def save_jobs_to_db(jobs: List[Dict[str, Any]], owner_email: str) -> Dict[str, int]:
+    """Save jobs to MySQL database, scoped to one user. Returns
+    {"saved": N, "failed": N} so callers can tell actual persistence
+    success from attempted count - per-row failures (e.g. a value too long
+    for a column) are caught and logged per job, but previously vanished
+    silently since the caller only ever saw a bare True/False for the
+    whole batch."""
     result = {"saved": 0, "failed": 0}
     try:
         conn = get_db_connection()
@@ -641,10 +745,10 @@ def save_jobs_to_db(jobs: List[Dict[str, Any]]) -> Dict[str, int]:
 
             try:
                 insert_query = """
-                INSERT INTO jobs (source, title, company, work_type, country, location,
+                INSERT INTO jobs (owner_email, source, title, company, work_type, country, location,
                                  job_type, category, salary, date, start_date, end_date, url,
                                  domains, description, added_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     source = VALUES(source), title = VALUES(title), company = VALUES(company),
                     work_type = VALUES(work_type), country = VALUES(country), location = VALUES(location),
@@ -653,6 +757,7 @@ def save_jobs_to_db(jobs: List[Dict[str, Any]]) -> Dict[str, int]:
                     domains = VALUES(domains), description = VALUES(description), added_at = NOW()
                 """
                 cursor.execute(insert_query, (
+                    owner_email,
                     _truncate_for_column(job.get('source'), 'source'),
                     _truncate_for_column(job.get('title'), 'title'),
                     _truncate_for_column(job.get('company'), 'company'),
@@ -678,7 +783,7 @@ def save_jobs_to_db(jobs: List[Dict[str, Any]]) -> Dict[str, int]:
         conn.commit()
         cursor.close()
         conn.close()
-        invalidate_jobs_cache()
+        invalidate_jobs_cache(owner_email)
         return result
     except Error as e:
         logger.error(f"Failed to save jobs to database: {e}")
@@ -689,8 +794,8 @@ def save_jobs_to_db(jobs: List[Dict[str, Any]]) -> Dict[str, int]:
         result["failed"] = len(jobs) - result["saved"]
         return result
 
-def save_resources_to_db(resources: List[Dict[str, Any]]) -> Dict[str, int]:
-    """Save resource index entries (metadata only) to MySQL."""
+def save_resources_to_db(resources: List[Dict[str, Any]], owner_email: str) -> Dict[str, int]:
+    """Save resource index entries (metadata only) to MySQL, scoped to one user."""
     result = {"saved": 0, "failed": 0}
     try:
         conn = get_db_connection()
@@ -702,13 +807,14 @@ def save_resources_to_db(resources: List[Dict[str, Any]]) -> Dict[str, int]:
         for r in resources:
             try:
                 cursor.execute("""
-                    INSERT INTO resources (source, discipline, resource_type, title, url, added_at)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO resources (owner_email, source, discipline, resource_type, title, url, added_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
                         source = VALUES(source), discipline = VALUES(discipline),
                         resource_type = VALUES(resource_type), title = VALUES(title),
                         added_at = NOW()
                 """, (
+                    owner_email,
                     _truncate_for_column(r.get('source'), 'source'),
                     _truncate_for_column(r.get('discipline'), 'discipline'),
                     _truncate_for_column(r.get('resource_type'), 'resource_type'),
@@ -730,14 +836,17 @@ def save_resources_to_db(resources: List[Dict[str, Any]]) -> Dict[str, int]:
         result["failed"] = len(resources) - result["saved"]
         return result
 
-def load_resources_from_db() -> List[Dict[str, Any]]:
-    """Load all resource index entries from MySQL."""
+def load_resources_from_db(owner_email: str) -> List[Dict[str, Any]]:
+    """Load one user's resource index entries from MySQL."""
     try:
         conn = get_db_connection()
         if not conn:
             return []
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM resources ORDER BY discipline, resource_type")
+        cursor.execute(
+            "SELECT * FROM resources WHERE owner_email = %s ORDER BY discipline, resource_type",
+            (owner_email,)
+        )
         resources = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -746,8 +855,8 @@ def load_resources_from_db() -> List[Dict[str, Any]]:
         logger.error(f"Failed to load resources from database: {e}")
         return []
 
-def save_hackathons_to_db(hackathons: List[Dict[str, Any]]) -> Dict[str, int]:
-    """Save hackathon listings to MySQL."""
+def save_hackathons_to_db(hackathons: List[Dict[str, Any]], owner_email: str) -> Dict[str, int]:
+    """Save hackathon listings to MySQL, scoped to one user."""
     result = {"saved": 0, "failed": 0}
     try:
         conn = get_db_connection()
@@ -759,10 +868,10 @@ def save_hackathons_to_db(hackathons: List[Dict[str, Any]]) -> Dict[str, int]:
         for h in hackathons:
             try:
                 cursor.execute("""
-                    INSERT INTO hackathons (source, title, organizer, location, prize_amount,
+                    INSERT INTO hackathons (owner_email, source, title, organizer, location, prize_amount,
                                            themes, registrations_count, submission_dates,
                                            time_left, url, added_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
                         source = VALUES(source), title = VALUES(title), organizer = VALUES(organizer),
                         location = VALUES(location), prize_amount = VALUES(prize_amount),
@@ -770,6 +879,7 @@ def save_hackathons_to_db(hackathons: List[Dict[str, Any]]) -> Dict[str, int]:
                         submission_dates = VALUES(submission_dates), time_left = VALUES(time_left),
                         added_at = NOW()
                 """, (
+                    owner_email,
                     _truncate_for_column(h.get('source'), 'source'),
                     _truncate_for_column(h.get('title'), 'title'),
                     _truncate_for_column(h.get('organizer'), 'organizer'),
@@ -796,14 +906,17 @@ def save_hackathons_to_db(hackathons: List[Dict[str, Any]]) -> Dict[str, int]:
         result["failed"] = len(hackathons) - result["saved"]
         return result
 
-def load_hackathons_from_db() -> List[Dict[str, Any]]:
-    """Load all hackathon listings from MySQL, most recently added first."""
+def load_hackathons_from_db(owner_email: str) -> List[Dict[str, Any]]:
+    """Load one user's hackathon listings from MySQL, most recently added first."""
     try:
         conn = get_db_connection()
         if not conn:
             return []
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM hackathons ORDER BY added_at DESC")
+        cursor.execute(
+            "SELECT * FROM hackathons WHERE owner_email = %s ORDER BY added_at DESC",
+            (owner_email,)
+        )
         hackathons = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -1169,9 +1282,9 @@ def filter_jobs(
         "internship_count": internship_count,
     }
 
-def get_statistics() -> Dict[str, Any]:
-    """Calculate statistics from jobs"""
-    jobs = load_jobs_from_db()
+def get_statistics(owner_email: str) -> Dict[str, Any]:
+    """Calculate statistics from one user's jobs"""
+    jobs = load_jobs_from_db(owner_email)
 
     if not jobs:
         return {
@@ -1220,13 +1333,13 @@ def _job_added_date(job: Dict[str, Any]) -> Optional[datetime]:
                 continue
     return None
 
-def get_analytics(days: int = 14, top_n: int = 10) -> Dict[str, Any]:
-    """Aggregate analytics for the dashboard: summary counts, a jobs-added
-    time series, domain/work-type distribution, and top sources/countries/
-    companies. Built entirely from load_jobs_from_db() (Python-side
-    aggregation) so it benefits from the same in-memory cache as other
-    endpoints rather than issuing extra DB queries."""
-    jobs = load_jobs_from_db()
+def get_analytics(owner_email: str, days: int = 14, top_n: int = 10) -> Dict[str, Any]:
+    """Aggregate analytics for one user's dashboard: summary counts, a
+    jobs-added time series, domain/work-type distribution, and top
+    sources/countries/companies. Built entirely from load_jobs_from_db()
+    (Python-side aggregation) so it benefits from the same in-memory cache
+    as other endpoints rather than issuing extra DB queries."""
+    jobs = load_jobs_from_db(owner_email)
 
     if not jobs:
         return {
@@ -1739,7 +1852,7 @@ def fetch_resources() -> Any:
     metadata only - not the underlying project content) and store it."""
     try:
         resources = enggroom_scraper.scrape_enggroom_resources()
-        result = save_resources_to_db(resources)
+        result = save_resources_to_db(resources, current_user_email())
         return jsonify({
             "success": True,
             "fetched": len(resources),
@@ -1758,7 +1871,7 @@ def get_resources() -> Any:
     """List the stored resource index, optionally filtered by discipline."""
     try:
         discipline = request.args.get("discipline", "")
-        resources = load_resources_from_db()
+        resources = load_resources_from_db(current_user_email())
         if discipline:
             resources = [r for r in resources if r.get("discipline") == discipline]
         return jsonify({"success": True, "resources": resources, "total": len(resources)})
@@ -1774,7 +1887,7 @@ def fetch_hackathons() -> Any:
     them."""
     try:
         hackathons = hackathon_scraper.scrape_devpost_hackathons()
-        result = save_hackathons_to_db(hackathons)
+        result = save_hackathons_to_db(hackathons, current_user_email())
         return jsonify({
             "success": True,
             "fetched": len(hackathons),
@@ -1792,7 +1905,7 @@ def fetch_hackathons() -> Any:
 def get_hackathons() -> Any:
     """List the stored hackathon listings."""
     try:
-        hackathons = load_hackathons_from_db()
+        hackathons = load_hackathons_from_db(current_user_email())
         return jsonify({"success": True, "hackathons": hackathons, "total": len(hackathons)})
     except Exception as e:
         logger.error(f"Failed to get hackathons: {e}")
@@ -1848,6 +1961,7 @@ def get_sources() -> Any:
 def fetch_jobs() -> Any:
     """Fetch jobs from selected sources and store in file"""
     try:
+        owner_email = current_user_email()
         data = request.json
         selected = data.get("sources", [])
 
@@ -1890,14 +2004,14 @@ def fetch_jobs() -> Any:
                 job['domains'] = detect_job_domain(job)
 
         # Save to database
-        save_result = save_jobs_to_db(jobs)
+        save_result = save_jobs_to_db(jobs, owner_email)
         if save_result["failed"]:
             logger.warning(
                 f"{save_result['failed']} of {len(jobs)} jobs failed to save "
                 f"(see per-job 'Failed to insert job' errors above for why)"
             )
 
-        stats = get_statistics()
+        stats = get_statistics(owner_email)
 
         return jsonify({
             "success": True,
@@ -1974,7 +2088,7 @@ def match_resume() -> Any:
         resume_domains = extract_resume_keywords(resume_text)
         logger.info(f"Resume '{original_filename}': detected domains {resume_domains}, experience_level={experience_level}")
 
-        all_jobs = load_jobs_from_db()
+        all_jobs = load_jobs_from_db(current_user_email())
         if experience_level == "fresher":
             candidate_jobs = [j for j in all_jobs if is_fresher_job(j)]
         else:
@@ -2118,7 +2232,7 @@ def get_jobs() -> Any:
         except (ValueError, TypeError):
             page, limit = 1, 20
 
-        all_jobs = load_jobs_from_db()
+        all_jobs = load_jobs_from_db(current_user_email())
 
         # Filter by sources if specified (can be comma-separated)
         if sources:
@@ -2154,7 +2268,7 @@ def get_jobs() -> Any:
 def get_stats() -> Any:
     """Get job statistics from database"""
     try:
-        stats = get_statistics()
+        stats = get_statistics(current_user_email())
         stats["from_cache"] = False
         stats["storage"] = "mysql"
         return jsonify(stats)
@@ -2174,7 +2288,7 @@ def analytics() -> Any:
         days, top_n = 14, 10
 
     try:
-        data = get_analytics(days=days, top_n=top_n)
+        data = get_analytics(current_user_email(), days=days, top_n=top_n)
         data["success"] = True
         return jsonify(data)
     except Exception as e:
@@ -2202,7 +2316,7 @@ def export_jobs() -> Any:
     """Export jobs to CSV or JSON"""
     try:
         fmt = request.args.get("format", "csv")
-        jobs = load_jobs_from_db()
+        jobs = load_jobs_from_db(current_user_email())
 
         if fmt == "csv":
             import csv
@@ -2237,8 +2351,9 @@ def export_jobs() -> Any:
 def db_info() -> Any:
     """Get database information"""
     try:
-        jobs = load_jobs_from_db()
-        stats = get_statistics()
+        owner_email = current_user_email()
+        jobs = load_jobs_from_db(owner_email)
+        stats = get_statistics(owner_email)
 
         return jsonify({
             "database_engine": "MySQL",
@@ -2257,17 +2372,18 @@ def db_info() -> Any:
 @app.route("/api/clear-jobs", methods=["DELETE"])
 @limiter.limit("3 per minute")
 def clear_jobs() -> Any:
-    """Clear all jobs"""
+    """Clear the signed-in user's own jobs only - never another user's."""
     try:
+        owner_email = current_user_email()
         conn = get_db_connection()
         if not conn:
             return jsonify({"success": False, "error": "Database connection failed"}), 500
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM jobs")
+        cursor.execute("DELETE FROM jobs WHERE owner_email = %s", (owner_email,))
         conn.commit()
         cursor.close()
         conn.close()
-        invalidate_jobs_cache()
+        invalidate_jobs_cache(owner_email)
         return jsonify({"success": True, "message": "All jobs cleared"})
     except Exception as e:
         logger.error(f"Failed to clear jobs: {e}")
@@ -2311,18 +2427,20 @@ def test_alert() -> Any:
 
 @app.route("/api/cache-info", methods=["GET"])
 def cache_info() -> Any:
-    """Get in-memory jobs cache information"""
+    """Get in-memory jobs cache information for the signed-in user's own entry."""
+    owner_email = current_user_email()
     with _jobs_cache_lock:
-        has_data = _jobs_cache["data"] is not None
-        age = time.time() - _jobs_cache["timestamp"] if has_data else None
+        entry = _jobs_cache.get(owner_email)
+        has_data = entry is not None
+        age = time.time() - entry["timestamp"] if has_data else None
 
     return jsonify({
         "cache": {
             "status": "active" if has_data else "empty",
             "ttl_seconds": JOBS_CACHE_TTL_SECONDS,
             "age_seconds": round(age, 1) if age is not None else None,
-            "cached_jobs": len(_jobs_cache["data"]) if has_data else 0,
-            "note": "In-memory cache for jobs table reads. Redis is not used."
+            "cached_jobs": len(entry["data"]) if has_data else 0,
+            "note": "In-memory cache for jobs table reads, keyed per user. Redis is not used."
         },
         "storage": "mysql"
     })
@@ -2330,8 +2448,8 @@ def cache_info() -> Any:
 
 @app.route("/api/cache-clear", methods=["DELETE"])
 def cache_clear() -> Any:
-    """Manually invalidate the in-memory jobs cache"""
-    invalidate_jobs_cache()
+    """Manually invalidate the signed-in user's own in-memory jobs cache entry"""
+    invalidate_jobs_cache(current_user_email())
     return jsonify({"success": True, "message": "Jobs cache cleared"})
 
 

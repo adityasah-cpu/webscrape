@@ -7,16 +7,18 @@ import api as api_module
 
 
 class TestGetAnalytics:
+    TEST_EMAIL = "test@example.com"
+
     def test_empty_jobs_returns_zeroed_shape(self, mocker):
         mocker.patch.object(api_module, "load_jobs_from_db", return_value=[])
-        result = api_module.get_analytics()
+        result = api_module.get_analytics(self.TEST_EMAIL)
         assert result["summary"]["total_jobs"] == 0
         assert result["jobs_over_time"] == []
         assert result["by_domain"] == {}
 
     def test_summary_counts(self, mocker, analytics_jobs):
         mocker.patch.object(api_module, "load_jobs_from_db", return_value=analytics_jobs)
-        result = api_module.get_analytics(days=14)
+        result = api_module.get_analytics(self.TEST_EMAIL, days=14)
         summary = result["summary"]
         assert summary["total_jobs"] == 4
         assert summary["added_today"] == 1
@@ -26,7 +28,7 @@ class TestGetAnalytics:
 
     def test_jobs_over_time_has_requested_number_of_days(self, mocker, analytics_jobs):
         mocker.patch.object(api_module, "load_jobs_from_db", return_value=analytics_jobs)
-        result = api_module.get_analytics(days=14)
+        result = api_module.get_analytics(self.TEST_EMAIL, days=14)
         assert len(result["jobs_over_time"]) == 14
         # Days are contiguous and sorted ascending
         dates = [d["date"] for d in result["jobs_over_time"]]
@@ -34,14 +36,14 @@ class TestGetAnalytics:
 
     def test_jobs_over_time_excludes_jobs_outside_window(self, mocker, analytics_jobs):
         mocker.patch.object(api_module, "load_jobs_from_db", return_value=analytics_jobs)
-        result = api_module.get_analytics(days=14)
+        result = api_module.get_analytics(self.TEST_EMAIL, days=14)
         total_in_window = sum(d["count"] for d in result["jobs_over_time"])
         # Only 3 of the 4 fixture jobs fall within the last 14 days
         assert total_in_window == 3
 
     def test_by_domain_counts_every_tag(self, mocker, analytics_jobs):
         mocker.patch.object(api_module, "load_jobs_from_db", return_value=analytics_jobs)
-        result = api_module.get_analytics()
+        result = api_module.get_analytics(self.TEST_EMAIL)
         assert result["by_domain"]["Data Science and Machine Learning"] == 1
         assert result["by_domain"]["Data Analytics"] == 1
         assert result["by_domain"]["Blockchain"] == 1
@@ -49,20 +51,20 @@ class TestGetAnalytics:
 
     def test_top_sources_sorted_descending(self, mocker, analytics_jobs):
         mocker.patch.object(api_module, "load_jobs_from_db", return_value=analytics_jobs)
-        result = api_module.get_analytics(top_n=10)
+        result = api_module.get_analytics(self.TEST_EMAIL, top_n=10)
         top = result["top_sources"]
         assert top[0] == {"name": "Remotive", "count": 2}
         assert {"name": "Himalayas", "count": 2} in top
 
     def test_top_n_limits_results(self, mocker, analytics_jobs):
         mocker.patch.object(api_module, "load_jobs_from_db", return_value=analytics_jobs)
-        result = api_module.get_analytics(top_n=1)
+        result = api_module.get_analytics(self.TEST_EMAIL, top_n=1)
         assert len(result["top_sources"]) == 1
         assert len(result["top_companies"]) == 1
 
     def test_recency_breakdown_buckets_jobs_by_how_long_ago_fetched(self, mocker, analytics_jobs):
         mocker.patch.object(api_module, "load_jobs_from_db", return_value=analytics_jobs)
-        result = api_module.get_analytics()
+        result = api_module.get_analytics(self.TEST_EMAIL)
         breakdown = {b["label"]: b["count"] for b in result["recency_breakdown"]}
         # analytics_jobs: today, yesterday, 5 days ago, 40 days ago
         assert breakdown["Today"] == 1
@@ -73,7 +75,7 @@ class TestGetAnalytics:
 
     def test_recency_breakdown_omits_empty_buckets(self, mocker, analytics_jobs):
         mocker.patch.object(api_module, "load_jobs_from_db", return_value=analytics_jobs)
-        result = api_module.get_analytics()
+        result = api_module.get_analytics(self.TEST_EMAIL)
         labels = [b["label"] for b in result["recency_breakdown"]]
         assert "Over 3 months ago" not in labels  # no fixture job is that old
 
