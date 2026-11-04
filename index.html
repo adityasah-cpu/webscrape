@@ -1210,6 +1210,70 @@
         <div id="authError" style="color:var(--danger); font-size:13px; display:none;"></div>
     </div>
 
+    <!-- ONBOARDING WIZARD (shown once per session, right after sign-in) -->
+    <div id="onboardingOverlay" style="position:fixed; inset:0; background:var(--bg-primary); z-index:900; display:none; align-items:center; justify-content:center;">
+        <div style="width:100%; max-width:480px; padding:32px 24px;">
+
+            <!-- Step 1: what are you looking for -->
+            <div id="onbStep1">
+                <div style="font-size:12px; font-weight:700; color:var(--color-cta); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">Step 1 of 3</div>
+                <div style="font-size:22px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">What are you looking for?</div>
+                <div style="font-size:14px; color:var(--text-secondary); margin-bottom:24px;">Select at least one — you can always change this later from the sidebar.</div>
+                <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:28px;">
+                    <label class="exp-radio" style="padding:14px 16px; font-size:15px;">
+                        <input type="checkbox" id="onbRemote" style="width:18px; height:18px;"> <span>🌍&nbsp; Remote Jobs</span>
+                    </label>
+                    <label class="exp-radio" style="padding:14px 16px; font-size:15px;">
+                        <input type="checkbox" id="onbInternship" style="width:18px; height:18px;"> <span>🎓&nbsp; Internships</span>
+                    </label>
+                    <label class="exp-radio" style="padding:14px 16px; font-size:15px;">
+                        <input type="checkbox" id="onbHackathon" style="width:18px; height:18px;"> <span>🏆&nbsp; Hackathons</span>
+                    </label>
+                </div>
+                <button class="fetch-btn" onclick="onbGoToStep2()">Continue →</button>
+            </div>
+
+            <!-- Step 2: upload resume? -->
+            <div id="onbStep2" style="display:none;">
+                <div style="font-size:12px; font-weight:700; color:var(--color-cta); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">Step 2 of 3</div>
+                <div style="font-size:22px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">Upload your resume?</div>
+                <div style="font-size:14px; color:var(--text-secondary); margin-bottom:28px;">We'll check its ATS score and use it to find jobs that actually match your background.</div>
+                <div style="display:flex; gap:12px;">
+                    <button class="fetch-btn" style="margin-top:0;" onclick="onbUploadYes()">✅ Yes, upload my resume</button>
+                    <button class="btn-close" style="flex:1; padding:13px 16px;" onclick="onbSkipToDashboard()">Skip for now</button>
+                </div>
+            </div>
+
+            <!-- Step 3: resume upload + ATS score -->
+            <div id="onbStep3" style="display:none;">
+                <div style="font-size:12px; font-weight:700; color:var(--color-cta); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">Step 3 of 3</div>
+                <div style="font-size:22px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">Check your resume's ATS score</div>
+                <div id="onbStep3Intro" style="font-size:14px; color:var(--text-secondary); margin-bottom:20px;">Upload a resume (PDF, DOCX, TXT, JPG, or PNG) to get started.</div>
+
+                <div id="onbUploadBox">
+                    <input type="file" id="onbResumeInput" accept=".pdf,.docx,.txt,.jpg,.jpeg,.png" style="display:none" onchange="onbHandleResumeSelected()">
+                    <button class="fetch-btn" style="margin-top:0;" onclick="document.getElementById('onbResumeInput').click()">📄 Choose Resume File</button>
+                    <div id="onbFileName" style="font-size:12px; color:var(--text-secondary); margin-top:8px;"></div>
+                </div>
+
+                <div id="onbProgress" style="display:none; text-align:center; padding:24px 0; color:var(--text-secondary); font-size:14px;">⏳ Analyzing your resume and finding matching jobs…</div>
+
+                <div id="onbResultBox" style="display:none;">
+                    <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
+                        <div id="onbScoreCircle" style="flex-shrink:0; width:84px; height:84px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:7px solid var(--border-color); font-weight:800; font-size:22px;">—</div>
+                        <div>
+                            <div style="font-size:13px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">ATS Score</div>
+                            <div id="onbMatchSummary" style="font-size:13px; color:var(--text-secondary); margin-top:4px;"></div>
+                        </div>
+                    </div>
+                    <button class="fetch-btn" onclick="onbFinish()">View My Matches on the Dashboard →</button>
+                </div>
+
+                <div id="onbError" style="color:var(--danger); font-size:13px; margin-top:12px; display:none;"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="container" id="appContainer" style="display:none;">
         <!-- SIDEBAR -->
         <div class="sidebar">
@@ -2359,8 +2423,25 @@
             }
         }
 
+        let currentAuthUser = null;
+
         function showApp(user) {
+            currentAuthUser = user;
             document.getElementById("authOverlay").style.display = "none";
+
+            // Onboarding (Step 1-3) runs once per browser session, not on
+            // every page load within it - otherwise refreshing the
+            // dashboard mid-session would re-show the wizard every time.
+            if (sessionStorage.getItem("onboardingDone") === "true") {
+                revealDashboard(user);
+            } else {
+                document.getElementById("onboardingOverlay").style.display = "flex";
+                onbResetToStep1();
+            }
+        }
+
+        function revealDashboard(user) {
+            document.getElementById("onboardingOverlay").style.display = "none";
             document.getElementById("appContainer").style.display = "flex";
             if (user) {
                 document.getElementById("userName").textContent = user.name || user.email || "Signed in";
@@ -2372,6 +2453,174 @@
             }
             loadSources();
             renderJobs();  // show jobs already stored in the DB immediately, not just after a fresh fetch
+        }
+
+        // ---------------- Onboarding wizard ----------------
+
+        let onbSelections = { remote: false, internship: false, hackathon: false };
+        let onbResumeFile = null;
+
+        const ONB_REMOTE_SOURCES = ["remotive", "remoteok", "himalayas", "jobicy", "weworkremotely"];
+        const ONB_INTERNSHIP_SOURCES = ["internshala", "unstop", "firstnaukri", "angellist"];
+
+        function onbResetToStep1() {
+            document.getElementById("onbStep1").style.display = "block";
+            document.getElementById("onbStep2").style.display = "none";
+            document.getElementById("onbStep3").style.display = "none";
+            document.getElementById("onbRemote").checked = false;
+            document.getElementById("onbInternship").checked = false;
+            document.getElementById("onbHackathon").checked = false;
+        }
+
+        function onbGoToStep2() {
+            onbSelections.remote = document.getElementById("onbRemote").checked;
+            onbSelections.internship = document.getElementById("onbInternship").checked;
+            onbSelections.hackathon = document.getElementById("onbHackathon").checked;
+
+            if (!onbSelections.remote && !onbSelections.internship && !onbSelections.hackathon) {
+                alert("Please select at least one option to continue.");
+                return;
+            }
+
+            document.getElementById("onbStep1").style.display = "none";
+            document.getElementById("onbStep2").style.display = "block";
+        }
+
+        function onbUploadYes() {
+            document.getElementById("onbStep2").style.display = "none";
+            document.getElementById("onbStep3").style.display = "block";
+        }
+
+        // Pre-ticks the sidebar source checkboxes matching the user's Step 1
+        // selections, so the dashboard they land on is already set up for
+        // the kind of listings they said they wanted - they still have to
+        // click Fetch Jobs/Fetch Hackathons themselves (no surprise
+        // background scraping on every login, and it respects the existing
+        // per-route rate limits).
+        function onbApplySelectionsToSidebar() {
+            const idsToCheck = [];
+            if (onbSelections.remote) idsToCheck.push(...ONB_REMOTE_SOURCES);
+            if (onbSelections.internship) idsToCheck.push(...ONB_INTERNSHIP_SOURCES);
+            idsToCheck.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.checked = true;
+            });
+            selectedSources = Array.from(document.querySelectorAll('.source-item input:checked')).map(cb => cb.value);
+        }
+
+        function onbSkipToDashboard() {
+            sessionStorage.setItem("onboardingDone", "true");
+            onbApplySelectionsToSidebar();
+            revealDashboard(currentAuthUser);
+            if (onbSelections.hackathon) {
+                fetchHackathons();
+            }
+        }
+
+        function onbHandleResumeSelected() {
+            const input = document.getElementById("onbResumeInput");
+            const file = input.files[0];
+            if (!file) return;
+            onbResumeFile = file;
+            document.getElementById("onbFileName").textContent = file.name;
+            onbRunAtsAndMatch(file);
+        }
+
+        async function onbRunAtsAndMatch(file) {
+            const errorEl = document.getElementById("onbError");
+            errorEl.style.display = "none";
+            document.getElementById("onbUploadBox").style.display = "none";
+            document.getElementById("onbProgress").style.display = "block";
+
+            try {
+                // Step 3a: ATS score (also gives us a seniority estimate we
+                // reuse below instead of asking the user a separate
+                // fresher/experienced question).
+                const atsForm = new FormData();
+                atsForm.append("resume", file);
+                const atsRes = await fetch(`${API}/ats-score`, { method: "POST", body: atsForm });
+                const atsData = await atsRes.json();
+                if (!atsData.success) {
+                    throw new Error(atsData.error || "Could not score this resume.");
+                }
+
+                let experienceLevel = "experienced";
+                const seniority = atsData.local_analysis && atsData.local_analysis.categories && atsData.local_analysis.categories.seniority;
+                if (seniority) {
+                    const yearsMatch = (seniority.findings || []).join(" ").match(/~?([\d.]+)\s*year/i);
+                    const years = yearsMatch ? parseFloat(yearsMatch[1]) : 0;
+                    experienceLevel = years >= 2 ? "experienced" : "fresher";
+                }
+
+                // Step 3b: fetch the sources implied by Step 1, so there's
+                // something in the DB to match against.
+                const sourcesToFetch = [];
+                if (onbSelections.remote) sourcesToFetch.push(...ONB_REMOTE_SOURCES);
+                if (onbSelections.internship) sourcesToFetch.push(...ONB_INTERNSHIP_SOURCES);
+                if (sourcesToFetch.length) {
+                    await fetch(`${API}/fetch`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ sources: sourcesToFetch }),
+                    });
+                }
+                if (onbSelections.hackathon) {
+                    await fetch(`${API}/hackathons/fetch`, { method: "POST" });
+                }
+
+                // Step 3c: match the same resume against whatever's now in
+                // the DB (reuses the single file upload instead of asking
+                // the user to upload twice).
+                const matchForm = new FormData();
+                matchForm.append("resume", file);
+                matchForm.append("experience_level", experienceLevel);
+                const matchRes = await fetch(`${API}/match-resume`, { method: "POST", body: matchForm });
+                const matchData = await matchRes.json();
+
+                onbShowResult(atsData, matchData, experienceLevel);
+            } catch (e) {
+                console.error("Onboarding ATS/match failed:", e);
+                document.getElementById("onbProgress").style.display = "none";
+                document.getElementById("onbUploadBox").style.display = "block";
+                errorEl.textContent = e.message || "Something went wrong. Please try again.";
+                errorEl.style.display = "block";
+            }
+        }
+
+        let onbPendingMatchData = null;
+
+        function onbShowResult(atsData, matchData, experienceLevel) {
+            document.getElementById("onbProgress").style.display = "none";
+            document.getElementById("onbResultBox").style.display = "block";
+
+            const circle = document.getElementById("onbScoreCircle");
+            const color = atsData.score >= 70 ? "var(--accent-green)" : atsData.score >= 40 ? "var(--accent-orange)" : "var(--danger)";
+            circle.textContent = atsData.score;
+            circle.style.borderColor = color;
+            circle.style.color = color;
+
+            const levelLabel = experienceLevel === "experienced" ? "Experienced" : "Fresher";
+            const matchCount = (matchData.matches || []).length;
+            document.getElementById("onbMatchSummary").textContent =
+                matchCount > 0
+                    ? `Classified as ${levelLabel} · found ${matchCount} matching job${matchCount === 1 ? "" : "s"}`
+                    : `Classified as ${levelLabel} · ${matchData.message || "no matches yet - try fetching more sources"}`;
+
+            onbPendingMatchData = matchData;
+        }
+
+        function onbFinish() {
+            sessionStorage.setItem("onboardingDone", "true");
+            onbApplySelectionsToSidebar();
+            revealDashboard(currentAuthUser);
+
+            // Surface the Step 3 match results immediately on the
+            // dashboard, reusing the existing "Recommended for You"
+            // renderer instead of re-uploading/re-matching.
+            if (onbPendingMatchData && onbPendingMatchData.success) {
+                recommendedJobs = onbPendingMatchData.matches || [];
+                renderRecommended(onbPendingMatchData);
+            }
         }
 
         async function showSignIn() {
