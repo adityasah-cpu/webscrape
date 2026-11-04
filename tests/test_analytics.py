@@ -42,7 +42,7 @@ class TestGetAnalytics:
     def test_by_domain_counts_every_tag(self, mocker, analytics_jobs):
         mocker.patch.object(api_module, "load_jobs_from_db", return_value=analytics_jobs)
         result = api_module.get_analytics()
-        assert result["by_domain"]["AIML"] == 1
+        assert result["by_domain"]["Data Science and Machine Learning"] == 1
         assert result["by_domain"]["Data Analytics"] == 1
         assert result["by_domain"]["Blockchain"] == 1
         assert result["by_domain"]["General"] == 1

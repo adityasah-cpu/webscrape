@@ -77,7 +77,7 @@ def sample_jobs():
             "start_date": "",
             "end_date": "",
             "url": "https://example.com/job/1",
-            "domains": ["AIML"],
+            "domains": ["Data Science and Machine Learning"],
         },
         {
             "id": 2,
@@ -142,7 +142,7 @@ def analytics_jobs():
     return [
         {
             "id": 1, "source": "Remotive", "title": "AI Engineer Fresher", "company": "Acme AI",
-            "work_type": "Remote", "country": "India", "domains": ["AIML"],
+            "work_type": "Remote", "country": "India", "domains": ["Data Science and Machine Learning"],
             "added_at": now,
         },
         {

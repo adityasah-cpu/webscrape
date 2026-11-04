@@ -315,7 +315,7 @@ class TestAnalyzeResumeCategories:
     def test_tailoring_detects_domain_focus(self):
         result = api_module.analyze_resume_categories(self.STRONG_RESUME)
         findings_text = " ".join(result["categories"]["tailoring"]["findings"])
-        assert "AIML" in findings_text or "Data Analytics" in findings_text
+        assert "Data Science and Machine Learning" in findings_text or "Data Analytics" in findings_text
 
     def test_empty_text_does_not_crash(self):
         result = api_module.analyze_resume_categories("")

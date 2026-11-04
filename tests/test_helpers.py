@@ -93,7 +93,7 @@ class TestIsExperiencedJob:
 class TestDetectJobDomain:
     def test_aiml_keyword_detected(self):
         job = {"title": "Machine Learning Engineer", "category": "", "description": ""}
-        assert "AIML" in api_module.detect_job_domain(job)
+        assert "Data Science and Machine Learning" in api_module.detect_job_domain(job)
 
     def test_blockchain_keyword_detected(self):
         job = {"title": "Blockchain Developer", "category": "", "description": ""}
@@ -106,8 +106,8 @@ class TestDetectJobDomain:
     def test_multiple_domains_can_match(self):
         job = {"title": "AI Security Engineer", "category": "cybersecurity ai", "description": ""}
         domains = api_module.detect_job_domain(job)
-        assert "AIML" in domains
-        assert "Cybersecurity" in domains
+        assert "Data Science and Machine Learning" in domains
+        assert "Cyber Security" in domains
 
     def test_missing_fields_handled_gracefully(self):
         assert api_module.detect_job_domain({}) == ["General"]
@@ -121,7 +121,7 @@ class TestBuildJobText:
         assert "Machine Learning Fresher" in text
         assert "Acme AI" in text
         assert "AI/ML" in text
-        assert "AIML" in text  # from domains list
+        assert "Data Science and Machine Learning" in text  # from domains list
 
     def test_missing_fields_do_not_raise_or_insert_none(self):
         job = {"title": "Just a Title"}
@@ -147,7 +147,7 @@ class TestExtractResumeKeywords:
     def test_detects_aiml_and_data_analytics(self):
         resume_text = "Experienced with machine learning, TensorFlow, and Tableau dashboards."
         domains = api_module.extract_resume_keywords(resume_text)
-        assert "AIML" in domains
+        assert "Data Science and Machine Learning" in domains
         assert "Data Analytics" in domains
 
     def test_no_keywords_falls_back_to_general(self):

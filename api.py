@@ -861,34 +861,221 @@ def is_experienced_job(job: Dict[str, Any]) -> bool:
     return not is_fresher_job(job)
 
 # Domain keywords mapping - shared with resume matching
+# 44 domains covering CUTM's full multi-school program range (Engineering,
+# Agriculture, Pharmacy/Health, Management), supplied by the university -
+# cross-checked against the original 5-domain set before this expansion:
+# AIML/Data Analytics/AR-VR/Cybersecurity were consolidated into the
+# equivalently-named domains below (Data Science and Machine Learning /
+# Data Analytics / Gaming and Immersive Learning (AR & VR) / Cyber Security)
+# rather than kept as separate near-duplicates; Blockchain had no
+# equivalent in the supplied list and was kept as an additional domain.
 DOMAIN_KEYWORDS = {
-    'AIML': [
-        'ai', 'artificial intelligence', 'machine learning', 'ml', 'deep learning',
-        'neural network', 'nlp', 'computer vision', 'llm', 'generative ai', 'chatgpt',
-        'tensorflow', 'pytorch', 'data scientist', 'nlp engineer', 'cv engineer',
-        'ai engineer', 'ml engineer', 'ai/ml'
+    'Data Science and Machine Learning': [
+        'ai', 'ml', 'data science', 'machine learning', 'deep learning', 'neural network',
+        'nlp', 'computer vision', 'llm', 'generative ai', 'artificial intelligence', 'chatgpt',
+        'tensorflow', 'pytorch', 'data scientist', 'ml engineer', 'ai engineer', 'ai/ml',
+    ],
+    'Software Technologies': [
+        'software engineer', 'software developer', 'full stack', 'backend developer',
+        'frontend developer', 'web development', 'java developer', 'python developer',
+        'javascript developer', 'react developer', 'node.js', 'api development',
+        'software architecture',
+    ],
+    'Aerial Surveying and Remote Sensing Applications': [
+        'remote sensing', 'aerial survey', 'drone survey', 'photogrammetry', 'gis',
+        'geospatial', 'lidar', 'satellite imagery', 'uav mapping', 'cartography',
+    ],
+    'Cloud Technologies': [
+        'cloud engineer', 'cloud computing', 'aws', 'microsoft azure', 'google cloud',
+        'gcp', 'devops', 'kubernetes', 'docker', 'cloud architecture',
+        'cloud infrastructure', 'serverless', 'terraform',
+    ],
+    'Cyber Security': [
+        'cybersecurity', 'cyber security', 'security engineer', 'security analyst',
+        'infosec', 'pentester', 'penetration testing', 'ethical hacker', 'soc analyst',
+        'siem', 'vulnerability assessment', 'network security', 'application security',
+        'cloud security', 'security architect',
+    ],
+    'Embedded System Design': [
+        'embedded systems', 'microcontroller', 'firmware', 'rtos', 'embedded engineer',
+        'embedded c', 'arm cortex', 'fpga', 'pcb design', 'iot device',
+    ],
+    'Gaming and Immersive Learning (AR & VR)': [
+        'augmented reality', 'virtual reality', 'game developer', 'game design', 'unity',
+        'unreal engine', 'metaverse', 'mixed reality', 'immersive technology',
+        'xr developer', '3d graphics', 'game engine', 'ar/vr', 'ar vr',
+    ],
+    'Chip Design and Fabrication Using VLSI': [
+        'vlsi', 'chip design', 'asic design', 'semiconductor', 'rtl design', 'verilog',
+        'vhdl', 'cmos', 'ic design', 'silicon fabrication', 'tape out',
+    ],
+    'Communication Systems': [
+        'telecommunication', 'wireless communication', '5g', '4g lte', 'rf engineer',
+        'signal processing', 'satellite communication', 'network protocol',
+        'antenna design', 'optical communication',
+    ],
+    'Operation and Maintenance of Electrical Grid System & Transformers': [
+        'power grid', 'electrical grid', 'transformer maintenance', 'substation',
+        'power distribution', 'scada', 'grid operation', 'power system engineer',
+        'transmission line', 'switchgear',
+    ],
+    'Industrial Automation': [
+        'plc programming', 'industrial automation', 'automation engineer',
+        'control systems', 'robotics automation', 'hmi', 'process automation',
+        'instrumentation engineer', 'dcs',
+    ],
+    'Construction Planning Monitoring and Project Management': [
+        'construction management', 'project planning', 'site supervisor',
+        'construction monitoring', 'project scheduling', 'quantity surveyor',
+        'construction project manager', 'primavera', 'civil project management',
+    ],
+    'Architectural and Structural Design': [
+        'architect', 'structural engineer', 'structural design', 'autocad', 'revit',
+        'building design', 'architectural design', 'structural analysis', 'staad pro',
+        'bim modeling',
+    ],
+    'Composite Design and Manufacturing': [
+        'composite materials', 'composite manufacturing', 'fiber reinforced',
+        'carbon fiber', 'composite engineer', 'layup design',
+        'resin transfer molding', 'composite structures',
+    ],
+    'Go to Market – Product Development': [
+        'go to market', 'product development', 'product manager', 'product launch',
+        'market strategy', 'product lifecycle', 'product management', 'gtm strategy',
+    ],
+    'Manufacturing (Conventional, CNC and Additive)': [
+        'cnc machining', 'cnc programming', 'additive manufacturing', '3d printing',
+        'manufacturing engineer', 'production engineer', 'machining operations',
+        'tool design', 'manufacturing process',
+    ],
+    'Welding and Inspection': [
+        'welding engineer', 'welding inspector', 'ndt inspection', 'weld quality',
+        'welding technology', 'arc welding', 'tig welding', 'mig welding',
+        'weld testing',
+    ],
+    'Automobile Engineering': [
+        'automotive engineer', 'automobile engineering', 'vehicle design',
+        'automotive design', 'ev engineer', 'electric vehicle', 'automotive systems',
+        'powertrain', 'chassis design', 'automotive testing',
+    ],
+    'Computational Fluid Dynamics': [
+        'cfd analysis', 'computational fluid dynamics', 'cfd engineer', 'ansys fluent',
+        'fluid flow simulation', 'thermal analysis', 'aerodynamics simulation',
+    ],
+    'Renewable Energy Applications': [
+        'renewable energy', 'solar energy', 'wind energy', 'solar panel',
+        'energy systems', 'green energy', 'photovoltaic', 'solar engineer',
+        'wind turbine', 'sustainable energy',
+    ],
+    'Cyber Security and Digital Forensics': [
+        'digital forensics', 'cyber forensics', 'forensic analyst', 'malware analysis',
+        'threat intelligence', 'forensic investigation', 'data recovery forensics',
+    ],
+    'Manufacturing Execution System': [
+        'manufacturing execution system', 'mes implementation', 'shop floor control',
+        'production tracking', 'factory automation software',
     ],
     'Data Analytics': [
-        'data analyst', 'analytics', 'data analytics', 'business intelligence',
-        'bi developer', 'tableau', 'power bi', 'sql', 'analytics engineer',
-        'reporting', 'dashboard', 'data warehouse', 'etl', 'data pipeline'
+        'data analyst', 'data analytics', 'business intelligence', 'tableau',
+        'power bi', 'sql developer', 'data visualization', 'reporting analyst',
+        'dashboard development', 'etl developer', 'data warehouse',
+    ],
+    'Business Analytics': [
+        'business analyst', 'business analytics', 'business intelligence analyst',
+        'market analysis', 'financial analytics', 'business insights',
+        'kpi analysis', 'strategic analytics',
+    ],
+    'Smart Farm Machinery': [
+        'smart farming equipment', 'farm machinery', 'precision agriculture',
+        'agricultural automation', 'tractor technology', 'farm equipment engineer',
+        'agri-robotics',
+    ],
+    'Organic Farming': [
+        'organic farming', 'organic agriculture', 'organic certification',
+        'sustainable farming', 'organic cultivation', 'biofertilizer',
+        'organic produce',
+    ],
+    'Dairy Processing and Development': [
+        'dairy processing', 'dairy technology', 'milk processing',
+        'dairy product development', 'dairy engineer', 'dairy quality control',
+        'dairy plant',
+    ],
+    'Intensive Aquaculture': [
+        'aquaculture', 'fish farming', 'shrimp farming', 'aquaculture technology',
+        'hatchery management', 'aquaculture production', 'fisheries science',
+    ],
+    'Seed Production Using Manual and Molecular Methods': [
+        'seed production', 'seed technology', 'molecular breeding', 'seed science',
+        'seed certification', 'plant breeding', 'hybrid seed',
+    ],
+    'Genetic Engineering & Genomics': [
+        'genetic engineering', 'genomics', 'gene editing', 'crispr',
+        'molecular biology', 'genome sequencing', 'biotechnology research',
+        'gene expression',
+    ],
+    'Nutraceuticals': [
+        'nutraceuticals', 'dietary supplements', 'functional foods',
+        'nutraceutical formulation', 'nutrition science', 'herbal supplements',
+    ],
+    'Smart Agriculture': [
+        'smart agriculture', 'precision farming', 'agri-tech', 'iot farming',
+        'agricultural sensors', 'farm analytics', 'smart irrigation',
+    ],
+    'Protected Horticulture': [
+        'protected horticulture', 'greenhouse farming', 'polyhouse cultivation',
+        'horticulture technology', 'controlled environment agriculture',
+        'nursery management',
+    ],
+    'Plant Tissue Culture and Vegetative Propagation': [
+        'tissue culture', 'plant propagation', 'micropropagation',
+        'vegetative propagation', 'plant cloning', 'in vitro culture',
+    ],
+    'Food Processing': [
+        'food processing', 'food technology', 'food science',
+        'food product development', 'food quality control', 'food packaging',
+        'food engineer',
+    ],
+    'Agri Business Management': [
+        'agribusiness', 'agri business management', 'agricultural marketing',
+        'farm management', 'agri supply chain', 'agricultural economics',
+    ],
+    'Commodity and Food Storage': [
+        'food storage', 'commodity storage', 'warehouse management',
+        'grain storage', 'cold storage', 'post harvest management',
+        'storage logistics',
+    ],
+    'Soil and Water Conservation Through Watershed': [
+        'soil conservation', 'water conservation', 'watershed management',
+        'soil and water engineering', 'irrigation management',
+        'land and water resources',
+    ],
+    'Fish Processing Technology': [
+        'fish processing', 'seafood processing', 'fish product development',
+        'fish quality control', 'fisheries technology', 'fish preservation',
+    ],
+    'Pharmaceutical Chemistry': [
+        'pharmaceutical chemistry', 'drug formulation', 'medicinal chemistry',
+        'pharma research', 'pharmaceutical analysis', 'drug development',
+        'pharmacology',
+    ],
+    'Health Care Assistancy': [
+        'healthcare assistant', 'patient care', 'clinical assistant',
+        'medical assistant', 'nursing assistant', 'healthcare support',
+    ],
+    'Good Health and Wellness': [
+        'health and wellness', 'wellness coach', 'fitness trainer', 'public health',
+        'preventive healthcare', 'wellness program', 'nutrition counseling',
+    ],
+    'Retail and Hospitality': [
+        'retail management', 'hospitality management', 'customer service',
+        'hotel management', 'retail operations', 'guest relations',
+        'front office', 'food and beverage service',
     ],
     'Blockchain': [
         'blockchain', 'crypto', 'web3', 'solidity', 'smart contract', 'ethereum',
-        'defi', 'nft', 'dapp', 'distributed ledger', 'consensus', 'blockchain developer',
-        'smart contract developer', 'web3 developer', 'cryptocurrency'
+        'defi', 'nft', 'dapp', 'distributed ledger', 'blockchain developer',
+        'smart contract developer', 'web3 developer', 'cryptocurrency',
     ],
-    'AR VR': [
-        'augmented reality', 'virtual reality', 'ar', 'vr', 'metaverse', 'mixed reality',
-        'xr', 'immersive', '3d graphics', 'unity', 'unreal engine', 'ar developer',
-        'vr developer', 'ar/vr', 'ar vr'
-    ],
-    'Cybersecurity': [
-        'cybersecurity', 'security engineer', 'security analyst', 'infosec', 'pentester',
-        'penetration testing', 'ethical hacker', 'soc', 'siem', 'vulnerability', 'malware',
-        'incident response', 'security operations', 'network security', 'application security',
-        'cloud security', 'security architect'
-    ]
 }
 
 # Word-boundary matching (not plain substring) so short keywords like "ai", "ml",

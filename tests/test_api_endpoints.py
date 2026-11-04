@@ -38,9 +38,9 @@ def test_get_jobs_returns_mysql_storage_label(client, mocker, sample_jobs):
 
 def test_get_jobs_filters_by_domain(client, mocker, sample_jobs):
     mocker.patch.object(api_module, "load_jobs_from_db", return_value=sample_jobs)
-    res = client.get("/api/jobs?domain=AIML&limit=50")
+    res = client.get("/api/jobs?domain=Data Science and Machine Learning&limit=50")
     data = res.get_json()
-    assert all("AIML" in j["domains"] for j in data["jobs"])
+    assert all("Data Science and Machine Learning" in j["domains"] for j in data["jobs"])
 
 
 def test_get_jobs_handles_db_failure_gracefully(client, mocker):
@@ -649,14 +649,14 @@ def test_load_jobs_from_db_parses_domains_json(mocker):
     mock_conn = mocker.MagicMock()
     mock_cursor = mock_conn.cursor.return_value
     mock_cursor.fetchall.return_value = [
-        {"id": 1, "title": "Fresher Role", "domains": '["AIML", "Data Analytics"]'},
+        {"id": 1, "title": "Fresher Role", "domains": '["Data Science and Machine Learning", "Data Analytics"]'},
         {"id": 2, "title": "Broken domains field", "domains": "not-valid-json"},
     ]
     mocker.patch.object(api_module, "get_db_connection", return_value=mock_conn)
 
     jobs = api_module.load_jobs_from_db(use_cache=False)
 
-    assert jobs[0]["domains"] == ["AIML", "Data Analytics"]
+    assert jobs[0]["domains"] == ["Data Science and Machine Learning", "Data Analytics"]
     assert jobs[1]["domains"] == ["General"]  # malformed JSON falls back gracefully
 
 
