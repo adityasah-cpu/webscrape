@@ -1198,6 +1198,107 @@
                 margin: 20% auto;
             }
         }
+
+        /* ============ SKELETON LOADING ============ */
+        @keyframes skeleton-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .skeleton-loader {
+            animation: skeleton-pulse 1.5s ease-in-out infinite;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 2s infinite;
+        }
+
+        @keyframes skeleton-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .skeleton-row {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .skeleton-cell {
+            flex: 1;
+            height: 24px;
+            background: #f0f0f0;
+            border-radius: var(--radius-xs);
+            animation: skeleton-pulse 1.5s ease-in-out infinite;
+        }
+
+        .skeleton-cell.title {
+            flex: 2;
+        }
+
+        .skeleton-cell.company {
+            flex: 1.5;
+        }
+
+        .skeleton-cell.badge {
+            width: 100px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+        }
+
+        .skeleton-stat {
+            background: var(--bg-primary);
+            padding: 22px;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+        }
+
+        .skeleton-stat-icon {
+            width: 40px;
+            height: 40px;
+            background: #f0f0f0;
+            border-radius: var(--radius-sm);
+            animation: skeleton-pulse 1.5s ease-in-out infinite;
+            margin-bottom: 12px;
+        }
+
+        .skeleton-stat-title {
+            width: 80%;
+            height: 12px;
+            background: #f0f0f0;
+            border-radius: var(--radius-xs);
+            animation: skeleton-pulse 1.5s ease-in-out infinite;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-stat-value {
+            width: 60%;
+            height: 28px;
+            background: #f0f0f0;
+            border-radius: var(--radius-xs);
+            animation: skeleton-pulse 1.5s ease-in-out infinite;
+        }
+
+        .skeleton-card {
+            background: var(--bg-primary);
+            padding: 16px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            margin-bottom: 12px;
+        }
+
+        .skeleton-line {
+            width: 100%;
+            height: 16px;
+            background: #f0f0f0;
+            border-radius: var(--radius-xs);
+            animation: skeleton-pulse 1.5s ease-in-out infinite;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-line.short {
+            width: 70%;
+        }
     </style>
 </head>
 <body>
@@ -1770,6 +1871,60 @@
             return String(text).replace(/[&<>"']/g, m => map[m]);
         }
 
+        // Skeleton loading helpers
+        function showJobsTableSkeleton(count = 5) {
+            const tbody = document.getElementById("jobsTableBody");
+            if (!tbody) return;
+            tbody.innerHTML = Array(count).fill(0).map(() => `
+                <tr>
+                    <td><div class="skeleton-row" style="gap: 8px; padding: 0;"><div class="skeleton-cell title"></div></div></td>
+                    <td><div class="skeleton-cell company"></div></td>
+                    <td><div class="skeleton-cell badge"></div></td>
+                    <td><div class="skeleton-cell" style="width: 100px;"></div></td>
+                </tr>
+            `).join("");
+        }
+
+        function showAnalyticsSkeleton() {
+            const section = document.getElementById("analyticsSection");
+            if (!section) return;
+            section.style.display = "block";
+            const statsContainer = section.querySelector(".stat-cards-group");
+            if (statsContainer) {
+                statsContainer.innerHTML = Array(4).fill(0).map(() => `
+                    <div class="skeleton-stat">
+                        <div class="skeleton-stat-icon"></div>
+                        <div class="skeleton-stat-title"></div>
+                        <div class="skeleton-stat-value"></div>
+                    </div>
+                `).join("");
+            }
+        }
+
+        function showHackathonsSkeleton(count = 3) {
+            const tbody = document.getElementById("hackathonsTableBody");
+            if (!tbody) return;
+            tbody.innerHTML = Array(count).fill(0).map(() => `
+                <tr>
+                    <td><div class="skeleton-cell" style="width: 150px;"></div></td>
+                    <td><div class="skeleton-cell" style="width: 120px;"></div></td>
+                    <td><div class="skeleton-cell" style="width: 100px;"></div></td>
+                    <td><div class="skeleton-cell" style="width: 80px;"></div></td>
+                </tr>
+            `).join("");
+        }
+
+        function showResourcesSkeleton(count = 5) {
+            const container = document.getElementById("resourcesContainer");
+            if (!container) return;
+            container.innerHTML = Array(count).fill(0).map(() => `
+                <div class="skeleton-card">
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line short"></div>
+                </div>
+            `).join("");
+        }
+
         async function loadSources() {
             try {
                 const res = await fetch(`${API}/sources`);
@@ -1818,6 +1973,9 @@
             const btn = document.getElementById("fetchBtn");
             btn.disabled = true;
             btn.textContent = "⏳ Fetching...";
+
+            // Show skeleton loader
+            showJobsTableSkeleton();
 
             try {
                 const res = await fetch(`${API}/fetch`, {
@@ -1874,6 +2032,11 @@
             const btn = document.getElementById("resumeUploadBtn");
             btn.disabled = true;
             btn.textContent = "⏳ Matching...";
+
+            // Show skeleton loader
+            const section = document.getElementById("recommendedSection");
+            section.style.display = "block";
+            showJobsTableSkeleton();
 
             const formData = new FormData();
             formData.append("resume", file);
@@ -1962,6 +2125,11 @@
             const btn = document.getElementById("atsUploadBtn");
             btn.disabled = true;
             btn.textContent = "⏳ Checking...";
+
+            // Show skeleton loader
+            const section = document.getElementById("atsSection");
+            section.style.display = "block";
+            showAnalyticsSkeleton();
 
             const formData = new FormData();
             formData.append("resume", file);
@@ -2066,6 +2234,11 @@
             const btn = document.getElementById("fetchHackathonsBtn");
             btn.disabled = true;
             btn.textContent = "⏳ Fetching...";
+
+            // Show skeleton loader
+            const section = document.getElementById("hackathonsSection");
+            section.style.display = "block";
+            showHackathonsSkeleton();
 
             try {
                 const fetchRes = await fetch(`${API}/hackathons/fetch`, { method: "POST" });
@@ -2185,6 +2358,7 @@
         async function loadAnalytics() {
             const meta = document.getElementById("analyticsMeta");
             meta.textContent = "Loading...";
+            showAnalyticsSkeleton();
             try {
                 const res = await fetch(`${API}/analytics?days=14&top_n=8`);
                 const data = await res.json();
@@ -2241,6 +2415,9 @@
             const workType = document.getElementById("filterWorkType").value;
             const country = document.getElementById("filterCountry").value;
             const experienceLevel = document.getElementById("filterExperienceLevel").value;
+
+            // Show skeleton loader while fetching
+            showJobsTableSkeleton();
 
             try {
                 const sourcesParam = selectedSources.length > 0 ? selectedSources.join(",") : "";
