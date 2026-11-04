@@ -2793,16 +2793,19 @@
         async function checkAuthAndInit() {
             try {
                 const data = await apiFetch("/auth/me", {}, 15000);
-                if (data && data.authenticated && data.user) {
-                    showApp(data.user);
-                } else if (data && data.authenticated) {
-                    // Dev mode: authenticated but no user details yet
-                    showApp({
+                console.log("Auth response:", data);
+
+                // Check if authenticated (either has user or authenticated flag)
+                if (data && (data.authenticated || data.user)) {
+                    const user = data.user || {
                         email: "dev@localhost",
                         name: "Developer",
                         picture: null
-                    });
+                    };
+                    console.log("Showing app for user:", user);
+                    showApp(user);
                 } else {
+                    console.log("Not authenticated, showing sign in");
                     showSignIn();
                 }
             } catch (e) {
@@ -3019,13 +3022,18 @@
             try {
                 const data = await apiFetch("/auth/config", {}, 15000);
                 if (!data || !data.google_client_id) {
-                    // Dev mode: Google Sign-In not configured, show dev message
+                    // Dev mode: Google Sign-In not configured
                     const errorEl = document.getElementById("authError");
-                    errorEl.textContent = "Development Mode: Auto-logged in as dev@localhost. If this doesn't work, refresh the page.";
+                    errorEl.textContent = "Development Mode: Auto-logged in as dev@localhost. Loading...";
                     errorEl.style.color = "#10b981";  // Green color for success message
                     errorEl.style.display = "block";
-                    // Auto-retry auth in dev mode
-                    setTimeout(checkAuthAndInit, 2000);
+
+                    // Auto-login in dev mode - call checkAuthAndInit directly
+                    console.log("Dev mode detected, auto-logging in...");
+                    setTimeout(() => {
+                        console.log("Retrying auth...");
+                        checkAuthAndInit();
+                    }, 1500);
                     return;
                 }
                 google.accounts.id.initialize({
