@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async></script>
     <style>
         * {
             margin: 0;
@@ -3036,6 +3036,18 @@
                     }, 1500);
                     return;
                 }
+
+                // Wait for Google library to load if not available yet
+                let retries = 0;
+                while (!window.google && retries < 20) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    retries++;
+                }
+
+                if (!window.google) {
+                    throw new Error("Google Sign-In library failed to load");
+                }
+
                 google.accounts.id.initialize({
                     client_id: data.google_client_id,
                     callback: handleGoogleCredentialResponse,
