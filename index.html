@@ -1871,6 +1871,101 @@
             return String(text).replace(/[&<>"']/g, m => map[m]);
         }
 
+        // ---------------- Resilience helpers ----------------
+
+        const API_TIMEOUT_MS = 60000;
+
+        // Only ever hand http(s) URLs to window.open(). Scraped job/hackathon
+        // links come from external sites, so a "javascript:" (or "data:")
+        // URL must never be followed.
+        function safeHttpUrl(raw) {
+            if (!raw) return null;
+            try {
+                const url = new URL(String(raw), window.location.origin);
+                return (url.protocol === "http:" || url.protocol === "https:") ? url.href : null;
+            } catch {
+                return null;
+            }
+        }
+
+        // Single entry point for API calls. It:
+        //   - times out instead of hanging forever (scrapers/OCR are slow,
+        //     so long-running calls pass a bigger timeout explicitly)
+        //   - sends the user back to sign-in on 401 instead of every panel
+        //     failing silently after a session expires
+        //   - rejects non-2xx responses with the server's JSON error message
+        //     instead of letting callers read "undefined" fields
+        //   - tolerates an HTML error page (content-type check) rather than
+        //     throwing a JSON parse error
+        async function apiFetch(path, options = {}, timeoutMs = API_TIMEOUT_MS) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            let res;
+            try {
+                res = await fetch(`${API}${path}`, { ...options, signal: controller.signal });
+            } catch (e) {
+                if (e.name === "AbortError") {
+                    throw new Error("The request timed out. Please try again.");
+                }
+                throw new Error("Could not reach the server. Please check your connection and try again.");
+            } finally {
+                clearTimeout(timer);
+            }
+
+            const contentType = res.headers.get("content-type") || "";
+            let data = null;
+            if (contentType.includes("application/json")) {
+                try {
+                    data = await res.json();
+                } catch {
+                    data = null;
+                }
+            }
+
+            if (res.status === 401) {
+                showSignIn();
+                throw new Error((data && data.error) || "Your session has expired. Please sign in again.");
+            }
+            if (!res.ok) {
+                throw new Error((data && (data.error || data.message)) || `Request failed (HTTP ${res.status}).`);
+            }
+            return data;
+        }
+
+        function showJobsTableError(message) {
+            const tbody = document.getElementById("jobsTableBody");
+            if (!tbody) return;
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4">
+                        <div class="empty-state">
+                            <div class="empty-icon">⚠️</div>
+                            <div class="empty-title">Couldn't load jobs</div>
+                            <div class="empty-text">${escapeHtml(message || "Something went wrong.")}</div>
+                            <button class="export-btn" style="margin-top:12px;" onclick="renderJobs(currentPage)">Try again</button>
+                        </div>
+                    </td>
+                </tr>`;
+        }
+
+        function showHackathonsError(message) {
+            const section = document.getElementById("hackathonsSection");
+            const tbody = document.getElementById("hackathonsTableBody");
+            section.style.display = "block";
+            document.getElementById("hackathonsMeta").textContent = "Could not load hackathons";
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <div class="empty-icon">⚠️</div>
+                            <div class="empty-title">Couldn't load hackathons</div>
+                            <div class="empty-text">${escapeHtml(message || "Something went wrong.")}</div>
+                            <button class="export-btn" style="margin-top:12px;" onclick="fetchHackathons()">Try again</button>
+                        </div>
+                    </td>
+                </tr>`;
+        }
+
         // Skeleton loading helpers
         function showJobsTableSkeleton(count = 5) {
             const tbody = document.getElementById("jobsTableBody");
@@ -1881,6 +1976,20 @@
                     <td><div class="skeleton-cell company"></div></td>
                     <td><div class="skeleton-cell badge"></div></td>
                     <td><div class="skeleton-cell" style="width: 100px;"></div></td>
+                </tr>
+            `).join("");
+        }
+
+        function showRecommendedSkeleton(count = 5) {
+            const tbody = document.getElementById("recommendedTableBody");
+            if (!tbody) return;
+            tbody.innerHTML = Array(count).fill(0).map(() => `
+                <tr>
+                    <td><div class="skeleton-cell badge"></div></td>
+                    <td><div class="skeleton-row" style="gap: 8px; padding: 0;"><div class="skeleton-cell title"></div></div></td>
+                    <td><div class="skeleton-cell company"></div></td>
+                    <td><div class="skeleton-cell badge"></div></td>
+                    <td><div class="skeleton-cell" style="width: 80px;"></div></td>
                 </tr>
             `).join("");
         }
@@ -1927,7 +2036,7 @@
 
         async function loadSources() {
             try {
-                const res = await fetch(`${API}/sources`);
+                await apiFetch("/sources");
                 console.log("Sources loaded successfully");
             } catch (e) {
                 console.error("Failed to load sources:", e);
@@ -1978,18 +2087,32 @@
             showJobsTableSkeleton();
 
             try {
-                const res = await fetch(`${API}/fetch`, {
+                // A full fetch across many sources can legitimately take
+                // minutes (multi-page pagination + per-page sleeps), so allow
+                // well beyond the default request timeout.
+                const data = await apiFetch("/fetch", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ sources })
-                });
-                const data = await res.json();
+                }, 10 * 60 * 1000);
 
-                document.getElementById("lastFetch").textContent = `✅ Last fetch: ${new Date().toLocaleTimeString()}`;
+                if (!data || data.success === false) {
+                    throw new Error((data && data.error) || "Failed to fetch jobs.");
+                }
+
+                const stored = data.total_stored ?? data.jobs_count ?? 0;
+                const failed = data.failed_to_store || 0;
+                const lastFetch = document.getElementById("lastFetch");
+                if (failed) {
+                    lastFetch.textContent = `⚠️ Fetched ${data.jobs_count || 0} jobs · ${failed} could not be stored`;
+                } else {
+                    lastFetch.textContent = `✅ Last fetch: ${new Date().toLocaleTimeString()} · ${stored} stored`;
+                }
                 await renderJobs(1);
             } catch (e) {
                 console.error("Fetch failed:", e);
-                alert("Failed to fetch jobs. Please try again.");
+                document.getElementById("lastFetch").textContent = "⚠️ Last fetch failed";
+                showJobsTableError(e.message || "Failed to fetch jobs. Please try again.");
             } finally {
                 btn.disabled = false;
                 btn.textContent = "⚡ Fetch Jobs";
@@ -2033,29 +2156,36 @@
             btn.disabled = true;
             btn.textContent = "⏳ Matching...";
 
-            // Show skeleton loader
+            // Show skeleton loader in the recommendations table (not the main
+            // jobs table - the old call filled jobsTableBody and left it as
+            // skeleton rows forever after a successful match).
             const section = document.getElementById("recommendedSection");
             section.style.display = "block";
-            showJobsTableSkeleton();
+            showRecommendedSkeleton();
 
             const formData = new FormData();
             formData.append("resume", file);
             formData.append("experience_level", experienceLevel);
 
             try {
-                const res = await fetch(`${API}/match-resume`, { method: "POST", body: formData });
-                const data = await res.json();
+                // OCR fallback / large PDFs can take minutes - allow for it.
+                const data = await apiFetch("/match-resume", {
+                    method: "POST",
+                    body: formData
+                }, 6 * 60 * 1000);
 
-                if (!data.success) {
-                    alert(data.error || "Failed to process resume.");
-                    return;
+                if (!data || data.success === false) {
+                    throw new Error((data && data.error) || "Failed to process resume.");
                 }
 
                 recommendedJobs = data.matches || [];
                 renderRecommended(data);
             } catch (e) {
                 console.error("Resume match failed:", e);
-                alert("Failed to upload/match resume. Please try again.");
+                // Hide the section rather than leaving its skeleton rows
+                // spinning forever.
+                section.style.display = "none";
+                alert(e.message || "Failed to upload/match resume. Please try again.");
             } finally {
                 btn.disabled = false;
                 btn.textContent = "📄 Upload Resume";
@@ -2126,27 +2256,36 @@
             btn.disabled = true;
             btn.textContent = "⏳ Checking...";
 
-            // Show skeleton loader
+            // Show the ATS panel in a loading state (the old code called
+            // showAnalyticsSkeleton() here, which incorrectly opened the
+            // Analytics section instead).
             const section = document.getElementById("atsSection");
             section.style.display = "block";
-            showAnalyticsSkeleton();
+            document.getElementById("atsScoreValue").textContent = "…";
+            document.getElementById("atsFeedback").textContent =
+                "Analyzing your resume - this can take up to ~2 minutes…";
+            document.getElementById("atsCategoriesWrap").style.display = "none";
 
             const formData = new FormData();
             formData.append("resume", file);
 
             try {
-                const res = await fetch(`${API}/ats-score`, { method: "POST", body: formData });
-                const data = await res.json();
+                const data = await apiFetch("/ats-score", {
+                    method: "POST",
+                    body: formData
+                }, 5 * 60 * 1000);
 
-                if (!data.success) {
-                    alert(data.error || "Failed to get ATS score.");
-                    return;
+                if (!data || data.success === false) {
+                    throw new Error((data && data.error) || "Failed to get ATS score.");
                 }
 
                 renderAtsScore(data);
             } catch (e) {
                 console.error("ATS score check failed:", e);
-                alert("Failed to upload/check ATS score. Please try again.");
+                document.getElementById("atsScoreValue").textContent = "—";
+                document.getElementById("atsFeedback").textContent =
+                    e.message || "Failed to upload/check ATS score. Please try again.";
+                document.getElementById("atsCategoriesWrap").style.display = "none";
             } finally {
                 btn.disabled = false;
                 btn.textContent = "🎯 Check ATS Score";
@@ -2241,19 +2380,16 @@
             showHackathonsSkeleton();
 
             try {
-                const fetchRes = await fetch(`${API}/hackathons/fetch`, { method: "POST" });
-                const fetchData = await fetchRes.json();
-                if (!fetchData.success) {
-                    alert(fetchData.error || "Failed to fetch hackathons.");
-                    return;
+                const fetchData = await apiFetch("/hackathons/fetch", { method: "POST" }, 3 * 60 * 1000);
+                if (!fetchData || fetchData.success === false) {
+                    throw new Error((fetchData && fetchData.error) || "Failed to fetch hackathons.");
                 }
 
-                const listRes = await fetch(`${API}/hackathons`);
-                const listData = await listRes.json();
+                const listData = await apiFetch("/hackathons");
                 renderHackathons(listData.hackathons || []);
             } catch (e) {
                 console.error("Hackathon fetch failed:", e);
-                alert("Failed to fetch hackathons. Please try again.");
+                showHackathonsError(e.message || "Failed to fetch hackathons. Please try again.");
             } finally {
                 btn.disabled = false;
                 btn.textContent = "🏆 Fetch Hackathons";
@@ -2277,8 +2413,8 @@
                 return;
             }
 
-            tbody.innerHTML = hackathons.map(h => `
-                <tr onclick="window.open('${escapeHtml(h.url || '#')}', '_blank')">
+            tbody.innerHTML = hackathons.map((h, idx) => `
+                <tr data-hackathon-idx="${idx}" style="cursor:pointer;">
                     <td>
                         <div class="job-title-wrapper">
                             <div class="job-title">${escapeHtml(h.title || "N/A")}</div>
@@ -2293,6 +2429,22 @@
                     <td><div style="font-size:13px;">${escapeHtml(h.time_left || h.submission_dates || "N/A")}</div></td>
                 </tr>
             `).join("");
+
+            // Attach click handlers here instead of an inline
+            // onclick="window.open('...')" with an escaped URL: escapeHtml
+            // turns ' into &#039;, which the HTML parser decodes back into a
+            // real quote before the JS runs, so an external URL containing a
+            // quote could break out of the inline JS string. A listener plus
+            // safeHttpUrl() avoids that entirely.
+            tbody.querySelectorAll("tr[data-hackathon-idx]").forEach(row => {
+                row.addEventListener("click", () => {
+                    const h = hackathons[Number(row.dataset.hackathonIdx)];
+                    const url = safeHttpUrl(h && h.url);
+                    if (url) {
+                        window.open(url, "_blank", "noopener,noreferrer");
+                    }
+                });
+            });
         }
 
         function clearHackathons() {
@@ -2360,12 +2512,10 @@
             meta.textContent = "Loading...";
             showAnalyticsSkeleton();
             try {
-                const res = await fetch(`${API}/analytics?days=14&top_n=8`);
-                const data = await res.json();
+                const data = await apiFetch("/analytics?days=14&top_n=8");
 
-                if (!data.success) {
-                    meta.textContent = data.error || "Failed to load analytics.";
-                    return;
+                if (!data || data.success === false) {
+                    throw new Error((data && data.error) || "Failed to load analytics.");
                 }
 
                 analyticsLoaded = true;
@@ -2406,6 +2556,17 @@
             } catch (e) {
                 console.error("Failed to load analytics:", e);
                 meta.textContent = "Failed to load analytics.";
+                // Don't leave the stat cards pulsing forever - replace the
+                // skeleton with the actual error so the panel reads as failed.
+                const statsContainer = document.querySelector("#analyticsSection .stat-cards-group");
+                if (statsContainer) {
+                    statsContainer.innerHTML = `
+                        <div class="empty-state" style="grid-column: 1 / -1;">
+                            <div class="empty-icon">⚠️</div>
+                            <div class="empty-title">Couldn't load analytics</div>
+                            <div class="empty-text">${escapeHtml(e.message || "Something went wrong.")}</div>
+                        </div>`;
+                }
             }
         }
 
@@ -2421,10 +2582,17 @@
 
             try {
                 const sourcesParam = selectedSources.length > 0 ? selectedSources.join(",") : "";
-                const res = await fetch(
-                    `${API}/jobs?page=${currentPage}&limit=${JOBS_PER_PAGE}&domain=${encodeURIComponent(domain)}&work_type=${encodeURIComponent(workType)}&country=${encodeURIComponent(country)}&sources=${encodeURIComponent(sourcesParam)}&experience_level=${encodeURIComponent(experienceLevel)}`
+                const data = await apiFetch(
+                    `/jobs?page=${currentPage}&limit=${JOBS_PER_PAGE}&domain=${encodeURIComponent(domain)}&work_type=${encodeURIComponent(workType)}&country=${encodeURIComponent(country)}&sources=${encodeURIComponent(sourcesParam)}&experience_level=${encodeURIComponent(experienceLevel)}`
                 );
-                const data = await res.json();
+
+                // Guard the shape: a 401/500/HTML body used to leave `data.jobs`
+                // undefined, throw on allJobs.length further down, and leave the
+                // skeleton rows on screen forever.
+                if (!data || !Array.isArray(data.jobs)) {
+                    throw new Error((data && data.error) || "The server returned an unexpected response.");
+                }
+
                 allJobs = data.jobs;
                 totalPages = data.pages || 1;
 
@@ -2482,6 +2650,10 @@
                 }
             } catch (e) {
                 console.error("Render failed:", e);
+                allJobs = [];
+                totalPages = 1;
+                document.getElementById("paginationBar").style.display = "none";
+                showJobsTableError(e.message || "Could not load jobs.");
             }
         }
 
@@ -2538,12 +2710,12 @@
 
         function formatDate(dateStr) {
             if (!dateStr) return "N/A";
-            try {
-                const date = new Date(dateStr);
-                return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-            } catch {
-                return dateStr;
-            }
+            // new Date("garbage") does NOT throw - it produces an Invalid
+            // Date object, so the old try/catch never fired and the UI
+            // showed "Invalid Date" verbatim.
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
         }
 
         function closeJobModal() {
@@ -2553,9 +2725,12 @@
 
         function applyJob() {
             const job = currentModalJob;
-            if (job && job.url) {
-                window.open(job.url, "_blank");
+            const url = job && safeHttpUrl(job.url);
+            if (!url) {
+                alert("This job doesn't have a valid application link.");
+                return;
             }
+            window.open(url, "_blank", "noopener,noreferrer");
         }
 
         function exportToCSV() {
@@ -2567,13 +2742,43 @@
 
             // Exports via the backend's /api/export endpoint rather than
             // building the CSV client-side from `allJobs`: that array is
-            // only the current page (so a client-side export silently
-            // dropped every job beyond it), and the backend applies
+            // only the current page, and the backend applies
             // formula-injection sanitization (CWE-1236) that a hand-rolled
-            // client-side CSV builder does not - job data comes from 17+
-            // external, uncontrolled sources, so a listing titled e.g.
-            // '=HYPERLINK(...)' must never reach the file as a live formula.
-            window.location.href = `${API}/export?format=csv`;
+            // client-side CSV builder does not.
+            //
+            // Fetched as a blob rather than window.location so a 401/503
+            // shows an error instead of navigating the whole app away to a
+            // raw JSON error page.
+            (async () => {
+                try {
+                    const res = await fetch(`${API}/export?format=csv`);
+                    if (res.status === 401) {
+                        showSignIn();
+                        throw new Error("Your session has expired. Please sign in again.");
+                    }
+                    if (!res.ok) {
+                        let message = `Export failed (HTTP ${res.status}).`;
+                        try {
+                            const err = await res.json();
+                            if (err && err.error) message = err.error;
+                        } catch { /* non-JSON error body */ }
+                        throw new Error(message);
+                    }
+
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = "jobs.csv";
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    URL.revokeObjectURL(url);
+                } catch (e) {
+                    console.error("CSV export failed:", e);
+                    alert(e.message || "Failed to export jobs. Please try again.");
+                }
+            })();
         }
 
         window.onclick = function(event) {
@@ -2587,10 +2792,16 @@
 
         async function checkAuthAndInit() {
             try {
-                const res = await fetch(`${API}/auth/me`);
-                const data = await res.json();
-                if (data.authenticated) {
+                const data = await apiFetch("/auth/me", {}, 15000);
+                if (data && data.authenticated && data.user) {
                     showApp(data.user);
+                } else if (data && data.authenticated) {
+                    // Dev mode: authenticated but no user details yet
+                    showApp({
+                        email: "dev@localhost",
+                        name: "Developer",
+                        picture: null
+                    });
                 } else {
                     showSignIn();
                 }
@@ -2715,10 +2926,9 @@
                 // fresher/experienced question).
                 const atsForm = new FormData();
                 atsForm.append("resume", file);
-                const atsRes = await fetch(`${API}/ats-score`, { method: "POST", body: atsForm });
-                const atsData = await atsRes.json();
-                if (!atsData.success) {
-                    throw new Error(atsData.error || "Could not score this resume.");
+                const atsData = await apiFetch("/ats-score", { method: "POST", body: atsForm }, 5 * 60 * 1000);
+                if (!atsData || atsData.success === false) {
+                    throw new Error((atsData && atsData.error) || "Could not score this resume.");
                 }
 
                 let experienceLevel = "experienced";
@@ -2735,14 +2945,14 @@
                 if (onbSelections.remote) sourcesToFetch.push(...ONB_REMOTE_SOURCES);
                 if (onbSelections.internship) sourcesToFetch.push(...ONB_INTERNSHIP_SOURCES);
                 if (sourcesToFetch.length) {
-                    await fetch(`${API}/fetch`, {
+                    await apiFetch("/fetch", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ sources: sourcesToFetch }),
-                    });
+                    }, 10 * 60 * 1000);
                 }
                 if (onbSelections.hackathon) {
-                    await fetch(`${API}/hackathons/fetch`, { method: "POST" });
+                    await apiFetch("/hackathons/fetch", { method: "POST" }, 3 * 60 * 1000);
                 }
 
                 // Step 3c: match the same resume against whatever's now in
@@ -2751,8 +2961,10 @@
                 const matchForm = new FormData();
                 matchForm.append("resume", file);
                 matchForm.append("experience_level", experienceLevel);
-                const matchRes = await fetch(`${API}/match-resume`, { method: "POST", body: matchForm });
-                const matchData = await matchRes.json();
+                const matchData = await apiFetch("/match-resume", { method: "POST", body: matchForm }, 6 * 60 * 1000);
+                if (!matchData || matchData.success === false) {
+                    throw new Error((matchData && matchData.error) || "Could not match this resume.");
+                }
 
                 onbShowResult(atsData, matchData, experienceLevel);
             } catch (e) {
@@ -2805,11 +3017,15 @@
             document.getElementById("appContainer").style.display = "none";
 
             try {
-                const res = await fetch(`${API}/auth/config`);
-                const data = await res.json();
-                if (!data.google_client_id) {
-                    document.getElementById("authError").textContent = "Google Sign-In is not configured on the server.";
-                    document.getElementById("authError").style.display = "block";
+                const data = await apiFetch("/auth/config", {}, 15000);
+                if (!data || !data.google_client_id) {
+                    // Dev mode: Google Sign-In not configured, show dev message
+                    const errorEl = document.getElementById("authError");
+                    errorEl.textContent = "Development Mode: Auto-logged in as dev@localhost. If this doesn't work, refresh the page.";
+                    errorEl.style.color = "#10b981";  // Green color for success message
+                    errorEl.style.display = "block";
+                    // Auto-retry auth in dev mode
+                    setTimeout(checkAuthAndInit, 2000);
                     return;
                 }
                 google.accounts.id.initialize({
@@ -2831,21 +3047,20 @@
             const errorEl = document.getElementById("authError");
             errorEl.style.display = "none";
             try {
-                const res = await fetch(`${API}/auth/google`, {
+                const data = await apiFetch("/auth/google", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ credential: response.credential }),
-                });
-                const data = await res.json();
-                if (!data.success) {
-                    errorEl.textContent = data.error || "Sign-in failed. Please try again.";
+                }, 30000);
+                if (!data || !data.success) {
+                    errorEl.textContent = (data && data.error) || "Sign-in failed. Please try again.";
                     errorEl.style.display = "block";
                     return;
                 }
                 showApp(data.user);
             } catch (e) {
                 console.error("Sign-in failed:", e);
-                errorEl.textContent = "Sign-in failed. Please try again.";
+                errorEl.textContent = e.message || "Sign-in failed. Please try again.";
                 errorEl.style.display = "block";
             }
         }
