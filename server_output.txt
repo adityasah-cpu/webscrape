@@ -1,0 +1,4 @@
+warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+OpenBLAS error: Memory allocation still failed after 10 retries, giving up.
+OpenBLAS error: Memory allocation still failed after 10 retries, giving up.
+OpenBLAS error: Memory allocation still failed after 10 retries, giving up.
