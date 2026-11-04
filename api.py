@@ -1181,6 +1181,203 @@ def extract_resume_keywords(resume_text: str) -> List[str]:
             matched.append(domain)
     return matched or ["General"]
 
+# ============ LOCAL ATS CATEGORY ANALYSIS ============
+# Transparent, rule-based scoring across 7 named categories, computed
+# entirely in this codebase (no external API call) - unlike the CUTM
+# Gateway's score, every check here is inspectable and documented. Each
+# category returns a 0-100 score plus the specific findings that produced
+# it, so a user can see exactly why a category scored the way it did.
+
+_ACTION_VERBS = [
+    'led', 'built', 'developed', 'designed', 'managed', 'implemented',
+    'achieved', 'increased', 'decreased', 'reduced', 'created', 'launched',
+    'optimized', 'improved', 'delivered', 'architected', 'automated',
+    'streamlined', 'mentored', 'coordinated', 'negotiated', 'spearheaded',
+    'drove', 'established', 'executed', 'generated', 'resolved', 'scaled',
+]
+_CLICHE_PHRASES = [
+    'hard worker', 'hardworking', 'team player', 'go-getter', 'go getter',
+    'detail-oriented', 'detail oriented', 'results-driven', 'results driven',
+    'think outside the box', 'self-starter', 'self starter',
+    'excellent communication skills', 'fast learner', 'people person',
+    'responsible for', 'duties included', 'dynamic individual',
+]
+_SECTION_PATTERNS = {
+    'Contact Info': r'\b(email|phone|linkedin)\b|[\w.+-]+@[\w-]+\.[\w.-]+',
+    'Summary/Objective': r'\b(summary|objective|profile)\b',
+    'Experience': r'\b(experience|employment history|work history)\b',
+    'Education': r'\b(education|academic|university|college|b\.?tech|degree)\b',
+    'Skills': r'\b(skills|technologies|technical skills)\b',
+    'Projects': r'\bprojects?\b',
+    'Certifications': r'\b(certifications?|certified)\b',
+}
+_QUANTIFIED_PATTERN = re.compile(
+    r'\d+(\.\d+)?\s*(%|percent|x|k|m|million|billion|users|customers|hours|days|weeks|months|years|\$|rs\.?|₹|€|£)',
+    re.IGNORECASE
+)
+_BIAS_DISCLOSURE_PATTERNS = {
+    'Date of birth / age': r'\b(date of birth|d\.?o\.?b\.?|age\s*[:\-]?\s*\d{1,2}\b)',
+    'Marital status': r'\b(marital status|married|single|divorced)\b',
+    'Religion': r'\b(religion|hindu|muslim|christian|sikh|buddhist)\b',
+    'Gender': r'\b(gender\s*[:\-]|sex\s*[:\-]\s*(male|female))\b',
+    'Nationality/Photo': r'\b(nationality|photograph attached|photo attached)\b',
+}
+_DATE_RANGE_PATTERN = re.compile(
+    r'((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{4})\s*'
+    r'(?:[-–—to]+)\s*'
+    r'((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{4}|present|current)',
+    re.IGNORECASE
+)
+_SENIOR_LANGUAGE = r'\b(senior|lead|principal|staff engineer|head of|director|\d{2}\+?\s*years)\b'
+_ENTRY_LANGUAGE = r'\b(fresher|entry[\s-]level|recent graduate|intern(ship)?|0-1 years?|no experience)\b'
+
+
+def _parse_resume_years_of_experience(text: str) -> float:
+    """Best-effort estimate of total years of experience from date ranges
+    like 'Jan 2021 - Present' or '2019 - 2023'. Heuristic, not exact -
+    overlapping/concurrent roles aren't deduplicated."""
+    total_months = 0
+    for m in _DATE_RANGE_PATTERN.finditer(text):
+        start_raw, end_raw = m.group(1), m.group(2)
+        start_year = re.search(r'\d{4}', start_raw)
+        if not start_year:
+            continue
+        start_year = int(start_year.group())
+        if end_raw.lower() in ('present', 'current'):
+            end_year = datetime.now().year
+        else:
+            end_year_match = re.search(r'\d{4}', end_raw)
+            if not end_year_match:
+                continue
+            end_year = int(end_year_match.group())
+        if 1980 <= start_year <= end_year <= datetime.now().year + 1:
+            total_months += (end_year - start_year) * 12
+    return round(total_months / 12, 1)
+
+
+def analyze_resume_categories(resume_text: str) -> Dict[str, Any]:
+    """Score a resume across 7 categories: Content, Sections, ATS Essentials,
+    HR Red Flags, Discrimination (bias-disclosure risk), Seniority
+    (consistency), and Tailoring. Entirely rule-based and local - no
+    external API call, so every score is traceable to a specific check."""
+    text = resume_text or ""
+    text_lower = text.lower()
+    word_count = len(text.split())
+    categories: Dict[str, Dict[str, Any]] = {}
+
+    # ---- Content: action verbs, quantified achievements, cliches ----
+    action_verb_hits = sum(1 for v in _ACTION_VERBS if re.search(rf'\b{v}\b', text_lower))
+    quantified_hits = len(_QUANTIFIED_PATTERN.findall(text))
+    cliche_hits = [p for p in _CLICHE_PHRASES if p in text_lower]
+    content_score = min(100, action_verb_hits * 6 + quantified_hits * 8) - len(cliche_hits) * 5
+    content_score = max(0, min(100, content_score))
+    content_findings = [
+        f"{action_verb_hits} strong action verb(s) found",
+        f"{quantified_hits} quantified achievement(s) found (numbers/%/metrics)",
+    ]
+    if cliche_hits:
+        content_findings.append(f"Cliche phrase(s) to replace with specifics: {', '.join(cliche_hits)}")
+    categories['content'] = {"score": content_score, "findings": content_findings}
+
+    # ---- Sections: standard resume sections present ----
+    sections_found = [name for name, pat in _SECTION_PATTERNS.items() if re.search(pat, text_lower)]
+    sections_missing = [name for name in _SECTION_PATTERNS if name not in sections_found]
+    sections_score = round(len(sections_found) / len(_SECTION_PATTERNS) * 100)
+    sections_findings = [f"Found: {', '.join(sections_found) or 'none'}"]
+    if sections_missing:
+        sections_findings.append(f"Missing: {', '.join(sections_missing)}")
+    categories['sections'] = {"score": sections_score, "findings": sections_findings}
+
+    # ---- ATS Essentials: parsability basics ----
+    has_email = bool(re.search(r'[\w.+-]+@[\w-]+\.[\w.-]+', text))
+    has_phone = bool(re.search(r'(\+?\d[\d\s\-()]{8,}\d)', text))
+    too_short = word_count < 100
+    too_long = word_count > 1500
+    essentials_score = 100
+    essentials_findings = []
+    if not has_email:
+        essentials_score -= 30
+        essentials_findings.append("No email address detected")
+    if not has_phone:
+        essentials_score -= 20
+        essentials_findings.append("No phone number detected")
+    if too_short:
+        essentials_score -= 30
+        essentials_findings.append(f"Resume is very short ({word_count} words) - ATS parsers may see too little content")
+    if too_long:
+        essentials_score -= 15
+        essentials_findings.append(f"Resume is very long ({word_count} words) - consider trimming to 1-2 pages")
+    if not essentials_findings:
+        essentials_findings.append("Email, phone, and reasonable length all present")
+    categories['ats_essentials'] = {"score": max(0, essentials_score), "findings": essentials_findings}
+
+    # ---- HR Red Flags: short tenures, no clear dates ----
+    date_ranges = _DATE_RANGE_PATTERN.findall(text)
+    red_flag_findings = []
+    red_flag_score = 100
+    if not date_ranges:
+        red_flag_score -= 20
+        red_flag_findings.append("No clear employment date ranges detected - harder for a recruiter to verify timeline")
+    unprofessional_email = re.search(
+        r'[\w.+-]*(sexy|cool|lol|xxx|hot|cute|baby|killer)[\w.+-]*@', text_lower
+    )
+    if unprofessional_email:
+        red_flag_score -= 25
+        red_flag_findings.append("Email address may read as unprofessional to a recruiter")
+    if not red_flag_findings:
+        red_flag_findings.append("No obvious red flags detected in this heuristic scan")
+    categories['hr_red_flags'] = {"score": max(0, red_flag_score), "findings": red_flag_findings}
+
+    # ---- Discrimination: bias-risk personal disclosures ----
+    # Standard resume-writing guidance is to OMIT these to reduce
+    # unconscious-bias risk in screening - their presence is a deduction,
+    # not their absence.
+    disclosures_found = [
+        label for label, pat in _BIAS_DISCLOSURE_PATTERNS.items()
+        if re.search(pat, text_lower)
+    ]
+    discrimination_score = max(0, 100 - len(disclosures_found) * 25)
+    if disclosures_found:
+        discrimination_findings = [
+            f"Consider removing: {', '.join(disclosures_found)} (reduces unconscious-bias risk in screening)"
+        ]
+    else:
+        discrimination_findings = ["No age/marital-status/religion/gender/nationality disclosures detected - good"]
+    categories['discrimination'] = {"score": discrimination_score, "findings": discrimination_findings}
+
+    # ---- Seniority: does the language match the inferred experience level ----
+    years = _parse_resume_years_of_experience(text)
+    has_senior_language = bool(re.search(_SENIOR_LANGUAGE, text_lower))
+    has_entry_language = bool(re.search(_ENTRY_LANGUAGE, text_lower))
+    seniority_score = 100
+    seniority_findings = [f"Estimated experience from date ranges: ~{years} year(s)"]
+    if has_senior_language and years < 2:
+        seniority_score -= 40
+        seniority_findings.append("Uses senior-level language (e.g. 'Senior'/'Lead') but detected experience is under 2 years")
+    if has_entry_language and years >= 4:
+        seniority_score -= 40
+        seniority_findings.append("Uses entry-level language (e.g. 'Fresher'/'Intern') but detected experience is 4+ years")
+    if not (has_senior_language and years < 2) and not (has_entry_language and years >= 4):
+        seniority_findings.append("Language and estimated experience level appear consistent")
+    categories['seniority'] = {"score": max(0, seniority_score), "findings": seniority_findings}
+
+    # ---- Tailoring: domain-specific keyword density vs. generic filler ----
+    domains = extract_resume_keywords(text)
+    domain_specific = [d for d in domains if d != "General"]
+    tailoring_score = min(100, len(domain_specific) * 30 + 30) - len(cliche_hits) * 5
+    tailoring_score = max(0, min(100, tailoring_score))
+    tailoring_findings = [
+        f"Detected domain focus: {', '.join(domain_specific) if domain_specific else 'None - resume reads as generic'}"
+    ]
+    if cliche_hits:
+        tailoring_findings.append(f"{len(cliche_hits)} generic filler phrase(s) reduce tailoring - use specific skills/tools instead")
+    categories['tailoring'] = {"score": tailoring_score, "findings": tailoring_findings}
+
+    overall_score = round(sum(c["score"] for c in categories.values()) / len(categories))
+
+    return {"overall_score": overall_score, "categories": categories}
+
+
 def build_job_text(job: Dict[str, Any]) -> str:
     """Build searchable text from a job object for TF-IDF matching.
     Title is repeated to weight it more heavily than the other short
@@ -1563,11 +1760,27 @@ def ats_score() -> Any:
             logger.warning(f"ATS scoring failed for '{filename}': {ve}")
             return jsonify({"success": False, "error": str(ve)}), 502
 
+        # Local, rule-based category breakdown (Content/Sections/ATS
+        # Essentials/HR Red Flags/Discrimination/Seniority/Tailoring) -
+        # computed independently of the external service, so it stays
+        # available even if that service's own categories differ or
+        # change. Re-extracts text from the same bytes already read above
+        # (a fresh in-memory FileStorage, since the original stream was
+        # already consumed by file_storage.read()).
+        local_analysis = None
+        try:
+            text_fs = FileStorage(stream=io.BytesIO(raw_bytes), filename=filename)
+            resume_text = extract_text_from_resume(text_fs)
+            local_analysis = analyze_resume_categories(resume_text)
+        except Exception as e:
+            logger.warning(f"Local ATS category analysis failed for '{filename}': {e}")
+
         logger.info(f"ATS score for '{filename}': {result['score']}")
         return jsonify({
             "success": True,
             "score": result["score"],
             "feedback": result["feedback"],
+            "local_analysis": local_analysis,
         })
 
     except HTTPException:

@@ -228,3 +228,130 @@ class TestEvaluateAtsScore:
         )
         result = api_module.evaluate_ats_score("resume.pdf", b"bytes")
         assert result["feedback"] == "No improvement suggestions provided."
+
+
+class TestAnalyzeResumeCategories:
+    """analyze_resume_categories() is the local, rule-based scoring
+    breakdown (Content/Sections/ATS Essentials/HR Red Flags/
+    Discrimination/Seniority/Tailoring), computed entirely in this
+    codebase with no external API call."""
+
+    STRONG_RESUME = """
+    Ravi Kumar Sharma
+    Email: ravi.sharma@example.com | Phone: +91-9123456780
+
+    SUMMARY
+    Backend Engineer with 3 years of experience.
+
+    EXPERIENCE
+    Software Engineer, TechCorp
+    Jan 2023 - Present
+    - Led migration of 50,000 users to a new payment system, reducing errors by 40%
+    - Built and deployed REST APIs serving 1 million requests per day
+    - Increased test coverage from 60% to 95% by implementing CI/CD pipelines
+
+    EDUCATION
+    B.Tech in Computer Science, VIT Bangalore, 2021
+
+    SKILLS
+    Python, Flask, MySQL, AWS, Docker, machine learning, TensorFlow
+    """
+
+    WEAK_RESUME = """
+    John Smith
+    I am a hardworking team player and a detail-oriented self-starter.
+    I was responsible for various duties included in my previous role.
+    """
+
+    def test_returns_overall_score_and_all_seven_categories(self):
+        result = api_module.analyze_resume_categories(self.STRONG_RESUME)
+        assert 0 <= result["overall_score"] <= 100
+        assert set(result["categories"].keys()) == {
+            "content", "sections", "ats_essentials", "hr_red_flags",
+            "discrimination", "seniority", "tailoring",
+        }
+        for cat in result["categories"].values():
+            assert 0 <= cat["score"] <= 100
+            assert isinstance(cat["findings"], list) and cat["findings"]
+
+    def test_strong_resume_scores_higher_on_content_than_weak_resume(self):
+        strong = api_module.analyze_resume_categories(self.STRONG_RESUME)
+        weak = api_module.analyze_resume_categories(self.WEAK_RESUME)
+        assert strong["categories"]["content"]["score"] > weak["categories"]["content"]["score"]
+
+    def test_cliche_phrases_are_flagged_and_lower_content_score(self):
+        result = api_module.analyze_resume_categories(self.WEAK_RESUME)
+        findings_text = " ".join(result["categories"]["content"]["findings"])
+        assert "hard worker" in findings_text or "team player" in findings_text
+
+    def test_missing_sections_are_flagged(self):
+        result = api_module.analyze_resume_categories(self.WEAK_RESUME)
+        findings_text = " ".join(result["categories"]["sections"]["findings"])
+        assert "Missing" in findings_text
+
+    def test_missing_contact_info_lowers_ats_essentials_score(self):
+        result = api_module.analyze_resume_categories("Just some text with no contact details at all.")
+        assert result["categories"]["ats_essentials"]["score"] < 100
+
+    def test_bias_disclosures_are_flagged_and_lower_discrimination_score(self):
+        text_with_disclosure = self.STRONG_RESUME + "\nMarital Status: Married\nReligion: Hindu"
+        result = api_module.analyze_resume_categories(text_with_disclosure)
+        assert result["categories"]["discrimination"]["score"] < 100
+        findings_text = " ".join(result["categories"]["discrimination"]["findings"])
+        assert "Marital status" in findings_text
+
+    def test_clean_resume_has_perfect_discrimination_score(self):
+        result = api_module.analyze_resume_categories(self.STRONG_RESUME)
+        assert result["categories"]["discrimination"]["score"] == 100
+
+    def test_seniority_mismatch_is_flagged(self):
+        # Claims "Senior"/years of seniority language with almost no
+        # detectable experience from date ranges.
+        text = "Senior Software Engineer\nSkills: Python\nNo dated experience listed."
+        result = api_module.analyze_resume_categories(text)
+        findings_text = " ".join(result["categories"]["seniority"]["findings"])
+        assert "senior-level language" in findings_text.lower() or result["categories"]["seniority"]["score"] < 100
+
+    def test_tailoring_detects_domain_focus(self):
+        result = api_module.analyze_resume_categories(self.STRONG_RESUME)
+        findings_text = " ".join(result["categories"]["tailoring"]["findings"])
+        assert "AIML" in findings_text or "Data Analytics" in findings_text
+
+    def test_empty_text_does_not_crash(self):
+        result = api_module.analyze_resume_categories("")
+        assert result["overall_score"] >= 0
+        assert len(result["categories"]) == 7
+
+
+class TestAtsScoreEndpointLocalAnalysis:
+    def test_ats_score_includes_local_analysis(self, client, mocker):
+        mocker.patch.object(
+            api_module, "evaluate_ats_score",
+            return_value={"score": 78.5, "feedback": "Looks good."}
+        )
+        data = {"resume": (io.BytesIO(b"Python Flask MySQL experience with metrics: increased sales by 20%"), "resume.txt")}
+        res = client.post("/api/ats-score", data=data, content_type="multipart/form-data")
+        assert res.status_code == 200
+        body = res.get_json()
+        assert body["local_analysis"] is not None
+        assert "categories" in body["local_analysis"]
+        assert "overall_score" in body["local_analysis"]
+
+    def test_ats_score_local_analysis_failure_does_not_break_the_response(self, client, mocker):
+        """A bug in the local analyzer must never take down the whole
+        endpoint when the external score itself succeeded."""
+        mocker.patch.object(
+            api_module, "evaluate_ats_score",
+            return_value={"score": 60, "feedback": "ok"}
+        )
+        mocker.patch.object(
+            api_module, "analyze_resume_categories",
+            side_effect=RuntimeError("boom")
+        )
+        data = {"resume": (io.BytesIO(b"some resume text"), "resume.txt")}
+        res = client.post("/api/ats-score", data=data, content_type="multipart/form-data")
+        assert res.status_code == 200
+        body = res.get_json()
+        assert body["success"] is True
+        assert body["score"] == 60
+        assert body["local_analysis"] is None

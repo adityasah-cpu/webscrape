@@ -815,6 +815,57 @@
             cursor: not-allowed;
         }
 
+        .ats-category-card {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            background: var(--bg-primary);
+        }
+
+        .ats-category-card .cat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .ats-category-card .cat-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .ats-category-card .cat-score {
+            font-size: 15px;
+            font-weight: 800;
+            font-family: var(--font-family-primary);
+        }
+
+        .ats-category-card .cat-bar-track {
+            height: 6px;
+            border-radius: 4px;
+            background: var(--bg-tertiary);
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .ats-category-card .cat-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+
+        .ats-category-card .cat-findings {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin: 0;
+            padding-left: 16px;
+        }
+
+        .ats-category-card .cat-findings li {
+            margin-bottom: 3px;
+        }
+
         .empty-icon {
             font-size: 80px;
             margin-bottom: 24px;
@@ -1444,6 +1495,11 @@
                         <div id="atsFeedback" style="font-size:14px; line-height:1.6; white-space: pre-line;"></div>
                     </div>
                 </div>
+
+                <div id="atsCategoriesWrap" style="margin-top:24px; display:none;">
+                    <div style="font-size:13px; font-weight:700; color: var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Score Breakdown</div>
+                    <div id="atsCategoriesGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px;"></div>
+                </div>
             </div>
 
             <div class="jobs-container recommended-section" id="recommendedSection" style="display:none;">
@@ -1801,6 +1857,21 @@
             }
         }
 
+        const ATS_CATEGORY_LABELS = {
+            content: "📝 Content",
+            sections: "📑 Sections",
+            ats_essentials: "⚙️ ATS Essentials",
+            hr_red_flags: "🚩 HR Red Flags",
+            discrimination: "⚖️ Discrimination",
+            seniority: "📊 Seniority",
+            tailoring: "🎯 Tailoring",
+        };
+        const ATS_CATEGORY_ORDER = ["content", "sections", "ats_essentials", "hr_red_flags", "discrimination", "seniority", "tailoring"];
+
+        function atsScoreColor(score) {
+            return score >= 70 ? "var(--accent-green)" : score >= 40 ? "var(--accent-orange)" : "var(--danger)";
+        }
+
         function renderAtsScore(data) {
             const section = document.getElementById("atsSection");
             const circle = document.getElementById("atsScoreCircle");
@@ -1811,9 +1882,43 @@
             value.textContent = data.score;
             feedback.textContent = data.feedback || "No improvement suggestions provided.";
 
-            const color = data.score >= 70 ? "var(--accent-green)" : data.score >= 40 ? "var(--accent-orange)" : "var(--danger)";
+            const color = atsScoreColor(data.score);
             circle.style.borderColor = color;
             value.style.color = color;
+
+            renderAtsCategories(data.local_analysis);
+        }
+
+        function renderAtsCategories(localAnalysis) {
+            const wrap = document.getElementById("atsCategoriesWrap");
+            const grid = document.getElementById("atsCategoriesGrid");
+
+            if (!localAnalysis || !localAnalysis.categories) {
+                wrap.style.display = "none";
+                grid.innerHTML = "";
+                return;
+            }
+
+            wrap.style.display = "block";
+            grid.innerHTML = ATS_CATEGORY_ORDER.map(key => {
+                const cat = localAnalysis.categories[key];
+                if (!cat) return "";
+                const label = ATS_CATEGORY_LABELS[key] || key;
+                const color = atsScoreColor(cat.score);
+                const findingsHtml = (cat.findings || []).map(f => `<li>${escapeHtml(f)}</li>`).join("");
+                return `
+                    <div class="ats-category-card">
+                        <div class="cat-header">
+                            <span class="cat-name">${escapeHtml(label)}</span>
+                            <span class="cat-score" style="color:${color};">${cat.score}</span>
+                        </div>
+                        <div class="cat-bar-track">
+                            <div class="cat-bar-fill" style="width:${cat.score}%; background:${color};"></div>
+                        </div>
+                        <ul class="cat-findings">${findingsHtml}</ul>
+                    </div>
+                `;
+            }).join("");
         }
 
         function clearAtsScore() {
@@ -1823,6 +1928,8 @@
             document.getElementById("atsScoreValue").textContent = "—";
             document.getElementById("atsFeedback").textContent = "";
             document.getElementById("atsScoreCircle").style.borderColor = "var(--border-color)";
+            document.getElementById("atsCategoriesWrap").style.display = "none";
+            document.getElementById("atsCategoriesGrid").innerHTML = "";
         }
 
         // ---------------- Hackathons ----------------
