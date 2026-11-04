@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * {
             margin: 0;
@@ -1200,12 +1201,28 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <!-- SIGN-IN OVERLAY -->
+    <div id="authOverlay" style="position:fixed; inset:0; background:var(--bg-primary); z-index:1000; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:20px;">
+        <div style="width:56px; height:56px; border-radius:var(--radius-md); background:linear-gradient(135deg, var(--color-primary-corporate) 0%, var(--color-cta) 100%); display:flex; align-items:center; justify-content:center; font-size:28px;">💼</div>
+        <div style="font-size:22px; font-weight:800; color:var(--text-primary);">Sign in to JobHub</div>
+        <div style="font-size:14px; color:var(--text-secondary); margin-bottom:8px;">Discover jobs, internships, and hackathons tailored to you</div>
+        <div id="googleSignInButton"></div>
+        <div id="authError" style="color:var(--danger); font-size:13px; display:none;"></div>
+    </div>
+
+    <div class="container" id="appContainer" style="display:none;">
         <!-- SIDEBAR -->
         <div class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">💼</div>
                 <div class="sidebar-title-text">JobHub</div>
+            </div>
+            <div id="userBadge" style="display:flex; align-items:center; gap:8px; padding:10px 0; margin-bottom:8px; border-bottom:1px solid var(--border-color);">
+                <img id="userAvatar" src="" alt="" style="width:28px; height:28px; border-radius:50%; display:none;">
+                <div style="flex:1; min-width:0;">
+                    <div id="userName" style="font-size:12.5px; font-weight:700; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+                </div>
+                <button onclick="signOut()" title="Sign out" style="background:none; border:none; cursor:pointer; font-size:14px; color:var(--text-tertiary); padding:4px;">⏻</button>
             </div>
 
             <div class="sidebar-section-title">🌍 Remote-only Boards</div>
@@ -2278,8 +2295,98 @@
             }
         }
 
-        loadSources();
-        renderJobs();  // show jobs already stored in the DB immediately, not just after a fresh fetch
+        // ---------------- Auth (Google Sign-In) ----------------
+
+        async function checkAuthAndInit() {
+            try {
+                const res = await fetch(`${API}/auth/me`);
+                const data = await res.json();
+                if (data.authenticated) {
+                    showApp(data.user);
+                } else {
+                    showSignIn();
+                }
+            } catch (e) {
+                console.error("Auth check failed:", e);
+                showSignIn();
+            }
+        }
+
+        function showApp(user) {
+            document.getElementById("authOverlay").style.display = "none";
+            document.getElementById("appContainer").style.display = "flex";
+            if (user) {
+                document.getElementById("userName").textContent = user.name || user.email || "Signed in";
+                if (user.picture) {
+                    const avatar = document.getElementById("userAvatar");
+                    avatar.src = user.picture;
+                    avatar.style.display = "block";
+                }
+            }
+            loadSources();
+            renderJobs();  // show jobs already stored in the DB immediately, not just after a fresh fetch
+        }
+
+        async function showSignIn() {
+            document.getElementById("authOverlay").style.display = "flex";
+            document.getElementById("appContainer").style.display = "none";
+
+            try {
+                const res = await fetch(`${API}/auth/config`);
+                const data = await res.json();
+                if (!data.google_client_id) {
+                    document.getElementById("authError").textContent = "Google Sign-In is not configured on the server.";
+                    document.getElementById("authError").style.display = "block";
+                    return;
+                }
+                google.accounts.id.initialize({
+                    client_id: data.google_client_id,
+                    callback: handleGoogleCredentialResponse,
+                });
+                google.accounts.id.renderButton(
+                    document.getElementById("googleSignInButton"),
+                    { theme: "outline", size: "large", shape: "pill" }
+                );
+            } catch (e) {
+                console.error("Failed to load auth config:", e);
+                document.getElementById("authError").textContent = "Could not reach the server. Please refresh and try again.";
+                document.getElementById("authError").style.display = "block";
+            }
+        }
+
+        async function handleGoogleCredentialResponse(response) {
+            const errorEl = document.getElementById("authError");
+            errorEl.style.display = "none";
+            try {
+                const res = await fetch(`${API}/auth/google`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ credential: response.credential }),
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    errorEl.textContent = data.error || "Sign-in failed. Please try again.";
+                    errorEl.style.display = "block";
+                    return;
+                }
+                showApp(data.user);
+            } catch (e) {
+                console.error("Sign-in failed:", e);
+                errorEl.textContent = "Sign-in failed. Please try again.";
+                errorEl.style.display = "block";
+            }
+        }
+
+        async function signOut() {
+            try {
+                await fetch(`${API}/auth/logout`, { method: "POST" });
+            } catch (e) {
+                console.error("Sign-out request failed:", e);
+            }
+            window.location.reload();
+        }
+
+        checkAuthAndInit();
     </script>
 </body>
 </html>

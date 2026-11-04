@@ -33,7 +33,20 @@ def app():
 
 @pytest.fixture
 def client(app):
-    """Flask test client for hitting API endpoints."""
+    """Flask test client for hitting API endpoints, pre-authenticated as a
+    signed-in user (every /api/* route except the auth endpoints themselves
+    now requires a session) so existing endpoint tests don't all need to
+    perform a real Google Sign-In flow just to reach the route under test."""
+    test_client = app.test_client()
+    with test_client.session_transaction() as sess:
+        sess["user"] = {"email": "test@example.com", "name": "Test User", "picture": None}
+    return test_client
+
+
+@pytest.fixture
+def anonymous_client(app):
+    """A test client with no session - for tests that specifically exercise
+    the login-gate/unauthenticated behavior."""
     return app.test_client()
 
 

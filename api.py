@@ -7,7 +7,7 @@ Run:
     Then open http://localhost:5000 in browser
 """
 
-from flask import Flask, jsonify, request, Response
+from flask import Flask, jsonify, request, Response, session
 from flask_cors import CORS
 import remote_job_scraper as rjs
 import enggroom_scraper
@@ -27,6 +27,8 @@ from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import HTTPException
 from pdfminer.high_level import extract_text as pdf_extract_text
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_auth_requests
 import mammoth
 import fitz  # PyMuPDF - rasterizes PDF pages to images for OCR fallback
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -56,6 +58,37 @@ app = Flask(__name__)
 cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:5000').split(',')
 CORS(app, origins=cors_origins, allow_headers=['Content-Type'], methods=['GET', 'POST', 'DELETE'])
 
+# Session secret for the Flask session cookie that marks a user as signed
+# in after Google Sign-In verification. A real value should live in .env
+# (FLASK_SECRET_KEY) so sessions survive a server restart; falls back to a
+# per-process random key (logged clearly) rather than hard-failing startup,
+# since auth is opt-in on top of an already-working app - the fallback
+# just means everyone gets signed out on restart until a real key is set.
+_flask_secret = os.getenv('FLASK_SECRET_KEY')
+if not _flask_secret:
+    import secrets as _secrets
+    _flask_secret = _secrets.token_hex(32)
+    logger.warning(
+        "FLASK_SECRET_KEY not set in .env - using a random per-process key. "
+        "Every running server restart will sign all users out. Set "
+        "FLASK_SECRET_KEY in .env for persistent sessions."
+    )
+app.secret_key = _flask_secret
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+
+# Google Sign-In (Google Identity Services). GOOGLE_CLIENT_ID must match the
+# client_id configured in the frontend's Sign In With Google button - a
+# token signed for a different client ID is rejected by verify_oauth2_token
+# below, which is the actual security check (not just "a token exists").
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+if not GOOGLE_CLIENT_ID:
+    logger.warning(
+        "GOOGLE_CLIENT_ID not set in .env - Google Sign-In will reject every "
+        "sign-in attempt until it's configured."
+    )
+
 # Configure rate limiting to prevent API abuse
 limiter = Limiter(
     app=app,
@@ -80,17 +113,22 @@ def set_security_headers(response: Response) -> Response:
     # as defense-in-depth, plus clickjacking/base-tag/form-hijack protection.
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline'; "
+        # accounts.google.com/gsi/client is the Google Identity Services
+        # library the Sign In With Google button is built from.
+        "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client; "
         # The Inter font (CampusOne design-token pass) is loaded from Google
         # Fonts: its stylesheet comes from fonts.googleapis.com, and that
         # stylesheet's own @font-face rules pull the actual font files from
         # fonts.gstatic.com. Without allowlisting both, the browser silently
         # blocks the request and the page falls back to the system font -
         # confirmed live via a blocked network request in Audit #9.
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style; "
         "font-src 'self' https://fonts.gstatic.com; "
-        "img-src 'self' data:; "
-        "connect-src 'self'; "
+        # lh3.googleusercontent.com serves the signed-in user's Google
+        # profile picture.
+        "img-src 'self' data: https://lh3.googleusercontent.com; "
+        "connect-src 'self' https://accounts.google.com; "
+        "frame-src https://accounts.google.com; "
         "object-src 'none'; "
         "base-uri 'self'; "
         "form-action 'self'; "
@@ -121,6 +159,84 @@ def payload_too_large_handler(e: Exception) -> tuple:
         "success": False,
         "error": f"File too large. Maximum size is {MAX_RESUME_SIZE_BYTES // (1024 * 1024)} MB."
     }), 413
+
+# ============ GOOGLE SIGN-IN (login gate) ============
+# Every /api/* route except the ones listed here requires a signed-in
+# session. The frontend itself (index.html) is still served unauthenticated
+# so the sign-in page/overlay can load at all - it's the API calls behind
+# it that are gated, which is what actually protects data/actions.
+_AUTH_EXEMPT_ENDPOINTS = {"google_sign_in", "auth_me", "auth_config", "static", "index"}
+
+@app.before_request
+def require_login():
+    if not request.path.startswith("/api/"):
+        return None  # only gate the API, not the frontend/static files
+    if request.endpoint in _AUTH_EXEMPT_ENDPOINTS:
+        return None
+    if not session.get("user"):
+        return jsonify({"success": False, "error": "Not signed in. Please sign in with Google."}), 401
+    return None
+
+@app.route("/api/auth/google", methods=["POST"])
+@limiter.limit("20 per minute")
+def google_sign_in() -> Any:
+    """Verify a Google Identity Services ID token and start a session.
+    The token's signature, expiry, and audience (must match
+    GOOGLE_CLIENT_ID) are all checked by verify_oauth2_token - a forged or
+    expired token is rejected there, not by anything in this function."""
+    try:
+        data = request.get_json(silent=True) or {}
+        credential = data.get("credential")
+        if not credential:
+            return jsonify({"success": False, "error": "No credential provided."}), 400
+
+        if not GOOGLE_CLIENT_ID:
+            return jsonify({"success": False, "error": "Google Sign-In is not configured on the server."}), 500
+
+        try:
+            payload = google_id_token.verify_oauth2_token(
+                credential, google_auth_requests.Request(), GOOGLE_CLIENT_ID
+            )
+        except ValueError as ve:
+            logger.warning(f"Google Sign-In token verification failed: {ve}")
+            return jsonify({"success": False, "error": "Invalid or expired sign-in token."}), 401
+
+        user = {
+            "email": payload.get("email"),
+            "name": payload.get("name"),
+            "picture": payload.get("picture"),
+        }
+        session["user"] = user
+        session.permanent = True
+        logger.info(f"Signed in: {user['email']}")
+        return jsonify({"success": True, "user": user})
+
+    except Exception as e:
+        logger.error(f"Google Sign-In failed: {e}")
+        return jsonify({"success": False, "error": "Sign-in failed. Please try again."}), 500
+
+@app.route("/api/auth/config", methods=["GET"])
+def auth_config() -> Any:
+    """Public config endpoint: hands the frontend the Google OAuth Client ID
+    from .env so it isn't hardcoded in index.html. The Client ID is not a
+    secret - it's meant to be visible to the browser (it's embedded in the
+    Sign In With Google button either way); only the client secret, which
+    this app never uses, would need to stay server-only."""
+    return jsonify({"success": True, "google_client_id": GOOGLE_CLIENT_ID})
+
+@app.route("/api/auth/me", methods=["GET"])
+def auth_me() -> Any:
+    """Report the current session's signed-in user, if any. Deliberately
+    exempt from the login gate above - the frontend calls this on page
+    load to decide whether to show the app or the sign-in overlay, which
+    would be impossible if this endpoint itself required being signed in."""
+    user = session.get("user")
+    return jsonify({"success": True, "authenticated": bool(user), "user": user})
+
+@app.route("/api/auth/logout", methods=["POST"])
+def auth_logout() -> Any:
+    session.pop("user", None)
+    return jsonify({"success": True})
 
 # Resume upload constraints
 # jpg/jpeg/png accepted directly for candidates who photograph a paper
