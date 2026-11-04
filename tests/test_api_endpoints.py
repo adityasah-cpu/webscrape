@@ -8,6 +8,8 @@ safe to run on a machine that already has real scraped job data stored.
 import io
 import json
 
+import pytest
+
 import api as api_module
 import remote_job_scraper as rjs
 
@@ -98,6 +100,7 @@ def test_get_stats_returns_mysql_storage_label(client, mocker, sample_jobs):
 def test_db_info_does_not_lose_engine_label_to_duplicate_key(client, mocker, sample_jobs):
     """Regression test: db_info() used to have two "database" keys in the same
     dict literal, so "MySQL" silently got overwritten by the db name."""
+    mocker.patch.object(api_module, "_ping_db", return_value=True)
     mocker.patch.object(api_module, "load_jobs_from_db", return_value=sample_jobs)
     res = client.get("/api/db-info")
     assert res.status_code == 200
@@ -195,7 +198,9 @@ def test_clear_jobs_success_invalidates_cache(client, mocker):
 def test_clear_jobs_db_connection_failure(client, mocker):
     mocker.patch.object(api_module, "get_db_connection", return_value=None)
     res = client.delete("/api/clear-jobs")
-    assert res.status_code == 500
+    # 503 (unavailable), not 500: callers can tell "database down" apart
+    # from a genuine application bug.
+    assert res.status_code == 503
     assert res.get_json()["success"] is False
 
 
@@ -516,10 +521,18 @@ def test_test_alert_failure_returns_safe_message(client, mocker):
     fake_alerts.send_alert.side_effect = RuntimeError("bot token invalid")
     mocker.patch.dict("sys.modules", {"alerts": fake_alerts})
 
-    res = client.post("/api/test-alert", json={"config": {}})
+    res = client.post("/api/test-alert", json={"config": {"telegram": {"bot_token": "x", "chat_id": "1"}}})
 
     assert res.status_code == 500
     assert "bot token invalid" not in json.dumps(res.get_json())
+
+
+def test_test_alert_with_no_channels_returns_400(client):
+    """Previously an empty config returned 200 "success" with an empty
+    results dict - which looked like the alert had been sent."""
+    res = client.post("/api/test-alert", json={"config": {}})
+    assert res.status_code == 400
+    assert res.get_json()["success"] is False
 
 
 # ---------------- /api/scheduler-status ----------------
@@ -662,9 +675,21 @@ def test_load_jobs_from_db_parses_domains_json(mocker):
     assert jobs[1]["domains"] == ["General"]  # malformed JSON falls back gracefully
 
 
-def test_load_jobs_from_db_returns_empty_list_on_connection_failure(mocker):
+def test_load_jobs_from_db_raises_when_connection_fails(mocker):
+    """A failed connection must NOT look like "this user has no jobs" - it
+    raises DatabaseUnavailableError so routes can return 503 and the UI can
+    tell an outage apart from an empty account."""
     mocker.patch.object(api_module, "get_db_connection", return_value=None)
-    assert api_module.load_jobs_from_db("test@example.com", use_cache=False) == []
+    with pytest.raises(api_module.DatabaseUnavailableError):
+        api_module.load_jobs_from_db("test@example.com", use_cache=False)
+
+
+def test_load_jobs_from_db_raises_when_query_fails(mocker):
+    mock_conn = mocker.MagicMock()
+    mock_conn.cursor.return_value.execute.side_effect = api_module.Error("connection lost")
+    mocker.patch.object(api_module, "get_db_connection", return_value=mock_conn)
+    with pytest.raises(api_module.DatabaseUnavailableError):
+        api_module.load_jobs_from_db("test@example.com", use_cache=False)
 
 
 def test_load_jobs_from_db_uses_cache_on_second_call(mocker):

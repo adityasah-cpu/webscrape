@@ -337,7 +337,16 @@ def scrape_jobicy():
 
 
 def scrape_weworkremotely():
-    feed = feedparser.parse("https://weworkremotely.com/remote-jobs.rss")
+    # feedparser.parse(url) downloads the feed itself with NO timeout, so one
+    # stalled RSS host could hang the entire /api/fetch request forever.
+    # Fetch the bytes through requests (which enforces TIMEOUT) and let
+    # feedparser only parse the already-downloaded body.
+    response = requests.get(
+        "https://weworkremotely.com/remote-jobs.rss",
+        headers=HEADERS, timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+    feed = feedparser.parse(response.content)
     jobs = []
     for e in feed.entries:
         company, _, title = e.get("title", "").partition(": ")
@@ -534,8 +543,15 @@ def scrape_firstnaukri():
     """FirstNaukri: built for freshers (0-3 years experience) in India."""
     jobs = []
     try:
-        # FirstNaukri RSS feed for fresher jobs
-        feed = feedparser.parse("https://www.firstnaukri.com/feed/jobs-fresher")
+        # FirstNaukri RSS feed for fresher jobs. Fetch with requests (which
+        # enforces TIMEOUT) instead of feedparser.parse(url) - that call has
+        # no timeout and could hang the whole /api/fetch request.
+        response = requests.get(
+            "https://www.firstnaukri.com/feed/jobs-fresher",
+            headers=HEADERS, timeout=TIMEOUT,
+        )
+        response.raise_for_status()
+        feed = feedparser.parse(response.content)
         for entry in feed.entries[:50]:
             title = entry.get("title", "")
             summary = entry.get("summary", "")
@@ -617,8 +633,14 @@ def scrape_upwork():
     """Upwork: freelance and project-based work (no API key needed for public board)."""
     jobs = []
     try:
-        # Upwork RSS feed for job postings
-        feed = feedparser.parse("https://www.upwork.com/ab/feed/jobs/rss?q=remote+entry+level&rss=1&sort=recency")
+        # Upwork RSS feed for job postings. Same timeout fix as the other
+        # RSS sources - feedparser.parse(url) itself has no timeout.
+        response = requests.get(
+            "https://www.upwork.com/ab/feed/jobs/rss?q=remote+entry+level&rss=1&sort=recency",
+            headers=HEADERS, timeout=TIMEOUT,
+        )
+        response.raise_for_status()
+        feed = feedparser.parse(response.content)
         for entry in feed.entries[:100]:
             title = entry.get("title", "")
             description = entry.get("summary", "")

@@ -2,18 +2,92 @@
 
 Base URL (local development): `http://localhost:5000`
 
-All endpoints are prefixed with `/api` except the root page (`/`). All responses are JSON unless noted otherwise (e.g. CSV export). Storage is MySQL; there is no authentication layer — this API is designed for local/single-user development use.
+All endpoints are prefixed with `/api` except the root page (`/`). All responses are JSON unless noted otherwise (e.g. CSV export). Storage is MySQL.
 
 ## Conventions
 
+- **Authentication**: Every `/api/*` endpoint except `GET /api/health`, `GET /api/auth/config`, `GET /api/auth/me`, and `POST /api/auth/google` requires a signed-in session. Sign-in is Google Identity Services: `POST /api/auth/google` with `{"credential": "<Google ID token>"}` establishes a cookie session. Unauthenticated requests return `401`:
+  ```json
+  { "success": false, "error": "Not signed in. Please sign in with Google." }
+  ```
 - **Rate limiting**: Global default is **200 requests/hour, 50/minute** per IP. Specific endpoints have tighter limits (noted per-endpoint below). Exceeding a limit returns:
   ```json
   { "success": false, "error": "Too many requests. Please slow down and try again shortly.", "retry_after": "5 per 1 minute" }
   ```
   with HTTP status `429`.
-- **Error shape**: Most endpoints return `{"success": false, "error": "<message>"}` on failure. A few legacy endpoints (`/api/jobs`, `/api/stats`, `/api/export`, `/api/scheduler-status`) return `{"error": "<message>"}` without a `success` key — see each endpoint below.
+- **Error shape**: Every API failure answers with JSON `{"success": false, "error": "<message>"}`. A few legacy success payloads (`/api/jobs`, `/api/stats`, `/api/export`, `/api/scheduler-status`) omit the `success` key on `200` — see each endpoint below. Framework errors are normalised too: unknown `/api/*` routes return JSON `404`, wrong methods return JSON `405`, unsupported content types return JSON `415`, and unexpected exceptions return JSON `500` (`{"success": false, "error": "Something went wrong. Please try again."}`) rather than an HTML error page.
+- **Database outage**: If MySQL cannot be reached, data endpoints return HTTP **`503`** with:
+  ```json
+  { "success": false, "error": "The database is currently unavailable. Please try again shortly." }
+  ```
+  This is deliberately distinct from `200` with an empty list, which means "no rows stored for this user". The application starts in a **degraded** mode when the database is unavailable rather than failing to boot; `GET /api/health` reports that state.
 - **Security headers**: Every response includes `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 1; mode=block`, `Referrer-Policy: strict-origin-when-cross-origin`.
 - **CORS**: Restricted to origins listed in the `CORS_ORIGINS` environment variable (comma-separated), default `http://localhost:5000`.
+
+---
+
+## Authentication
+
+Sign-in uses Google Identity Services. The browser obtains an ID token from Google and exchanges it for a cookie session.
+
+### `GET /api/auth/config`
+
+Public. Returns the Google OAuth Client ID the page should render the sign-in button with (the Client ID is not a secret).
+
+```json
+{ "success": true, "google_client_id": "1234567890-abc.apps.googleusercontent.com" }
+```
+
+### `POST /api/auth/google`
+
+**Rate limit: 20/minute.** Request body: `{"credential": "<Google ID token>"}`.
+
+**Response `200`:** `{"success": true, "user": {"email": "a@b.com", "name": "A", "picture": "https://..."}}` plus a session cookie (HttpOnly, SameSite=Lax; `Secure` only when `SESSION_COOKIE_SECURE=True`).
+**Response `400`:** no credential supplied.
+**Response `401`:** token failed signature/expiry/audience verification.
+**Response `500`:** `GOOGLE_CLIENT_ID` is not configured on the server.
+
+### `GET /api/auth/me`
+
+Public. Reports the current session, so the page can decide between the sign-in overlay and the app on load.
+
+```json
+{ "success": true, "authenticated": true, "user": {"email": "a@b.com", "name": "A", "picture": "https://..."} }
+```
+
+`authenticated` is `false` and `user` is `null` when not signed in.
+
+### `POST /api/auth/logout`
+
+Clears the session. `{"success": true}`.
+
+---
+
+## `GET /api/health`
+
+Unauthenticated liveness/readiness probe. Runs a real `SELECT 1` against MySQL, so a monitor can distinguish "the service is up but the database is broken" from "nothing is stored yet".
+
+**Response `200` (database reachable):**
+```json
+{
+  "success": true,
+  "status": "ok",
+  "database": "up",
+  "timestamp": "2026-11-04T13:09:23.845963"
+}
+```
+
+**Response `503` (database unreachable):**
+```json
+{
+  "success": true,
+  "status": "degraded",
+  "database": "down",
+  "timestamp": "2026-11-04T13:09:23.845963"
+}
+```
+
+`success` stays `true` because the health check itself succeeded; use the HTTP status (or `status`/`database`) to detect degradation.
 
 ---
 
@@ -77,6 +151,7 @@ Scrapes jobs from the requested sources, deduplicates them, tags each with detec
   "inserted": 137,
   "skipped": 0,
   "total_stored": 137,
+  "failed_to_store": 0,
   "fresher_count": 22,
   "experienced_count": 115,
   "status": {
@@ -90,7 +165,10 @@ Scrapes jobs from the requested sources, deduplicates them, tags each with detec
 - `jobs_count` / `total_stored` — total unique jobs scraped and stored (equal to each other now that nothing gets discarded at fetch time).
 - `fresher_count` / `experienced_count` — informational breakdown of how many of the stored jobs fall into each bucket (see `GET /api/jobs`'s `experience_level` param and `POST /api/match-resume` below for how to actually filter by this).
 - `status` — per-source scrape outcome; a source failing (network error, etc.) does not fail the whole request — other sources still get processed and saved.
+- `failed_to_store` — jobs scraped but rejected by MySQL (e.g. an oversized field). Non-zero is surfaced in the UI rather than silently dropping them.
 
+**Response `400`** when the body is missing, is not JSON, or has no `sources` key: `{"success": false, "error": "No sources provided. Expected {\"sources\": [...]}."}`
+**Response `503`** when every scraped job failed to persist: `{"success": false, "error": "The database is currently unavailable. Please try again shortly."}`
 **Response `500`** on unexpected failure: `{"success": false, "error": "Failed to fetch jobs. Please try again."}` (the real exception is logged server-side, not exposed to the client).
 
 ---
@@ -148,8 +226,30 @@ Optional query param `top_n` (default `20`, max `100`) — how many ranked match
 | `400` | Corrupt/unparseable PDF or DOCX | `{"success": false, "error": "Could not parse this file: <details>"}` |
 | `400` | Missing or invalid `experience_level` | `{"success": false, "error": "experience_level is required and must be 'fresher' or 'experienced'"}` |
 | `422` | Extracted text shorter than 30 chars (e.g. scanned/image-only PDF) | `{"success": false, "error": "Could not extract enough readable text..."}` |
-| `413` | File exceeds `MAX_RESUME_SIZE` | Flask's default payload-too-large response |
+| `413` | File exceeds `MAX_RESUME_SIZE` | `{"success": false, "error": "File too large. Maximum size is 10 MB."}` |
 | `429` | Rate limit exceeded | See [Conventions](#conventions) |
+| `503` | MySQL unreachable | See [Conventions](#conventions) |
+
+---
+
+## `POST /api/ats-score`
+
+**Rate limit: 10/minute.** Upload a resume and receive an ATS compatibility score plus improvement feedback. Content is forwarded to the external CUTM AI Gateway and is **not** persisted. Multipart form field: `resume`.
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "score": 78,
+  "feedback": ["...", "..."],
+  "local_analysis": { "Sections": {"score": 80, "notes": ["..."]}, "...": "..." }
+}
+```
+`local_analysis` is computed locally (rule-based category breakdown) and may be `null` if local extraction failed; the remote `score`/`feedback` still succeed independently.
+
+**Response `400`:** missing/empty file, or an unsupported extension (pdf/docx/txt only).
+**Response `502`:** the external scoring service was unreachable or returned something unusable.
+**Response `429`:** rate limit exceeded.
 
 ---
 
@@ -267,11 +367,12 @@ Export all stored jobs.
 
 ## `GET /api/db-info`
 
-Database connection/health summary.
+Database connection/health summary. Pings MySQL first, so an outage is reported as `503` rather than a misleading `200` "Active" with zero jobs.
 
 **Response `200`:**
 ```json
 {
+  "success": true,
   "database_engine": "MySQL",
   "status": "✓ Active",
   "total_jobs": 1243,
@@ -282,14 +383,27 @@ Database connection/health summary.
 }
 ```
 
+**Response `503` (database unreachable):**
+```json
+{
+  "success": false,
+  "database_engine": "MySQL",
+  "status": "✗ Unreachable",
+  "host": "localhost",
+  "database": "job_portal",
+  "error": "Cannot connect to the database."
+}
+```
+
 ---
 
 ## `DELETE /api/clear-jobs`
 
-**Rate limit: 3/minute.** Deletes **all** rows from the `jobs` table. Irreversible — no confirmation step at the API level.
+**Rate limit: 3/minute.** Deletes **all** of the signed-in user's rows from the `jobs` table. Irreversible — no confirmation step at the API level.
 
 **Response `200`:** `{"success": true, "message": "All jobs cleared"}`
-**Response `500`:** `{"success": false, "error": "Failed to clear jobs. Please try again."}` (or `"Database connection failed"` if MySQL is unreachable)
+**Response `503`:** `{"success": false, "error": "The database is currently unavailable. Please try again shortly."}` when MySQL is unreachable
+**Response `500`:** `{"success": false, "error": "Failed to clear jobs. Please try again."}` for any other failure
 
 ---
 
@@ -303,7 +417,44 @@ Sends a test notification (Telegram/Email/Slack, depending on config) using the 
 ```
 
 **Response `200`:** `{"success": true, "message": "Test alerts sent", "results": {"...": "per-channel outcome"}}`
+**Response `400`:** `{"success": false, "error": "No alert channels configured. Provide a telegram, email, or slack config."}` when `config` is missing or empty (previously returned a misleading `200`)
 **Response `500`:** `{"success": false, "error": "Failed to send test alert. Check your alert configuration."}`
+
+---
+
+## `POST /api/resources/fetch`
+
+**Rate limit: 5/minute.** Scrapes the EnggRoom resource index (discipline / resource-type / title / link metadata only, not the project content) and stores it for the signed-in user.
+
+**Response `200`:** `{"success": true, "fetched": 2, "saved": 2, "failed": 0}`
+**Response `503`:** every fetched resource failed to persist — treated as a database outage, not a successful "0 saved".
+**Response `500`:** the scraper itself failed.
+
+---
+
+## `GET /api/resources`
+
+Lists the stored resource index. Optional query param `discipline` filters to an exact discipline name.
+
+**Response `200`:** `{"success": true, "resources": [{"discipline": "Computer Engineering", "resource_type": "Projects", "title": "...", "url": "..."}], "total": 1}`
+
+---
+
+## `POST /api/hackathons/fetch`
+
+**Rate limit: 5/minute.** Scrapes currently-open hackathons from Devpost's public API and stores them.
+
+**Response `200`:** `{"success": true, "fetched": 12, "saved": 12, "failed": 0}`
+**Response `503`:** every fetched hackathon failed to persist (database outage).
+**Response `500`:** the scraper itself failed.
+
+---
+
+## `GET /api/hackathons`
+
+Lists the signed-in user's stored hackathon listings, most recently added first.
+
+**Response `200`:** `{"success": true, "hackathons": [{"title": "...", "organizer": "...", "prize_amount": "...", "location": "...", "url": "https://..."}], "total": 12}`
 
 ---
 
@@ -375,4 +526,4 @@ Both functions are used at **query/match time** (`GET /api/jobs`'s `experience_l
 
 ## Domain Detection Logic
 
-Both stored jobs (`detect_job_domain()`) and uploaded resumes (`extract_resume_keywords()`) are tagged against the same keyword vocabulary (`DOMAIN_KEYWORDS` in `api.py`) covering **AIML**, **Data Analytics**, **Blockchain**, **AR VR**, and **Cybersecurity**, falling back to **General** if nothing matches. Matching uses word-boundary regex (not raw substring matching), so short keywords like `ai`/`ml`/`ar`/`vr` only match as whole words — e.g. "Retail Manager" does **not** get tagged `AIML` just because it contains the letters "ai".
+Both stored jobs (`detect_job_domain()`) and uploaded resumes (`extract_resume_keywords()`) are tagged against the same keyword vocabulary (`DOMAIN_KEYWORDS` in `api.py`) covering **44 engineering/technology domains** (e.g. Data Science and Machine Learning, Software Technologies, Cloud Technologies, Cyber Security, Embedded System Design, VLSI, Communication Systems, Industrial Automation, Construction Management, …), falling back to **General** if nothing matches. Matching uses word-boundary regex (not raw substring matching), so short keywords like `ai`/`ml`/`ar`/`vr` only match as whole words — e.g. "Retail Manager" does **not** get tagged `Data Science and Machine Learning` just because it contains the letters "ai".

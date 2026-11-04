@@ -302,15 +302,14 @@ def auth_me() -> Any:
     would be impossible if this endpoint itself required being signed in."""
     user = session.get("user")
 
-    # Development mode: auto-login if not authenticated and GOOGLE_CLIENT_ID not set
-    if not user and not GOOGLE_CLIENT_ID:
+    # Development mode: if GOOGLE_CLIENT_ID not configured, always return dev user
+    if not GOOGLE_CLIENT_ID:
         user = {
             "email": "dev@localhost",
             "name": "Developer",
             "picture": None
         }
         session["user"] = user
-        logger.info("Development mode: auto-logged in as dev@localhost via /auth/me")
 
     return jsonify({"success": True, "authenticated": bool(user), "user": user})
 

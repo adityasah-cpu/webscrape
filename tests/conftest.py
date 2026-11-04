@@ -52,10 +52,16 @@ def anonymous_client(app):
 
 @pytest.fixture(autouse=True)
 def _reset_jobs_cache():
-    """Ensure the in-memory jobs cache never leaks state between tests."""
+    """Ensure the in-memory jobs cache never leaks state between tests.
+    Also reset the rate limiter's in-memory counters: RATELIMIT_ENABLED is
+    read when the Limiter is initialised, so setting it in the `app` fixture
+    is too late - without a reset, tests hitting the same rate-limited route
+    (e.g. /api/fetch, 5/min) fail each other."""
     api_module.invalidate_jobs_cache()
+    api_module.limiter.reset()
     yield
     api_module.invalidate_jobs_cache()
+    api_module.limiter.reset()
 
 
 @pytest.fixture
