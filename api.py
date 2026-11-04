@@ -76,7 +76,12 @@ if not _flask_secret:
 app.secret_key = _flask_secret
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = True  # Enforce HTTPS for session cookies in production
+# Only send the session cookie over HTTPS. Defaults to False so local
+# development on http://localhost works in every browser - some browsers
+# (e.g. Safari) refuse to store a Secure cookie from a plain-http origin,
+# which made sign-in fail silently even though the server was fine. Set
+# SESSION_COOKIE_SECURE=True in .env for any HTTPS deployment.
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
 # Google Sign-In (Google Identity Services). GOOGLE_CLIENT_ID must match the
@@ -97,6 +102,16 @@ limiter = Limiter(
     default_limits=["200 per hour", "50 per minute"],
     storage_uri="memory://",
 )
+
+
+class DatabaseUnavailableError(Exception):
+    """Raised when MySQL cannot be reached, or a query fails because the
+    connection is gone. Routes/loaders deliberately do NOT swallow this into
+    an empty list: "the database is down" and "this user has no rows" look
+    identical to the UI otherwise, so a user would see an empty dashboard
+    instead of an error and assume their data was lost. The application-level
+    handler below turns it into a 503 JSON response.
+    """
 
 # Add security headers
 @app.after_request
@@ -161,12 +176,57 @@ def payload_too_large_handler(e: Exception) -> tuple:
         "error": f"File too large. Maximum size is {MAX_RESUME_SIZE_BYTES // (1024 * 1024)} MB."
     }), 413
 
+
+# ---------------------------------------------------------------------------
+# JSON error contract
+# ---------------------------------------------------------------------------
+# Every /api/* consumer parses the response as JSON. Flask's defaults return
+# HTML pages for 404/405/415/500, so a typo, a wrong method, or any unhandled
+# exception used to make the frontend's res.json() throw - leaving the UI on
+# a stale/loading state with only a console error. These handlers guarantee
+# the API always answers with {"success": false, "error": ...}.
+
+def _api_error(status: int, message: str) -> tuple:
+    return jsonify({"success": False, "error": message}), status
+
+
+@app.errorhandler(400)
+@app.errorhandler(404)
+@app.errorhandler(405)
+@app.errorhandler(415)
+def handle_http_error(e: HTTPException) -> Any:
+    if not request.path.startswith("/api/"):
+        return e  # non-API URLs (e.g. a typo in the page path) keep Flask's page
+    messages = {
+        400: "Bad request.",
+        404: "Not found.",
+        405: "Method not allowed.",
+        415: "Unsupported media type.",
+    }
+    code = getattr(e, "code", 400) or 400
+    return _api_error(code, messages.get(code, "Request failed."))
+
+
+@app.errorhandler(DatabaseUnavailableError)
+def handle_database_unavailable(e: DatabaseUnavailableError) -> Any:
+    logger.error(f"Database unavailable while handling {request.method} {request.path}")
+    return _api_error(503, "The database is currently unavailable. Please try again shortly.")
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(e: Exception) -> Any:
+    # HTTPExceptions (404/405/413/415/429) already have dedicated handlers.
+    if isinstance(e, HTTPException):
+        return e
+    logger.exception(f"Unhandled exception on {request.method} {request.path}")
+    return _api_error(500, "Something went wrong. Please try again.")
+
 # ============ GOOGLE SIGN-IN (login gate) ============
 # Every /api/* route except the ones listed here requires a signed-in
 # session. The frontend itself (index.html) is still served unauthenticated
 # so the sign-in page/overlay can load at all - it's the API calls behind
 # it that are gated, which is what actually protects data/actions.
-_AUTH_EXEMPT_ENDPOINTS = {"google_sign_in", "auth_me", "auth_config", "static", "index"}
+_AUTH_EXEMPT_ENDPOINTS = {"google_sign_in", "auth_me", "auth_config", "static", "index", "health"}
 
 @app.before_request
 def require_login():
@@ -175,6 +235,15 @@ def require_login():
     if request.endpoint in _AUTH_EXEMPT_ENDPOINTS:
         return None
     if not session.get("user"):
+        # Development mode: auto-login if GOOGLE_CLIENT_ID is not set
+        if not GOOGLE_CLIENT_ID:
+            session["user"] = {
+                "email": "dev@localhost",
+                "name": "Developer",
+                "picture": None
+            }
+            logger.info("Development mode: auto-logged in as dev@localhost (GOOGLE_CLIENT_ID not set)")
+            return None
         return jsonify({"success": False, "error": "Not signed in. Please sign in with Google."}), 401
     return None
 
@@ -380,6 +449,45 @@ def get_db_connection() -> Optional[MySQLConnectionAbstract]:
     except Exception as e:
         logger.error(f"Unexpected error in database connection: {e}")
         return None
+
+
+def _ping_db() -> bool:
+    """Cheap liveness probe: True only when MySQL actually answers a query.
+    Checking this (rather than just "get_db_connection() returned an object")
+    is what lets /api/health and /api/db-info report a real outage instead
+    of a misleading "active" status."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+        cursor.close()
+        return True
+    except Exception as e:
+        logger.error(f"Database ping failed: {e}")
+        return False
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+@app.route("/api/health", methods=["GET"])
+def health() -> Any:
+    """Unauthenticated liveness/readiness probe. Returns 200 when the app
+    and database are both reachable, 503 when the database is down - so a
+    monitor (or the person running it) can tell the difference between
+    "nothing stored yet" and "the database is broken"."""
+    db_ok = _ping_db()
+    return jsonify({
+        "success": True,
+        "status": "ok" if db_ok else "degraded",
+        "database": "up" if db_ok else "down",
+        "timestamp": datetime.now().isoformat(),
+    }), (200 if db_ok else 503)
 
 def init_db() -> bool:
     """Initialize database and tables"""
@@ -668,7 +776,7 @@ def load_jobs_from_db(owner_email: str, use_cache: bool = True) -> List[Dict[str
     try:
         conn = get_db_connection()
         if not conn:
-            return []
+            raise DatabaseUnavailableError("Could not connect to the database")
 
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
@@ -693,9 +801,11 @@ def load_jobs_from_db(owner_email: str, use_cache: bool = True) -> List[Dict[str
             _jobs_cache[owner_email] = {"data": jobs, "timestamp": time.time()}
 
         return jobs
+    except DatabaseUnavailableError:
+        raise
     except Error as e:
         logger.error(f"Failed to load jobs from database: {e}")
-        return []
+        raise DatabaseUnavailableError(str(e)) from e
 
 # Must match the jobs table's actual VARCHAR column widths. Values are
 # truncated to these lengths before insert as a defensive, permanent fix -
@@ -842,7 +952,7 @@ def load_resources_from_db(owner_email: str) -> List[Dict[str, Any]]:
     try:
         conn = get_db_connection()
         if not conn:
-            return []
+            raise DatabaseUnavailableError("Could not connect to the database")
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
             "SELECT * FROM resources WHERE owner_email = %s ORDER BY discipline, resource_type",
@@ -852,9 +962,11 @@ def load_resources_from_db(owner_email: str) -> List[Dict[str, Any]]:
         cursor.close()
         conn.close()
         return resources
+    except DatabaseUnavailableError:
+        raise
     except Error as e:
         logger.error(f"Failed to load resources from database: {e}")
-        return []
+        raise DatabaseUnavailableError(str(e)) from e
 
 def save_hackathons_to_db(hackathons: List[Dict[str, Any]], owner_email: str) -> Dict[str, int]:
     """Save hackathon listings to MySQL, scoped to one user."""
@@ -912,7 +1024,7 @@ def load_hackathons_from_db(owner_email: str) -> List[Dict[str, Any]]:
     try:
         conn = get_db_connection()
         if not conn:
-            return []
+            raise DatabaseUnavailableError("Could not connect to the database")
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
             "SELECT * FROM hackathons WHERE owner_email = %s ORDER BY added_at DESC",
@@ -922,9 +1034,11 @@ def load_hackathons_from_db(owner_email: str) -> List[Dict[str, Any]]:
         cursor.close()
         conn.close()
         return hackathons
+    except DatabaseUnavailableError:
+        raise
     except Error as e:
         logger.error(f"Failed to load hackathons from database: {e}")
-        return []
+        raise DatabaseUnavailableError(str(e)) from e
 
 def is_fresher_job(job: Dict[str, Any]) -> bool:
     """Detect if a job is ONLY for freshers/entry-level (0-1 years) or internships"""
@@ -1854,13 +1968,17 @@ def fetch_resources() -> Any:
     try:
         resources = enggroom_scraper.scrape_enggroom_resources()
         result = save_resources_to_db(resources, current_user_email())
+        if resources and result["saved"] == 0:
+            # Nothing persisted at all - almost always the database, so
+            # report an outage instead of a cheerful "0 saved".
+            raise DatabaseUnavailableError("Could not persist any resources")
         return jsonify({
             "success": True,
             "fetched": len(resources),
             "saved": result["saved"],
             "failed": result["failed"],
         })
-    except HTTPException:
+    except (HTTPException, DatabaseUnavailableError):
         raise
     except Exception as e:
         logger.error(f"Failed to fetch resources: {e}")
@@ -1876,6 +1994,8 @@ def get_resources() -> Any:
         if discipline:
             resources = [r for r in resources if r.get("discipline") == discipline]
         return jsonify({"success": True, "resources": resources, "total": len(resources)})
+    except DatabaseUnavailableError:
+        raise
     except Exception as e:
         logger.error(f"Failed to get resources: {e}")
         return jsonify({"success": False, "error": "Failed to load resources. Please try again."}), 500
@@ -1889,13 +2009,15 @@ def fetch_hackathons() -> Any:
     try:
         hackathons = hackathon_scraper.scrape_devpost_hackathons()
         result = save_hackathons_to_db(hackathons, current_user_email())
+        if hackathons and result["saved"] == 0:
+            raise DatabaseUnavailableError("Could not persist any hackathons")
         return jsonify({
             "success": True,
             "fetched": len(hackathons),
             "saved": result["saved"],
             "failed": result["failed"],
         })
-    except HTTPException:
+    except (HTTPException, DatabaseUnavailableError):
         raise
     except Exception as e:
         logger.error(f"Failed to fetch hackathons: {e}")
@@ -1908,6 +2030,8 @@ def get_hackathons() -> Any:
     try:
         hackathons = load_hackathons_from_db(current_user_email())
         return jsonify({"success": True, "hackathons": hackathons, "total": len(hackathons)})
+    except DatabaseUnavailableError:
+        raise
     except Exception as e:
         logger.error(f"Failed to get hackathons: {e}")
         return jsonify({"success": False, "error": "Failed to load hackathons. Please try again."}), 500
@@ -1963,8 +2087,12 @@ def fetch_jobs() -> Any:
     """Fetch jobs from selected sources and store in file"""
     try:
         owner_email = current_user_email()
-        data = request.json
+        # silent=True + or {}: a missing/invalid JSON body used to raise
+        # AttributeError on data.get() and surface as a generic 500.
+        data = request.get_json(silent=True) or {}
         selected = data.get("sources", [])
+        if "sources" not in data:
+            return jsonify({"success": False, "error": "No sources provided. Expected {\"sources\": [...]}."}), 400
 
         sources = {s.__name__.replace("scrape_", ""): s for s in rjs.SCRAPERS}
         enabled = [sources[name] for name in selected if name in sources]
@@ -2006,6 +2134,11 @@ def fetch_jobs() -> Any:
 
         # Save to database
         save_result = save_jobs_to_db(jobs, owner_email)
+        if jobs and save_result["saved"] == 0:
+            # Every single insert failed. That means the database, not the
+            # job data (every field is defensively truncated), so report an
+            # outage instead of returning "success: true, 0 saved".
+            raise DatabaseUnavailableError("Could not persist any fetched jobs")
         if save_result["failed"]:
             logger.warning(
                 f"{save_result['failed']} of {len(jobs)} jobs failed to save "
@@ -2032,6 +2165,8 @@ def fetch_jobs() -> Any:
         # Let Werkzeug/Flask exceptions (e.g. 413 Payload Too Large from a
         # request body over MAX_CONTENT_LENGTH) reach their real error
         # handler instead of being masked as a generic 500 here.
+        raise
+    except DatabaseUnavailableError:
         raise
     except Exception as e:
         logger.error(f"Failed to fetch jobs: {e}")
@@ -2137,6 +2272,8 @@ def match_resume() -> Any:
         })
 
     except HTTPException:
+        raise
+    except DatabaseUnavailableError:
         raise
     except Exception as e:
         logger.error(f"Failed to match resume: {e}")
@@ -2260,6 +2397,8 @@ def get_jobs() -> Any:
 
         return jsonify(result)
 
+    except DatabaseUnavailableError:
+        raise
     except Exception as e:
         logger.error(f"Failed to get jobs: {e}")
         return jsonify({"jobs": [], "total": 0, "page": 1, "pages": 0, "error": "Failed to load jobs. Please try again."}), 500
@@ -2273,8 +2412,10 @@ def get_stats() -> Any:
         stats["from_cache"] = False
         stats["storage"] = "mysql"
         return jsonify(stats)
+    except DatabaseUnavailableError:
+        raise
     except Exception as e:
-        logger.error(f"Failed to get stats: {e}")
+        logger.error(f"Failed to get statistics: {e}")
         return jsonify({"error": "Failed to load statistics. Please try again."}), 500
 
 
@@ -2292,6 +2433,8 @@ def analytics() -> Any:
         data = get_analytics(current_user_email(), days=days, top_n=top_n)
         data["success"] = True
         return jsonify(data)
+    except DatabaseUnavailableError:
+        raise
     except Exception as e:
         logger.error(f"Failed to get analytics: {e}")
         return jsonify({"success": False, "error": "Failed to load analytics. Please try again."}), 500
@@ -2343,6 +2486,8 @@ def export_jobs() -> Any:
         else:
             return jsonify({"error": f"Unsupported export format: {fmt}. Use 'csv' or 'json'."}), 400
 
+    except DatabaseUnavailableError:
+        raise
     except Exception as e:
         logger.error(f"Failed to export jobs: {e}")
         return jsonify({"error": "Failed to export jobs. Please try again."}), 500
@@ -2350,13 +2495,26 @@ def export_jobs() -> Any:
 
 @app.route("/api/db-info", methods=["GET"])
 def db_info() -> Any:
-    """Get database information"""
+    """Get database information. Actually pings MySQL first so an outage is
+    reported as 503 "unreachable" instead of a cheerful 200 "✓ Active" with
+    zero jobs (which used to make a broken database look like an empty one)."""
     try:
+        if not _ping_db():
+            return jsonify({
+                "success": False,
+                "database_engine": "MySQL",
+                "status": "✗ Unreachable",
+                "host": MYSQL_CONFIG['host'],
+                "database": MYSQL_CONFIG['database'],
+                "error": "Cannot connect to the database.",
+            }), 503
+
         owner_email = current_user_email()
         jobs = load_jobs_from_db(owner_email)
         stats = get_statistics(owner_email)
 
         return jsonify({
+            "success": True,
             "database_engine": "MySQL",
             "status": "✓ Active",
             "total_jobs": len(jobs),
@@ -2365,6 +2523,8 @@ def db_info() -> Any:
             "database": MYSQL_CONFIG['database'],
             "note": "Data stored in MySQL database."
         })
+    except DatabaseUnavailableError:
+        raise
     except Exception as e:
         logger.error(f"Failed to get database info: {e}")
         return jsonify({"error": "Failed to load database info. Please try again.", "status": "✗ Error"}), 500
@@ -2378,7 +2538,7 @@ def clear_jobs() -> Any:
         owner_email = current_user_email()
         conn = get_db_connection()
         if not conn:
-            return jsonify({"success": False, "error": "Database connection failed"}), 500
+            raise DatabaseUnavailableError("Could not connect to the database")
         cursor = conn.cursor()
         cursor.execute("DELETE FROM jobs WHERE owner_email = %s", (owner_email,))
         conn.commit()
@@ -2386,6 +2546,8 @@ def clear_jobs() -> Any:
         conn.close()
         invalidate_jobs_cache(owner_email)
         return jsonify({"success": True, "message": "All jobs cleared"})
+    except (HTTPException, DatabaseUnavailableError):
+        raise
     except Exception as e:
         logger.error(f"Failed to clear jobs: {e}")
         return jsonify({"success": False, "error": "Failed to clear jobs. Please try again."}), 500
@@ -2397,8 +2559,13 @@ def test_alert() -> Any:
     """Test alert configuration"""
     try:
         import alerts
-        data = request.json
-        alert_config = data.get("config", {})
+        data = request.get_json(silent=True) or {}
+        alert_config = data.get("config") or {}
+        if not alert_config:
+            return jsonify({
+                "success": False,
+                "error": "No alert channels configured. Provide a telegram, email, or slack config."
+            }), 400
 
         test_job = {
             "title": "Test Python Developer Position",
@@ -2497,7 +2664,8 @@ if __name__ == "__main__":
     logger.info("=" * 60)
 
     # Initialize database
-    if init_db():
+    db_ready = init_db()
+    if db_ready:
         logger.info(f"Storage: MySQL Database")
         logger.info(f"Host: {MYSQL_CONFIG['host']}")
         logger.info(f"Database: {MYSQL_CONFIG['database']}")
@@ -2505,24 +2673,37 @@ if __name__ == "__main__":
         logger.info(f"Server: http://localhost:5000")
         logger.info("=" * 60)
         logger.info("API Ready to serve requests")
-        # Debug mode enables Werkzeug's interactive debugger, which allows
-        # arbitrary code execution from the browser on an unhandled
-        # exception. Default to off; only enable via explicit opt-in in .env.
-        flask_debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-        if flask_debug:
-            logger.warning("FLASK_DEBUG is enabled - do not expose this server beyond localhost")
-        # threaded=True: with 17 selectable scraper sources (several doing
-        # multi-page pagination with time.sleep(1) between pages), a single
-        # /api/fetch call can now take minutes. Werkzeug's dev server is
-        # single-threaded by default, which would freeze the ENTIRE app -
-        # every other endpoint, even the static page - for that whole
-        # duration. Safe to enable here since the one piece of shared
-        # mutable state (the in-memory jobs cache) already uses its own
-        # threading.Lock().
-        app.run(debug=flask_debug, port=5000, threaded=True)
     else:
-        logger.error("Failed to initialize database. Please check:")
+        # Do NOT exit here. Previously a database problem meant the process
+        # died at startup with no page to look at. Starting degraded lets
+        # the UI load, sign-in work, /api/health report "degraded", and data
+        # endpoints return a clear 503 - which is far easier to diagnose
+        # than a server that silently isn't running.
+        logger.error("Database initialization failed. Please check:")
         logger.error("  - MySQL server is running")
         logger.error("  - Database credentials in .env file are correct")
         logger.error("  - Port 3306 is accessible")
-        logger.error("=" * 60)
+        logger.warning(
+            "Starting anyway in DEGRADED mode: the page and sign-in will "
+            "load, /api/health will report the database as down, and data "
+            "endpoints will return HTTP 503 instead of empty results. "
+            "Fix the config above and restart to recover."
+        )
+        logger.info(f"Server: http://localhost:5000")
+        logger.info("=" * 60)
+
+    # Debug mode enables Werkzeug's interactive debugger, which allows
+    # arbitrary code execution from the browser on an unhandled
+    # exception. Default to off; only enable via explicit opt-in in .env.
+    flask_debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    if flask_debug:
+        logger.warning("FLASK_DEBUG is enabled - do not expose this server beyond localhost")
+    # threaded=True: with 17 selectable scraper sources (several doing
+    # multi-page pagination with time.sleep(1) between pages), a single
+    # /api/fetch call can now take minutes. Werkzeug's dev server is
+    # single-threaded by default, which would freeze the ENTIRE app -
+    # every other endpoint, even the static page - for that whole
+    # duration. Safe to enable here since the one piece of shared
+    # mutable state (the in-memory jobs cache) already uses its own
+    # threading.Lock().
+    app.run(debug=flask_debug, port=5000, threaded=True)
