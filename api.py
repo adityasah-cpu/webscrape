@@ -76,6 +76,7 @@ if not _flask_secret:
 app.secret_key = _flask_secret
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = True  # Enforce HTTPS for session cookies in production
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
 # Google Sign-In (Google Identity Services). GOOGLE_CLIENT_ID must match the
