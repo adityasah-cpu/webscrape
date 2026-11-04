@@ -40,7 +40,7 @@ from flask_limiter.util import get_remote_address
 from typing import Any, Dict, List, Optional
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(override=True)
 
 # Configure logging
 logging.basicConfig(
