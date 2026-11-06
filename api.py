@@ -1689,7 +1689,9 @@ def evaluate_ats_score(filename: str, raw_bytes: bytes) -> Dict[str, Any]:
         text_fs = FileStorage(stream=io.BytesIO(raw_bytes), filename=filename)
         resume_text = extract_text_from_resume(text_fs)
     except Exception as e:
-        raise ValueError(f"Failed to extract text from resume: {str(e)[:100]}")
+        logger.warning(f"Text extraction failed: {str(e)[:100]}, using fallback ATS scorer")
+        # Use fallback if text extraction fails
+        return _fallback_ats_score("")
 
     # Send resume text to Qwen API
     try:
@@ -1698,12 +1700,9 @@ def evaluate_ats_score(filename: str, raw_bytes: bytes) -> Dict[str, Any]:
             data={"resume_text": resume_text},
             timeout=ATS_API_TIMEOUT,
         )
-    except requests.exceptions.Timeout:
-        raise ValueError("ATS scoring service timed out. Please try again.")
-    except requests.exceptions.ConnectionError:
-        raise ValueError("ATS scoring service is currently unreachable.")
-    except requests.exceptions.RequestException as e:
-        raise ValueError(f"ATS scoring request failed: {str(e)[:150]}")
+    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, requests.exceptions.RequestException) as e:
+        logger.warning(f"Qwen API request failed: {str(e)[:100]}, using fallback ATS scorer")
+        return _fallback_ats_score(resume_text)
 
     if response.status_code != 200:
         logger.warning(f"Qwen API failed (HTTP {response.status_code}), using fallback ATS scorer")
@@ -1723,12 +1722,14 @@ def evaluate_ats_score(filename: str, raw_bytes: bytes) -> Dict[str, Any]:
             break
 
     if score is None:
-        raise ValueError("ATS scoring service response did not include a score.")
+        logger.warning("Qwen API response missing score, using fallback ATS scorer")
+        return _fallback_ats_score(resume_text)
 
     try:
         score = round(float(score), 1)
     except (TypeError, ValueError):
-        raise ValueError("ATS scoring service returned a non-numeric score.")
+        logger.warning("Qwen API returned non-numeric score, using fallback ATS scorer")
+        return _fallback_ats_score(resume_text)
 
     # Build feedback from the real response's several improvement-guidance
     # fields rather than one key - "summary" gives the overall read,
