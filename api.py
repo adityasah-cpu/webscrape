@@ -1621,6 +1621,59 @@ def extract_text_from_resume(file_storage: FileStorage) -> str:
         logger.info(f"'{filename}': OCR extracted {len(text)} characters")
     return text
 
+def _fallback_ats_score(resume_text: str) -> Dict[str, Any]:
+    """Fallback ATS scoring when Qwen API is unavailable.
+    Uses rule-based heuristics to score resume."""
+    text = resume_text.lower()
+    score = 50  # Base score
+    feedback = []
+
+    # Check for important sections
+    important_keywords = {
+        "experience": 5,
+        "education": 5,
+        "skills": 8,
+        "projects": 5,
+        "achievements": 4,
+        "certifications": 3,
+    }
+
+    for keyword, points in important_keywords.items():
+        if keyword in text:
+            score += points
+
+    # Check for technical skills
+    tech_skills = ["python", "java", "javascript", "c++", "sql", "git", "aws", "docker", "react", "api"]
+    found_skills = sum(1 for skill in tech_skills if skill in text)
+    score += min(found_skills * 2, 15)
+
+    # Check for soft skills
+    soft_skills = ["communication", "leadership", "teamwork", "problem solving", "analysis"]
+    found_soft = sum(1 for skill in soft_skills if skill in text)
+    score += min(found_soft * 1.5, 10)
+
+    # Check for quantified achievements
+    if any(char.isdigit() for char in text):
+        score += 3
+
+    # Cap score at 100
+    score = min(score, 100)
+
+    # Generate feedback based on score
+    if score >= 80:
+        feedback.append("✅ Resume is well-structured with good ATS compatibility")
+    elif score >= 60:
+        feedback.append("⚠️  Resume is acceptable but could be improved")
+    else:
+        feedback.append("❌ Resume needs significant improvements for ATS")
+
+    feedback.append(f"Note: Using fallback ATS scorer (Qwen API unavailable)")
+
+    return {
+        "score": round(score, 1),
+        "feedback": "\n".join(feedback)
+    }
+
 def evaluate_ats_score(filename: str, raw_bytes: bytes) -> Dict[str, Any]:
     """Forward a resume to the Qwen ATS-evaluation endpoint
     and normalize its response to {"score": float, "feedback": str}.
@@ -1653,14 +1706,15 @@ def evaluate_ats_score(filename: str, raw_bytes: bytes) -> Dict[str, Any]:
         raise ValueError(f"ATS scoring request failed: {str(e)[:150]}")
 
     if response.status_code != 200:
-        raise ValueError(
-            f"ATS scoring service returned an error (HTTP {response.status_code})."
-        )
+        logger.warning(f"Qwen API failed (HTTP {response.status_code}), using fallback ATS scorer")
+        # Fallback: Local rule-based ATS scoring when external service fails
+        return _fallback_ats_score(resume_text)
 
     try:
         data = response.json()
     except ValueError:
-        raise ValueError("ATS scoring service returned an unreadable response.")
+        logger.warning("Qwen API returned invalid JSON, using fallback ATS scorer")
+        return _fallback_ats_score(resume_text)
 
     score = None
     for key in ("ats_score", "score", "atsScore", "match_score", "match_percentage"):
