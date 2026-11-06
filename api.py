@@ -1622,24 +1622,27 @@ def extract_text_from_resume(file_storage: FileStorage) -> str:
     return text
 
 def evaluate_ats_score(filename: str, raw_bytes: bytes) -> Dict[str, Any]:
-    """Forward a resume file to the CUTM AI Gateway's ATS-evaluation endpoint
+    """Forward a resume to the Qwen ATS-evaluation endpoint
     and normalize its response to {"score": float, "feedback": str}.
 
-    Confirmed live response shape (2026-11-03): {"ats_score": 85,
-    "match_percentage": 95, "rating": "...", "summary": "...",
-    "category_breakdown": {...}, "matched_keywords": [...],
-    "missing_keywords": [...], "strengths": [...],
-    "critical_issues": [...], "actionable_recommendations": [...], ...}.
-    "feedback" is built from summary + actionable_recommendations +
-    critical_issues rather than one field, since the real response spreads
-    improvement guidance across several keys - none of which are a plain
-    "feedback" field. Key-name fallbacks are kept for score in case the
-    service's schema changes again.
+    Sends resume as text extracted from the file to the Qwen API at:
+    https://qwen.cutm.ac.in/api/ats/evaluate
+
+    Expected response: {"ats_score": 85, "match_percentage": 95, "rating": "...",
+    "summary": "...", "critical_issues": [...], "actionable_recommendations": [...], ...}
     """
+    # Extract resume text from the uploaded file
+    try:
+        text_fs = FileStorage(stream=io.BytesIO(raw_bytes), filename=filename)
+        resume_text = extract_text_from_resume(text_fs)
+    except Exception as e:
+        raise ValueError(f"Failed to extract text from resume: {str(e)[:100]}")
+
+    # Send resume text to Qwen API
     try:
         response = requests.post(
             ATS_API_URL,
-            files={"file": (filename, raw_bytes)},
+            data={"resume_text": resume_text},
             timeout=ATS_API_TIMEOUT,
         )
     except requests.exceptions.Timeout:
