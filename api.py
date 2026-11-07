@@ -143,7 +143,7 @@ def set_security_headers(response: Response) -> Response:
         # lh3.googleusercontent.com serves the signed-in user's Google
         # profile picture.
         "img-src 'self' data: https://lh3.googleusercontent.com; "
-        "connect-src 'self' https://accounts.google.com; "
+        "connect-src 'self' https://accounts.google.com http://localhost:5000 https://novagig.thegttech.com; "
         "frame-src https://accounts.google.com; "
         "object-src 'none'; "
         "base-uri 'self'; "
