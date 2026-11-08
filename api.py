@@ -2150,6 +2150,7 @@ def get_sources() -> Any:
 
 
 @app.route("/api/fetch", methods=["POST"])
+@require_login()
 @limiter.limit("5 per minute")
 def fetch_jobs() -> Any:
     """Fetch jobs from selected sources and store in file"""
@@ -2414,6 +2415,7 @@ def ats_score() -> Any:
 
 
 @app.route("/api/jobs", methods=["GET"])
+@require_login()
 def get_jobs() -> Any:
     """Get filtered jobs from file storage"""
     try:
