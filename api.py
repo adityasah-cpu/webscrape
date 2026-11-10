@@ -3251,36 +3251,164 @@ def get_location_engagement(location: str) -> Any:
 @require_admin
 @limiter.limit("60 per minute")
 def get_admin_users() -> Any:
-    """Get list of admin users"""
+    """Get all users with engagement metrics for admin dashboard"""
     try:
+        location = request.args.get('location', '')
         conn = get_db_connection()
         if not conn:
             return jsonify({"error": "Database connection failed"}), 503
 
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT email, name, is_admin, created_at
-            FROM users
-            WHERE is_admin = TRUE
-            ORDER BY created_at DESC
-        """)
-        admins = cursor.fetchall()
+
+        # Get all users with engagement metrics
+        query = """
+            SELECT
+                u.email,
+                u.name,
+                u.location,
+                u.cv_uploaded,
+                u.created_at as first_login,
+                COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'job_viewed' THEN ue.id END), 0) as jobs_viewed,
+                COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'job_clicked' THEN ue.id END), 0) as jobs_clicked,
+                COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'job_applied' THEN ue.id END), 0) as jobs_applied,
+                COALESCE(MAX(ue.created_at), u.created_at) as last_active,
+                CASE WHEN COALESCE(MAX(ue.created_at), u.created_at) >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN TRUE ELSE FALSE END as is_active,
+                CASE WHEN u.created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY) THEN TRUE ELSE FALSE END as is_first_login
+            FROM users u
+            LEFT JOIN user_events ue ON u.email = ue.user_email
+        """
+
+        params = []
+        if location and location != 'all':
+            query += " WHERE u.location = %s"
+            params.append(location)
+
+        query += " GROUP BY u.email, u.name, u.location, u.cv_uploaded, u.created_at ORDER BY u.created_at DESC"
+
+        cursor.execute(query, params)
+        users = cursor.fetchall()
+
+        # Format the response
+        formatted_users = []
+        for user in users:
+            formatted_users.append({
+                'email': user['email'],
+                'name': user['name'],
+                'location': user['location'],
+                'registration_num': '',  # Add registration number if available
+                'cv_uploaded': bool(user['cv_uploaded']),
+                'jobs_viewed': int(user['jobs_viewed']),
+                'jobs_clicked': int(user['jobs_clicked']),
+                'jobs_applied': int(user['jobs_applied']),
+                'first_login': user['first_login'].isoformat() if user['first_login'] else None,
+                'last_active': user['last_active'].isoformat() if user['last_active'] else None,
+                'is_active': bool(user['is_active']),
+                'is_first_login': bool(user['is_first_login'])
+            })
+
         cursor.close()
         conn.close()
 
-        allowed_emails = os.getenv('ALLOWED_ADMIN_EMAILS', '').split(',')
-        allowed_domains = os.getenv('ALLOWED_ADMIN_DOMAINS', '').split(',')
-        allowed_emails = [e.strip() for e in allowed_emails if e.strip()]
-        allowed_domains = [d.strip() for d in allowed_domains if d.strip()]
-
         return jsonify({
             "success": True,
-            "admins": admins or [],
-            "allowed_admin_emails": allowed_emails,
-            "allowed_admin_domains": allowed_domains
+            "users": formatted_users
         })
     except Exception as e:
         logger.error(f"Error getting admin users: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/user-updates", methods=["GET"])
+@require_admin
+@limiter.limit("60 per minute")
+def get_user_updates() -> Any:
+    """Get daily, weekly, and monthly user updates"""
+    try:
+        location = request.args.get('location', '')
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 503
+
+        cursor = conn.cursor(dictionary=True)
+
+        base_where = ""
+        params_base = []
+        if location and location != 'all':
+            base_where = " WHERE u.location = %s"
+            params_base = [location]
+        else:
+            params_base = []
+
+        # Daily stats (last 24 hours)
+        daily_query = f"""
+            SELECT
+                COALESCE(COUNT(DISTINCT u.email), 0) as new_users,
+                COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'cv_uploaded' THEN u.email END), 0) as cv_uploads,
+                COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'job_clicked' THEN u.email END), 0) as jobs_clicked,
+                COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'job_applied' THEN u.email END), 0) as jobs_applied
+            FROM users u
+            LEFT JOIN user_events ue ON u.email = ue.user_email AND ue.created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+            {base_where} AND u.created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+        """
+        cursor.execute(daily_query, params_base)
+        daily = cursor.fetchone() or {}
+
+        # Weekly stats (last 7 days)
+        weekly_query = f"""
+            SELECT
+                COALESCE(COUNT(DISTINCT u.email), 0) as new_users,
+                COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'cv_uploaded' THEN u.email END), 0) as cv_uploads,
+                COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'job_clicked' THEN u.email END), 0) as jobs_clicked,
+                COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'job_applied' THEN u.email END), 0) as jobs_applied
+            FROM users u
+            LEFT JOIN user_events ue ON u.email = ue.user_email AND ue.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            {base_where} AND u.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        """
+        cursor.execute(weekly_query, params_base)
+        weekly = cursor.fetchone() or {}
+
+        # Monthly stats (last 30 days)
+        monthly_query = f"""
+            SELECT
+                COALESCE(COUNT(DISTINCT u.email), 0) as new_users,
+                COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'cv_uploaded' THEN u.email END), 0) as cv_uploads,
+                COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'job_clicked' THEN u.email END), 0) as jobs_clicked,
+                COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'job_applied' THEN u.email END), 0) as jobs_applied
+            FROM users u
+            LEFT JOIN user_events ue ON u.email = ue.user_email AND ue.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            {base_where} AND u.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        """
+        cursor.execute(monthly_query, params_base)
+        monthly = cursor.fetchone() or {}
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "daily": {
+                    "new_users": int(daily.get('new_users', 0)),
+                    "cv_uploads": int(daily.get('cv_uploads', 0)),
+                    "jobs_clicked": int(daily.get('jobs_clicked', 0)),
+                    "jobs_applied": int(daily.get('jobs_applied', 0))
+                },
+                "weekly": {
+                    "new_users": int(weekly.get('new_users', 0)),
+                    "cv_uploads": int(weekly.get('cv_uploads', 0)),
+                    "jobs_clicked": int(weekly.get('jobs_clicked', 0)),
+                    "jobs_applied": int(weekly.get('jobs_applied', 0))
+                },
+                "monthly": {
+                    "new_users": int(monthly.get('new_users', 0)),
+                    "cv_uploads": int(monthly.get('cv_uploads', 0)),
+                    "jobs_clicked": int(monthly.get('jobs_clicked', 0)),
+                    "jobs_applied": int(monthly.get('jobs_applied', 0))
+                }
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting user updates: {e}")
         return jsonify({"error": str(e)}), 500
 
 

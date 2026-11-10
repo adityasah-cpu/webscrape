@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Location Analytics</title>
+    <title>Admin Dashboard - User Analytics</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -76,7 +75,7 @@
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             padding: 32px;
         }
@@ -99,7 +98,7 @@
             gap: 12px;
             align-items: center;
             flex: 1;
-            min-width: 280px;
+            min-width: 200px;
         }
 
         .selector-group label {
@@ -122,19 +121,10 @@
             font-family: inherit;
         }
 
-        .selector-group select:hover {
-            border-color: var(--color-primary-corporate);
-        }
-
         .selector-group select:focus {
             outline: none;
             border-color: var(--color-primary-corporate);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-
-        .selector-group select option {
-            color: var(--color-text-charcoal);
-            background: var(--color-bg-dominant);
         }
 
         .btn-load {
@@ -173,7 +163,7 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 16px;
             margin-bottom: 32px;
         }
@@ -206,48 +196,12 @@
             font-size: 32px;
             font-weight: 700;
             color: var(--color-text-charcoal);
-            margin-bottom: 6px;
         }
 
         .stat-card .sublabel {
             font-size: 13px;
             color: var(--color-text-secondary);
-        }
-
-        .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-            gap: 16px;
-            margin-bottom: 32px;
-        }
-
-        .chart-card {
-            background: var(--color-bg-dominant);
-            padding: 24px;
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-token-1);
-            border: 1px solid var(--color-border-default);
-            transition: all 0.3s ease;
-        }
-
-        .chart-card:hover {
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-        }
-
-        .chart-card h2 {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--color-text-charcoal);
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .chart-wrapper {
-            position: relative;
-            height: 300px;
-            margin-bottom: 16px;
+            margin-top: 6px;
         }
 
         .table-card {
@@ -269,9 +223,14 @@
             gap: 8px;
         }
 
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 800px;
         }
 
         table thead {
@@ -279,7 +238,7 @@
         }
 
         table th {
-            padding: 14px 24px;
+            padding: 14px 16px;
             text-align: left;
             font-weight: 600;
             font-size: 12px;
@@ -287,10 +246,11 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
             border-bottom: 1px solid var(--color-border-default);
+            white-space: nowrap;
         }
 
         table td {
-            padding: 14px 24px;
+            padding: 14px 16px;
             border-bottom: 1px solid var(--color-border-default);
             font-size: 14px;
             color: var(--color-text-charcoal);
@@ -300,6 +260,112 @@
             background: var(--color-surface-raised);
         }
 
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-yes {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-no {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-active {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-inactive {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--color-border-default);
+        }
+
+        .tab-btn {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--color-text-secondary);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            margin-bottom: -1px;
+        }
+
+        .tab-btn.active {
+            color: var(--color-primary-corporate);
+            border-bottom-color: var(--color-primary-corporate);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .updates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .update-card {
+            background: var(--color-bg-dominant);
+            padding: 20px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-token-1);
+            border: 1px solid var(--color-border-default);
+        }
+
+        .update-card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text-charcoal);
+            margin-bottom: 16px;
+        }
+
+        .update-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--color-border-default);
+        }
+
+        .update-stat:last-child {
+            border-bottom: none;
+        }
+
+        .update-stat-label {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+        }
+
+        .update-stat-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--color-text-charcoal);
+        }
+
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
@@ -307,25 +373,12 @@
                 gap: 16px;
             }
 
-            .header-left h1 {
-                font-size: 24px;
-            }
-
             .container {
                 padding: 16px;
             }
 
-            .charts-grid {
+            .stats-grid {
                 grid-template-columns: 1fr;
-            }
-
-            .selector-group {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .stat-card .value {
-                font-size: 24px;
             }
 
             table {
@@ -333,7 +386,13 @@
             }
 
             table th, table td {
-                padding: 10px 12px;
+                padding: 10px 8px;
+            }
+
+            .selector-group {
+                flex-direction: column;
+                align-items: stretch;
+                min-width: 100%;
             }
         }
     </style>
@@ -341,8 +400,8 @@
 <body>
     <div class="header">
         <div class="header-left">
-            <h1>📊 Analytics</h1>
-            <p>Location-Based Management & Insights</p>
+            <h1>📊 Admin Analytics</h1>
+            <p>Comprehensive User & Engagement Analytics</p>
         </div>
         <button class="btn-logout" onclick="logout()">Logout</button>
     </div>
@@ -352,7 +411,7 @@
             <div class="selector-group">
                 <label for="locationSelect">📍 Location:</label>
                 <select id="locationSelect">
-                    <option value="">-- Choose a Location --</option>
+                    <option value="">-- All Locations --</option>
                 </select>
             </div>
             <button class="btn-load" onclick="loadDashboard()">Load Dashboard</button>
@@ -361,46 +420,54 @@
         <div class="error-message" id="errorMessage"></div>
 
         <div id="statsContainer" style="display: none;">
+            <!-- Summary Stats -->
+            <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 20px; color: var(--color-text-charcoal);">Summary Metrics</h2>
             <div class="stats-grid" id="statsGrid"></div>
 
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h2><span>📤</span>CV Upload Status</h2>
-                    <div class="chart-wrapper">
-                        <canvas id="cvChart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <h2><span>📈</span>Engagement Funnel</h2>
-                    <div class="chart-wrapper">
-                        <canvas id="funnelChart"></canvas>
+            <!-- Tabs for different views -->
+            <div class="tabs" style="margin-top: 40px;">
+                <button class="tab-btn active" onclick="switchTab('users-view')">👥 Users</button>
+                <button class="tab-btn" onclick="switchTab('updates-view')">📈 Updates</button>
+            </div>
+
+            <!-- Users Data Table -->
+            <div id="users-view" class="tab-content active">
+                <div class="table-card">
+                    <h2><span>📋</span>User Details</h2>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Registration #</th>
+                                    <th>CV Uploaded</th>
+                                    <th>Jobs Viewed</th>
+                                    <th>Jobs Clicked</th>
+                                    <th>Jobs Applied</th>
+                                    <th>First Login</th>
+                                    <th>Last Active</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTable"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
-            <div class="table-card">
-                <h2><span>👥</span>Engagement Details</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Stage</th>
-                            <th>Users</th>
-                            <th>Percentage</th>
-                        </tr>
-                    </thead>
-                    <tbody id="engagementTable"></tbody>
-                </table>
+            <!-- Updates Stats -->
+            <div id="updates-view" class="tab-content">
+                <div class="updates-grid" id="updatesGrid"></div>
             </div>
         </div>
     </div>
 
     <script>
         const API_URL = '/api/admin';
-        let cvChart = null;
-        let funnelChart = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
             await loadLocations();
+            await loadDashboard();
         });
 
         async function logout() {
@@ -425,13 +492,24 @@
             errorDiv.classList.remove('show');
         }
 
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
         async function loadLocations() {
             try {
                 const response = await fetch(`${API_URL}/locations`);
                 const data = await response.json();
 
                 if (!data.success || !data.locations) {
-                    showError('Failed to load locations');
                     return;
                 }
 
@@ -442,156 +520,190 @@
                     option.textContent = location;
                     select.appendChild(option);
                 });
-
-                if (data.locations.length > 0) {
-                    select.value = data.locations[0];
-                }
             } catch (error) {
                 console.error('Error loading locations:', error);
-                showError('Error loading locations: ' + error.message);
             }
         }
 
         async function loadDashboard() {
             const location = document.getElementById('locationSelect').value;
-
-            if (!location) {
-                showError('Please select a location');
-                return;
-            }
-
             hideError();
             document.getElementById('statsContainer').style.display = 'block';
 
             try {
-                const [statsRes, engagementRes] = await Promise.all([
-                    fetch(`${API_URL}/location-stats/${location}`),
-                    fetch(`${API_URL}/location-engagement/${location}`)
+                const [usersRes, statsRes, updatesRes] = await Promise.all([
+                    fetch(`${API_URL}/users${location ? '?location=' + location : ''}`),
+                    fetch(`${API_URL}/location-stats/${location || 'all'}`),
+                    fetch(`${API_URL}/user-updates${location ? '?location=' + location : ''}`)
                 ]);
 
-                if (!statsRes.ok || !engagementRes.ok) {
+                if (!usersRes.ok || !statsRes.ok || !updatesRes.ok) {
                     showError('Failed to load dashboard data');
                     return;
                 }
 
+                const usersData = await usersRes.json();
                 const statsData = await statsRes.json();
-                const engagementData = await engagementRes.json();
+                const updatesData = await updatesRes.json();
 
-                if (!statsData.success || !engagementData.success) {
+                if (!usersData.success || !statsData.success || !updatesData.success) {
                     showError('Failed to load dashboard data');
                     return;
                 }
 
-                updateDashboard(statsData, engagementData);
+                updateDashboard(usersData, statsData, updatesData);
             } catch (error) {
                 console.error('Error loading dashboard:', error);
                 showError('Error: ' + error.message);
             }
         }
 
-        function updateDashboard(stats, engagement) {
-            updateStatsCards(stats);
-            updateCharts(stats, engagement);
-            updateEngagementTable(engagement);
+        function updateDashboard(usersData, statsData, updatesData) {
+            updateStats(statsData, usersData);
+            updateUsersTable(usersData);
+            updateUpdates(updatesData);
         }
 
-        function updateStatsCards(data) {
+        function updateStats(statsData, usersData) {
+            const stats = statsData.data || statsData;
+            const users = usersData.users || [];
+
+            const totalUsers = users.length;
+            const cvUploaded = users.filter(u => u.cv_uploaded).length;
+            const jobsViewed = users.filter(u => u.jobs_viewed > 0).length;
+            const jobsClicked = users.filter(u => u.jobs_clicked > 0).length;
+            const jobsApplied = users.filter(u => u.jobs_applied > 0).length;
+            const activeUsers = users.filter(u => u.is_active).length;
+            const uniqueUsers = new Set(users.map(u => u.email)).size;
+            const firstTimeLogin = users.filter(u => u.is_first_login).length;
+
             const grid = document.getElementById('statsGrid');
             grid.innerHTML = `
                 <div class="stat-card">
                     <h3>Total Users</h3>
-                    <div class="value">${data.total_users || 0}</div>
+                    <div class="value">${totalUsers}</div>
                 </div>
                 <div class="stat-card" style="border-top-color: #0d9488;">
                     <h3>CV Uploaded</h3>
-                    <div class="value">${data.cv_uploaded_yes || 0}</div>
-                    <div class="sublabel">${data.total_users > 0 ? Math.round((data.cv_uploaded_yes / data.total_users) * 100) : 0}% of users</div>
+                    <div class="value">${cvUploaded}</div>
+                    <div class="sublabel">${totalUsers > 0 ? Math.round((cvUploaded / totalUsers) * 100) : 0}% of users</div>
                 </div>
                 <div class="stat-card" style="border-top-color: #f59e0b;">
-                    <h3>Jobs Clicked</h3>
-                    <div class="value">${data.total_jobs_clicked || 0}</div>
+                    <h3>Active Users</h3>
+                    <div class="value">${activeUsers}</div>
+                    <div class="sublabel">${totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0}% active</div>
+                </div>
+                <div class="stat-card" style="border-top-color: #8b5cf6;">
+                    <h3>Unique Users</h3>
+                    <div class="value">${uniqueUsers}</div>
                 </div>
                 <div class="stat-card" style="border-top-color: #ef4444;">
-                    <h3>Jobs Applied</h3>
-                    <div class="value">${data.total_jobs_applied || 0}</div>
+                    <h3>First Time Login</h3>
+                    <div class="value">${firstTimeLogin}</div>
+                </div>
+                <div class="stat-card" style="border-top-color: #06b6d4;">
+                    <h3>Jobs Clicked</h3>
+                    <div class="value">${jobsClicked}</div>
+                    <div class="sublabel">${totalUsers > 0 ? Math.round((jobsClicked / totalUsers) * 100) : 0}% engagement</div>
                 </div>
             `;
         }
 
-        function updateCharts(stats, engagement) {
-            if (cvChart) cvChart.destroy();
-            if (funnelChart) funnelChart.destroy();
+        function updateUsersTable(usersData) {
+            const users = usersData.users || [];
+            const tbody = document.getElementById('usersTable');
 
-            const cvCtx = document.getElementById('cvChart').getContext('2d');
-            cvChart = new Chart(cvCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['CV Uploaded', 'No CV'],
-                    datasets: [{
-                        data: [stats.cv_uploaded_yes || 0, stats.cv_uploaded_no || 0],
-                        backgroundColor: ['#0d9488', '#e5e7eb'],
-                        borderColor: ['#ffffff', '#ffffff'],
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        datalabels: { color: '#fff', font: { weight: 'bold' } }
-                    }
-                }
-            });
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 32px;">No users found</td></tr>';
+                return;
+            }
 
-            const funnelCtx = document.getElementById('funnelChart').getContext('2d');
-            funnelChart = new Chart(funnelCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['Total Users', 'Viewed Jobs', 'Clicked Jobs', 'Applied Jobs'],
-                    datasets: [{
-                        label: 'Users',
-                        data: [
-                            stats.total_users || 0,
-                            engagement.viewed_jobs?.count || 0,
-                            engagement.clicked_jobs?.count || 0,
-                            engagement.applied_jobs?.count || 0
-                        ],
-                        backgroundColor: ['#2563eb', '#0d9488', '#f59e0b', '#ef4444'],
-                        borderRadius: 6,
-                        borderSkipped: false
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
-                }
-            });
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td><strong>${user.name || 'N/A'}</strong></td>
+                    <td>${user.email}</td>
+                    <td>${user.registration_num || 'N/A'}</td>
+                    <td><span class="badge ${user.cv_uploaded ? 'badge-yes' : 'badge-no'}">${user.cv_uploaded ? 'Yes' : 'No'}</span></td>
+                    <td>${user.jobs_viewed || 0}</td>
+                    <td>${user.jobs_clicked || 0}</td>
+                    <td>${user.jobs_applied || 0}</td>
+                    <td>${formatDate(user.first_login)}</td>
+                    <td>${formatDate(user.last_active)}</td>
+                </tr>
+            `).join('');
         }
 
-        function updateEngagementTable(data) {
-            const tbody = document.getElementById('engagementTable');
-            const total = data.total_users || 1;
+        function updateUpdates(updatesData) {
+            const updates = updatesData.data || {};
+            const grid = document.getElementById('updatesGrid');
 
-            tbody.innerHTML = `
-                <tr>
-                    <td><strong>Jobs Viewed</strong></td>
-                    <td>${data.viewed_jobs?.count || 0}</td>
-                    <td>${Math.round((data.viewed_jobs?.count / total) * 100)}%</td>
-                </tr>
-                <tr>
-                    <td><strong>Jobs Clicked</strong></td>
-                    <td>${data.clicked_jobs?.count || 0}</td>
-                    <td>${Math.round((data.clicked_jobs?.count / total) * 100)}%</td>
-                </tr>
-                <tr>
-                    <td><strong>Jobs Applied</strong></td>
-                    <td>${data.applied_jobs?.count || 0}</td>
-                    <td>${Math.round((data.applied_jobs?.count / total) * 100)}%</td>
-                </tr>
+            grid.innerHTML = `
+                <div class="update-card">
+                    <h3>Daily Updates</h3>
+                    <div class="update-stat">
+                        <span class="update-stat-label">New Users</span>
+                        <span class="update-stat-value">${updates.daily?.new_users || 0}</span>
+                    </div>
+                    <div class="update-stat">
+                        <span class="update-stat-label">CV Uploads</span>
+                        <span class="update-stat-value">${updates.daily?.cv_uploads || 0}</span>
+                    </div>
+                    <div class="update-stat">
+                        <span class="update-stat-label">Jobs Clicked</span>
+                        <span class="update-stat-value">${updates.daily?.jobs_clicked || 0}</span>
+                    </div>
+                    <div class="update-stat">
+                        <span class="update-stat-label">Jobs Applied</span>
+                        <span class="update-stat-value">${updates.daily?.jobs_applied || 0}</span>
+                    </div>
+                </div>
+
+                <div class="update-card">
+                    <h3>Weekly Updates</h3>
+                    <div class="update-stat">
+                        <span class="update-stat-label">New Users</span>
+                        <span class="update-stat-value">${updates.weekly?.new_users || 0}</span>
+                    </div>
+                    <div class="update-stat">
+                        <span class="update-stat-label">CV Uploads</span>
+                        <span class="update-stat-value">${updates.weekly?.cv_uploads || 0}</span>
+                    </div>
+                    <div class="update-stat">
+                        <span class="update-stat-label">Jobs Clicked</span>
+                        <span class="update-stat-value">${updates.weekly?.jobs_clicked || 0}</span>
+                    </div>
+                    <div class="update-stat">
+                        <span class="update-stat-label">Jobs Applied</span>
+                        <span class="update-stat-value">${updates.weekly?.jobs_applied || 0}</span>
+                    </div>
+                </div>
+
+                <div class="update-card">
+                    <h3>Monthly Updates</h3>
+                    <div class="update-stat">
+                        <span class="update-stat-label">New Users</span>
+                        <span class="update-stat-value">${updates.monthly?.new_users || 0}</span>
+                    </div>
+                    <div class="update-stat">
+                        <span class="update-stat-label">CV Uploads</span>
+                        <span class="update-stat-value">${updates.monthly?.cv_uploads || 0}</span>
+                    </div>
+                    <div class="update-stat">
+                        <span class="update-stat-label">Jobs Clicked</span>
+                        <span class="update-stat-value">${updates.monthly?.jobs_clicked || 0}</span>
+                    </div>
+                    <div class="update-stat">
+                        <span class="update-stat-label">Jobs Applied</span>
+                        <span class="update-stat-value">${updates.monthly?.jobs_applied || 0}</span>
+                    </div>
+                </div>
             `;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
         }
     </script>
 </body>
