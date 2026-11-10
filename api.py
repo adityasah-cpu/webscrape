@@ -9,6 +9,7 @@ Run:
 
 from flask import Flask, jsonify, request, Response, session
 from flask_cors import CORS
+from functools import wraps
 import remote_job_scraper as rjs
 import enggroom_scraper
 import hackathon_scraper
@@ -229,23 +230,26 @@ def handle_unexpected_exception(e: Exception) -> Any:
 _AUTH_EXEMPT_ENDPOINTS = {"google_sign_in", "auth_me", "auth_config", "static", "index", "health"}
 
 @app.before_request
-def require_login():
-    if not request.path.startswith("/api/"):
-        return None  # only gate the API, not the frontend/static files
-    if request.endpoint in _AUTH_EXEMPT_ENDPOINTS:
-        return None
-    if not session.get("user"):
-        # Development mode: auto-login if GOOGLE_CLIENT_ID is not set
-        if not GOOGLE_CLIENT_ID:
-            session["user"] = {
-                "email": "dev@localhost",
-                "name": "Developer",
-                "picture": None
-            }
-            logger.info("Development mode: auto-logged in as dev@localhost (GOOGLE_CLIENT_ID not set)")
-            return None
-        return jsonify({"success": False, "error": "Not signed in. Please sign in with Google."}), 401
-    return None
+def require_login(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not request.path.startswith("/api/"):
+            return f(*args, **kwargs)  # only gate the API, not the frontend/static files
+        if request.endpoint in _AUTH_EXEMPT_ENDPOINTS:
+            return f(*args, **kwargs)
+        if not session.get("user"):
+            # Development mode: auto-login if GOOGLE_CLIENT_ID is not set
+            if not GOOGLE_CLIENT_ID:
+                session["user"] = {
+                    "email": "dev@localhost",
+                    "name": "Developer",
+                    "picture": None
+                }
+                logger.info("Development mode: auto-logged in as dev@localhost (GOOGLE_CLIENT_ID not set)")
+                return f(*args, **kwargs)
+            return jsonify({"success": False, "error": "Not signed in. Please sign in with Google."}), 401
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route("/api/auth/google", methods=["POST"])
 @limiter.limit("20 per minute")
