@@ -1897,6 +1897,25 @@
         //     instead of letting callers read "undefined" fields
         //   - tolerates an HTML error page (content-type check) rather than
         //     throwing a JSON parse error
+        // Log user events for analytics (job views, clicks, applications)
+        async function logEvent(eventType, jobId, jobTitle) {
+            try {
+                const payload = {
+                    event_type: eventType,  // 'job_viewed', 'job_clicked', 'job_applied'
+                    job_id: jobId,
+                    job_title: jobTitle
+                };
+                await fetch(`${API}/log-event`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (e) {
+                // Silently fail - don't disrupt user experience for analytics
+                console.debug('Event logging failed:', e);
+            }
+        }
+
         async function apiFetch(path, options = {}, timeoutMs = API_TIMEOUT_MS) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -2699,13 +2718,21 @@
         function openJobModal(idx) {
             currentJobIndex = idx;
             const job = allJobs[idx];
-            if (job) showJobModal(job);
+            if (job) {
+                // Track job view event
+                logEvent('job_clicked', job.url || `job_${idx}`, job.title || 'Unknown Job');
+                showJobModal(job);
+            }
         }
 
         function openRecommendedJobModal(idx) {
             currentJobIndex = -1;
             const job = recommendedJobs[idx];
-            if (job) showJobModal(job);
+            if (job) {
+                // Track recommended job view event
+                logEvent('job_clicked', job.url || `job_${idx}`, job.title || 'Unknown Job');
+                showJobModal(job);
+            }
         }
 
         function formatDate(dateStr) {
@@ -2730,6 +2757,10 @@
                 alert("This job doesn't have a valid application link.");
                 return;
             }
+
+            // Track job application event
+            logEvent('job_applied', job.url || 'unknown', job.title || 'Unknown Job');
+
             window.open(url, "_blank", "noopener,noreferrer");
         }
 
