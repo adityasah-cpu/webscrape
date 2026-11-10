@@ -425,6 +425,8 @@
 
     <script>
         const API_URL = '/api/admin';
+        let cvChart = null;
+        let funnelChart = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
             await loadLocations();
@@ -543,9 +545,13 @@
         }
 
         function updateCharts(stats, engagement) {
+            // Destroy existing charts if they exist
+            if (cvChart) cvChart.destroy();
+            if (funnelChart) funnelChart.destroy();
+
             // CV Upload Chart
             const cvCtx = document.getElementById('cvChart').getContext('2d');
-            new Chart(cvCtx, {
+            cvChart = new Chart(cvCtx, {
                 type: 'doughnut',
                 data: {
                     labels: ['CV Uploaded', 'No CV'],
@@ -568,7 +574,7 @@
 
             // Funnel Chart
             const funnelCtx = document.getElementById('funnelChart').getContext('2d');
-            new Chart(funnelCtx, {
+            funnelChart = new Chart(funnelCtx, {
                 type: 'bar',
                 data: {
                     labels: ['Total Users', 'Viewed Jobs', 'Clicked Jobs', 'Applied Jobs'],
