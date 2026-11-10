@@ -307,9 +307,15 @@ def auth_me() -> Any:
         user = {
             "email": "dev@localhost",
             "name": "Developer",
-            "picture": None
+            "picture": None,
+            "location": "Vizianagaram"  # Default location for dev
         }
         session["user"] = user
+
+    # Track user session when they check auth
+    if user:
+        location = user.get("location", "Unknown")
+        track_user_session(location)
 
     return jsonify({"success": True, "authenticated": bool(user), "user": user})
 
@@ -2726,6 +2732,390 @@ def index() -> Any:
     except Exception as e:
         logger.error(f"Error loading index.html: {e}")
         return f"Error loading page: {str(e)}", 500
+
+
+@app.route("/admin", methods=["GET"])
+def admin_dashboard_page() -> Any:
+    """Serve admin dashboard UI"""
+    try:
+        with open("admin_dashboard.html", encoding="utf-8") as f:
+            content = f.read()
+        return content, 200, {"Content-Type": "text/html"}
+    except FileNotFoundError:
+        logger.error("admin_dashboard.html not found")
+        return "Error: admin_dashboard.html not found", 404
+    except Exception as e:
+        logger.error(f"Error loading admin_dashboard.html: {e}")
+        return f"Error loading admin dashboard: {str(e)}", 500
+
+
+# ==================== ADMIN DASHBOARD & LOCATION TRACKING ====================
+
+# Admin decorator - check if user is admin
+def require_admin(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = session.get("user")
+        if not user:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        user_email = user.get("email")
+
+        # Check if user is admin (from environment variable)
+        admin_emails = os.getenv('ADMIN_EMAILS', 'admin@cutm.ac.in').split(',')
+        if user_email not in admin_emails:
+            return jsonify({"error": "Forbidden - Admin access required"}), 403
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def log_user_event(event_type: str, job_id: Optional[str] = None, job_title: Optional[str] = None):
+    """Log user events: 'job_viewed', 'job_clicked', 'job_applied'"""
+    try:
+        user = session.get("user")
+        if not user:
+            return
+
+        user_email = user.get("email")
+        location = user.get("location", "Unknown")
+
+        conn = get_db_connection()
+        if not conn:
+            return
+
+        cursor = conn.cursor()
+        query = """
+            INSERT INTO user_events (user_email, location, event_type, job_id, job_title, event_date, created_at)
+            VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
+        """
+        cursor.execute(query, (user_email, location, event_type, job_id, job_title))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error logging user event: {e}")
+
+
+def log_cv_upload(filename: str, file_size: int, status: str = 'success'):
+    """Log CV upload event"""
+    try:
+        user = session.get("user")
+        if not user:
+            return
+
+        user_email = user.get("email")
+        location = user.get("location", "Unknown")
+
+        conn = get_db_connection()
+        if not conn:
+            return
+
+        cursor = conn.cursor()
+
+        # Update user CV upload status
+        update_query = """
+            UPDATE users
+            SET cv_uploaded = TRUE, last_cv_upload_date = NOW()
+            WHERE email = %s
+        """
+        cursor.execute(update_query, (user_email,))
+
+        # Log the upload
+        insert_query = """
+            INSERT INTO user_cv_uploads (user_email, location, cv_filename, file_size, extraction_status, uploaded_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+        """
+        cursor.execute(insert_query, (user_email, location, filename, file_size, status))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error logging CV upload: {e}")
+
+
+def track_user_session(location: str):
+    """Track user login/session"""
+    try:
+        user = session.get("user")
+        if not user:
+            return
+
+        user_email = user.get("email")
+
+        conn = get_db_connection()
+        if not conn:
+            return
+
+        cursor = conn.cursor()
+
+        # Check if session exists for today
+        check_query = """
+            SELECT id, session_count FROM user_sessions
+            WHERE user_email = %s AND login_date = CURDATE()
+        """
+        cursor.execute(check_query, (user_email,))
+        result = cursor.fetchone()
+
+        if result:
+            # Update existing session
+            update_query = """
+                UPDATE user_sessions
+                SET last_activity = NOW(), session_count = session_count + 1
+                WHERE user_email = %s AND login_date = CURDATE()
+            """
+            cursor.execute(update_query, (user_email,))
+        else:
+            # Create new session record
+            insert_query = """
+                INSERT INTO user_sessions (user_email, location, login_date, last_activity, session_count)
+                VALUES (%s, %s, CURDATE(), NOW(), 1)
+            """
+            cursor.execute(insert_query, (user_email, location))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error tracking user session: {e}")
+
+
+# ==================== ADMIN ENDPOINTS ====================
+
+@app.route("/api/admin/locations", methods=["GET"])
+@require_admin
+def get_all_locations() -> Any:
+    """Get list of available locations"""
+    try:
+        locations = ["Vizianagaram", "Parlakhemundi", "Bhubaneswar"]
+        return jsonify({"success": True, "locations": locations})
+    except Exception as e:
+        logger.error(f"Error getting locations: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/location-stats/<location>", methods=["GET"])
+@require_admin
+def get_location_stats(location: str) -> Any:
+    """Get comprehensive stats for a specific location"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 503
+
+        cursor = conn.cursor(dictionary=True)
+
+        # Total users by location
+        cursor.execute("SELECT COUNT(*) as count FROM users WHERE location = %s", (location,))
+        total_users = cursor.fetchone()["count"] or 0
+
+        # CV uploaded - YES
+        cursor.execute("SELECT COUNT(*) as count FROM users WHERE location = %s AND cv_uploaded = TRUE", (location,))
+        cv_uploaded_yes = cursor.fetchone()["count"] or 0
+
+        # CV uploaded - NO
+        cursor.execute("SELECT COUNT(*) as count FROM users WHERE location = %s AND cv_uploaded = FALSE", (location,))
+        cv_uploaded_no = cursor.fetchone()["count"] or 0
+
+        # Active users today
+        cursor.execute("""
+            SELECT COUNT(DISTINCT user_email) as count FROM user_sessions
+            WHERE location = %s AND login_date = CURDATE()
+        """, (location,))
+        active_users_today = cursor.fetchone()["count"] or 0
+
+        # New users today
+        cursor.execute("""
+            SELECT COUNT(*) as count FROM users
+            WHERE location = %s AND DATE(created_at) = CURDATE()
+        """, (location,))
+        new_users_today = cursor.fetchone()["count"] or 0
+
+        # Unique users - daily
+        cursor.execute("""
+            SELECT COUNT(DISTINCT user_email) as count FROM user_sessions
+            WHERE location = %s AND login_date = CURDATE()
+        """, (location,))
+        unique_users_daily = cursor.fetchone()["count"] or 0
+
+        # Unique users - weekly
+        cursor.execute("""
+            SELECT COUNT(DISTINCT user_email) as count FROM user_sessions
+            WHERE location = %s AND login_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        """, (location,))
+        unique_users_weekly = cursor.fetchone()["count"] or 0
+
+        # Unique users - monthly
+        cursor.execute("""
+            SELECT COUNT(DISTINCT user_email) as count FROM user_sessions
+            WHERE location = %s AND login_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+        """, (location,))
+        unique_users_monthly = cursor.fetchone()["count"] or 0
+
+        # Job views
+        cursor.execute("""
+            SELECT COUNT(*) as count FROM user_events
+            WHERE location = %s AND event_type = 'job_viewed'
+        """, (location,))
+        jobs_viewed = cursor.fetchone()["count"] or 0
+
+        # Job clicks
+        cursor.execute("""
+            SELECT COUNT(*) as count FROM user_events
+            WHERE location = %s AND event_type = 'job_clicked'
+        """, (location,))
+        jobs_clicked = cursor.fetchone()["count"] or 0
+
+        # Job applications
+        cursor.execute("""
+            SELECT COUNT(*) as count FROM user_events
+            WHERE location = %s AND event_type = 'job_applied'
+        """, (location,))
+        jobs_applied = cursor.fetchone()["count"] or 0
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "location": location,
+            "total_users": total_users,
+            "cv_uploaded_yes": cv_uploaded_yes,
+            "cv_uploaded_no": cv_uploaded_no,
+            "active_users_today": active_users_today,
+            "new_users_today": new_users_today,
+            "unique_users_daily": unique_users_daily,
+            "unique_users_weekly": unique_users_weekly,
+            "unique_users_monthly": unique_users_monthly,
+            "engagement": {
+                "viewed_jobs": jobs_viewed,
+                "clicked_jobs": jobs_clicked,
+                "applied_jobs": jobs_applied,
+                "not_applied": jobs_viewed - jobs_applied
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting location stats: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/location-users/<location>", methods=["GET"])
+@require_admin
+def get_location_users(location: str) -> Any:
+    """Get detailed user list for a location with engagement metrics"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 503
+
+        cursor = conn.cursor(dictionary=True)
+
+        # Get users by location with their engagement stats
+        query = """
+            SELECT
+                u.email,
+                u.name as user_name,
+                u.cv_uploaded,
+                u.created_at as signup_date,
+                u.last_cv_upload_date,
+                (SELECT COUNT(*) FROM user_events WHERE user_email = u.email AND event_type = 'job_viewed') as jobs_viewed,
+                (SELECT COUNT(*) FROM user_events WHERE user_email = u.email AND event_type = 'job_clicked') as jobs_clicked,
+                (SELECT COUNT(*) FROM user_events WHERE user_email = u.email AND event_type = 'job_applied') as jobs_applied,
+                (SELECT MAX(last_activity) FROM user_sessions WHERE user_email = u.email) as last_active
+            FROM users u
+            WHERE u.location = %s
+            ORDER BY u.created_at DESC
+            LIMIT 1000
+        """
+        cursor.execute(query, (location,))
+        users = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        # Format response
+        formatted_users = []
+        for user in users:
+            formatted_users.append({
+                "email": user["email"],
+                "user_name": user["user_name"],
+                "cv_uploaded": bool(user["cv_uploaded"]),
+                "jobs_viewed": user["jobs_viewed"] or 0,
+                "jobs_clicked": user["jobs_clicked"] or 0,
+                "jobs_applied": user["jobs_applied"] or 0,
+                "signup_date": str(user["signup_date"]) if user["signup_date"] else None,
+                "last_cv_upload": str(user["last_cv_upload_date"]) if user["last_cv_upload_date"] else None,
+                "last_active": str(user["last_active"]) if user["last_active"] else None
+            })
+
+        return jsonify({
+            "success": True,
+            "location": location,
+            "total_users": len(formatted_users),
+            "users": formatted_users
+        })
+    except Exception as e:
+        logger.error(f"Error getting location users: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/location-engagement/<location>", methods=["GET"])
+@require_admin
+def get_location_engagement(location: str) -> Any:
+    """Get engagement funnel data for location"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 503
+
+        cursor = conn.cursor(dictionary=True)
+
+        # Get funnel data
+        cursor.execute("SELECT COUNT(*) as count FROM users WHERE location = %s", (location,))
+        total = cursor.fetchone()["count"] or 0
+
+        cursor.execute("""
+            SELECT COUNT(DISTINCT user_email) as count FROM user_events
+            WHERE location = %s AND event_type = 'job_viewed'
+        """, (location,))
+        viewed = cursor.fetchone()["count"] or 0
+
+        cursor.execute("""
+            SELECT COUNT(DISTINCT user_email) as count FROM user_events
+            WHERE location = %s AND event_type = 'job_clicked'
+        """, (location,))
+        clicked = cursor.fetchone()["count"] or 0
+
+        cursor.execute("""
+            SELECT COUNT(DISTINCT user_email) as count FROM user_events
+            WHERE location = %s AND event_type = 'job_applied'
+        """, (location,))
+        applied = cursor.fetchone()["count"] or 0
+
+        cursor.close()
+        conn.close()
+
+        # Calculate percentages
+        viewed_pct = (viewed / total * 100) if total > 0 else 0
+        clicked_pct = (clicked / total * 100) if total > 0 else 0
+        applied_pct = (applied / total * 100) if total > 0 else 0
+
+        return jsonify({
+            "success": True,
+            "location": location,
+            "funnel": {
+                "total_users": {"count": total, "percentage": 100},
+                "viewed_jobs": {"count": viewed, "percentage": round(viewed_pct, 2)},
+                "clicked_jobs": {"count": clicked, "percentage": round(clicked_pct, 2)},
+                "applied_jobs": {"count": applied, "percentage": round(applied_pct, 2)},
+                "not_applied": {"count": total - applied, "percentage": round(100 - applied_pct, 2)}
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting location engagement: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
