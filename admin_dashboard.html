@@ -424,22 +424,40 @@
 
         async function loadLocations() {
             try {
-                const response = await fetch(`${API_URL}/locations`);
+                const url = `${API_URL}/locations`;
+                console.log('Loading locations from:', url);
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    console.error('Response error:', response.status, response.statusText);
+                    showError(`Failed to load locations: ${response.status} ${response.statusText}`);
+                    return;
+                }
+
                 const data = await response.json();
+                console.log('Locations data:', data);
 
                 if (!data.success) {
-                    showError('Failed to load locations');
+                    showError('Failed to load locations: ' + (data.error || 'Unknown error'));
                     return;
                 }
 
                 const select = document.getElementById('locationSelect');
+                if (!data.locations || data.locations.length === 0) {
+                    showError('No locations available');
+                    return;
+                }
+
                 data.locations.forEach(location => {
                     const option = document.createElement('option');
                     option.value = location;
                     option.textContent = location;
                     select.appendChild(option);
                 });
+
+                console.log('Locations loaded successfully:', data.locations);
             } catch (error) {
+                console.error('Error loading locations:', error);
                 showError('Error loading locations: ' + error.message);
             }
         }
@@ -457,11 +475,21 @@
 
             try {
                 // Load stats
-                const statsResponse = await fetch(`${API_URL}/location-stats/${location}`);
+                const statsUrl = `${API_URL}/location-stats/${location}`;
+                console.log('Loading stats from:', statsUrl);
+                const statsResponse = await fetch(statsUrl);
+
+                if (!statsResponse.ok) {
+                    console.error('Stats response error:', statsResponse.status);
+                    showError(`Failed to load stats: ${statsResponse.status}`);
+                    return;
+                }
+
                 const statsData = await statsResponse.json();
+                console.log('Stats data:', statsData);
 
                 if (!statsData.success) {
-                    showError('Failed to load stats');
+                    showError('Failed to load stats: ' + (statsData.error || 'Unknown error'));
                     return;
                 }
 
