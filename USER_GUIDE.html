@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Portal - User Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .intro {
+            background: #f0f4ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border-left: 5px solid #667eea;
+        }
+
+        .step {
+            margin-bottom: 40px;
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+        }
+
+        .step-number {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 50px;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-right: 15px;
+            margin-bottom: 20px;
+        }
+
+        .step h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+        }
+
+        .step-content {
+            margin-left: 65px;
+            margin-bottom: 20px;
+        }
+
+        .step-description {
+            font-size: 1em;
+            color: #555;
+            margin-bottom: 15px;
+            line-height: 1.8;
+        }
+
+        .actions {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .action {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            padding: 10px;
+        }
+
+        .action:last-child {
+            margin-bottom: 0;
+        }
+
+        .action-icon {
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 12px;
+            font-size: 1.2em;
+        }
+
+        .action-text {
+            flex: 1;
+            color: #555;
+        }
+
+        .decision {
+            background: #fff3cd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #ffc107;
+            margin-left: 65px;
+        }
+
+        .decision h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .option {
+            margin-bottom: 15px;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+        }
+
+        .option strong {
+            color: #667eea;
+        }
+
+        .tips {
+            background: #e8f5e9;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 4px solid #4caf50;
+            margin-left: 65px;
+        }
+
+        .tips h4 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }
+
+        .tips ul {
+            list-style-position: inside;
+            color: #555;
+        }
+
+        .tips li {
+            margin-bottom: 8px;
+        }
+
+        .flow-diagram {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            margin-left: 65px;
+            font-family: monospace;
+            overflow-x: auto;
+        }
+
+        .footer {
+            background: #f0f4ff;
+            padding: 30px;
+            text-align: center;
+            border-top: 2px solid #e0e0e0;
+            color: #666;
+        }
+
+        .button-style {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .step {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Job Portal User Guide</h1>
+            <p>Complete Step-by-Step Instructions for Finding Your Dream Job</p>
+        </div>
+
+        <div class="content">
+            <div class="intro">
+                <h3>Welcome to Our Job Portal! 👋</h3>
+                <p>This guide will walk you through every step of using our job portal, from signing in to applying for jobs. Follow each step carefully to get the best results!</p>
+            </div>
+
+            <!-- STEP 1 -->
+            <div class="step">
+                <div class="step-number">1</div>
+                <h2>Sign In with Google</h2>
+                <div class="step-content">
+                    <div class="step-description">
+                        Start your journey by signing in to the job portal using your college email address.
+                    </div>
+
+                    <div class="actions">
+                        <div class="action">
+                            <div class="action-icon">📧</div>
+                            <div class="action-text">Click the <strong>"Sign in with Google"</strong> button</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">🔑</div>
+                            <div class="action-text">Use your college email (e.g., your@cutm.ac.in)</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">✓</div>
+                            <div class="action-text">Verify the Google login prompt and authenticate</div>
+                        </div>
+                    </div>
+
+                    <div class="tips">
+                        <h4>💡 Pro Tips</h4>
+                        <ul>
+                            <li>Make sure you're using your college email address</li>
+                            <li>Allow the portal to access your Google profile information</li>
+                            <li>Your profile data will be securely stored</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 2 -->
+            <div class="step">
+                <div class="step-number">2</div>
+                <h2>Choose Your Role</h2>
+                <div class="step-content">
+                    <div class="step-description">
+                        Select the role that best describes what you're looking for on our platform.
+                    </div>
+
+                    <div class="actions">
+                        <div class="action">
+                            <div class="action-icon">👤</div>
+                            <div class="action-text">Select your desired role or position type</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">✓</div>
+                            <div class="action-text">Confirm your selection and proceed</div>
+                        </div>
+                    </div>
+
+                    <div class="tips">
+                        <h4>💡 Pro Tips</h4>
+                        <ul>
+                            <li>Choose a role that matches your skills and interests</li>
+                            <li>You can change this later if needed</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 3 -->
+            <div class="step">
+                <div class="step-number">3</div>
+                <h2>Upload CV (Optional) or Skip</h2>
+                <div class="step-content">
+                    <div class="step-description">
+                        You now have a choice: upload your resume for intelligent job matching, or skip to browse jobs manually.
+                    </div>
+
+                    <div class="decision">
+                        <h4>⚡ Two Paths to Choose From:</h4>
+
+                        <div class="option">
+                            <strong>✓ OPTION A: Upload Your CV</strong>
+                            <p style="margin-top: 8px; color: #555;">
+                                Upload your resume/CV file (PDF or DOC format)
+                            </p>
+                            <div class="actions" style="margin-top: 10px; border: none; padding: 0;">
+                                <div class="action" style="margin-bottom: 8px;">
+                                    <div class="action-icon">📄</div>
+                                    <div class="action-text">Click "Upload CV" and select your resume file</div>
+                                </div>
+                                <div class="action" style="margin-bottom: 8px;">
+                                    <div class="action-icon">🔍</div>
+                                    <div class="action-text">Our system analyzes your CV and skills</div>
+                                </div>
+                                <div class="action">
+                                    <div class="action-icon">🎯</div>
+                                    <div class="action-text">You'll see <strong>matched jobs</strong> based on your resume</div>
+                                </div>
+                            </div>
+                            <p style="margin-top: 12px; color: #667eea; font-weight: bold;">✓ Best Option: Get personalized job matches!</p>
+                        </div>
+
+                        <div class="option">
+                            <strong>× OPTION B: Skip (Browse Manually)</strong>
+                            <p style="margin-top: 8px; color: #555;">
+                                Skip CV upload and browse jobs yourself
+                            </p>
+                            <div class="actions" style="margin-top: 10px; border: none; padding: 0;">
+                                <div class="action" style="margin-bottom: 8px;">
+                                    <div class="action-icon">⏭️</div>
+                                    <div class="action-text">Click "Skip" to go to main job listing</div>
+                                </div>
+                                <div class="action">
+                                    <div class="action-icon">📋</div>
+                                    <div class="action-text">You'll see all available jobs</div>
+                                </div>
+                            </div>
+                            <p style="margin-top: 12px; color: #ff9800;">⚠️ You can upload CV later, but need to fetch jobs first</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 4 -->
+            <div class="step">
+                <div class="step-number">4</div>
+                <h2>Main Screen - Browse & Fetch Jobs</h2>
+                <div class="step-content">
+                    <div class="step-description">
+                        You're now on the main job listing page. Here you can select jobs to explore.
+                    </div>
+
+                    <div class="actions">
+                        <div class="action">
+                            <div class="action-icon">☑️</div>
+                            <div class="action-text">Use the <strong>checkbox</strong> next to job titles to select jobs you're interested in</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">📊</div>
+                            <div class="action-text">Click <strong>"Fetch Selected Jobs"</strong> or <strong>"Load Jobs"</strong> button to load your selections</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">📖</div>
+                            <div class="action-text">View the job details, description, and requirements</div>
+                        </div>
+                    </div>
+
+                    <div class="decision">
+                        <h4>❓ Do You Have a CV Yet?</h4>
+                        <div class="option">
+                            <strong>If NO CV yet:</strong>
+                            <p style="margin-top: 8px; color: #555; margin-left: 10px;">
+                                ① First: Fetch/select jobs from the list<br>
+                                ② Then: Upload your CV<br>
+                                ③ Finally: Fetch related jobs based on your CV
+                            </p>
+                        </div>
+                        <div class="option">
+                            <strong>If YES CV uploaded:</strong>
+                            <p style="margin-top: 8px; color: #555; margin-left: 10px;">
+                                → You already see matched jobs (skip ahead to job details)
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 5 -->
+            <div class="step">
+                <div class="step-number">5</div>
+                <h2>Upload CV (If Not Done Yet)</h2>
+                <div class="step-content">
+                    <div class="step-description">
+                        If you skipped CV upload initially, you can upload it now from the main page. <strong>Important:</strong> You must fetch jobs BEFORE uploading CV.
+                    </div>
+
+                    <div class="actions">
+                        <div class="action">
+                            <div class="action-icon">1️⃣</div>
+                            <div class="action-text"><strong>First:</strong> Make sure you've fetched some jobs (checkbox → Load button)</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">2️⃣</div>
+                            <div class="action-text"><strong>Then:</strong> Click the <strong>"Upload CV"</strong> or <strong>"Add Resume"</strong> button</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">3️⃣</div>
+                            <div class="action-text">Select your resume file (PDF, DOC, DOCX format)</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">4️⃣</div>
+                            <div class="action-text"><strong>Finally:</strong> Fetch jobs again to see CV-matched recommendations</div>
+                        </div>
+                    </div>
+
+                    <div class="tips">
+                        <h4>💡 Important Notes</h4>
+                        <ul>
+                            <li>CV must be uploaded AFTER fetching initial jobs</li>
+                            <li>Upload only PDF or Word documents</li>
+                            <li>Maximum file size: 5 MB</li>
+                            <li>After upload, fetch jobs again for better matches</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 6 -->
+            <div class="step">
+                <div class="step-number">6</div>
+                <h2>Read Job Details & Description</h2>
+                <div class="step-content">
+                    <div class="step-description">
+                        Click on any job to view its complete details, requirements, and description.
+                    </div>
+
+                    <div class="actions">
+                        <div class="action">
+                            <div class="action-icon">🔎</div>
+                            <div class="action-text">Click on a job title to expand and view full details</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">📋</div>
+                            <div class="action-text">Read the job description, requirements, and responsibilities</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">💼</div>
+                            <div class="action-text">Review qualifications and skills needed</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">🔗</div>
+                            <div class="action-text">Look for the <strong>"Apply Now"</strong> or <strong>"Direct Apply"</strong> button</div>
+                        </div>
+                    </div>
+
+                    <div class="tips">
+                        <h4>💡 What to Look For</h4>
+                        <ul>
+                            <li>Job title and company name</li>
+                            <li>Key responsibilities and day-to-day tasks</li>
+                            <li>Required qualifications and experience</li>
+                            <li>Salary range (if provided)</li>
+                            <li>Application deadline</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 7 -->
+            <div class="step">
+                <div class="step-number">7</div>
+                <h2>Apply for the Job</h2>
+                <div class="step-content">
+                    <div class="step-description">
+                        When you find a job you're interested in, apply directly through our platform.
+                    </div>
+
+                    <div class="actions">
+                        <div class="action">
+                            <div class="action-icon">🎯</div>
+                            <div class="action-text">Click the <strong>"Apply Now"</strong> button in the job details</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">🌐</div>
+                            <div class="action-text">You'll be redirected to the company's application page</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">✅</div>
+                            <div class="action-text">Complete the application form on their website</div>
+                        </div>
+                        <div class="action">
+                            <div class="action-icon">✓</div>
+                            <div class="action-text">Submit your application</div>
+                        </div>
+                    </div>
+
+                    <div class="tips">
+                        <h4>💡 Application Tips</h4>
+                        <ul>
+                            <li>Read the job requirements carefully before applying</li>
+                            <li>Make sure your CV is up-to-date</li>
+                            <li>Complete all required fields in the application</li>
+                            <li>Double-check spelling and contact information</li>
+                            <li>Apply early - some positions fill up quickly!</li>
+                            <li>Keep track of companies you've applied to</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUMMARY FLOW -->
+            <div class="step">
+                <div class="step-number">📊</div>
+                <h2>Complete User Journey (Flow Diagram)</h2>
+                <div class="flow-diagram">
+START
+  ↓
+[1] Sign In with Google
+  ↓
+[2] Select Your Role
+  ↓
+[3] Upload CV or Skip?
+  ├─→ YES: Upload CV → See Matched Jobs
+  └─→ NO: Skip → Go to Main Screen
+  ↓
+[4] Main Screen - Select & Fetch Jobs
+  ↓
+Did you skip CV?
+  ├─→ YES: Upload CV (after fetching) → Fetch related jobs
+  └─→ NO: Continue
+  ↓
+[5] View Job Details
+  ├─→ Read Description
+  ├─→ Check Requirements
+  └─→ Find Apply Button
+  ↓
+[6] Click "Apply Now"
+  ↓
+[7] Complete Application on Company Website
+  ↓
+SUCCESS! ✓ Job Applied
+  ↓
+Repeat: Find more jobs to apply
+                </div>
+            </div>
+
+            <!-- FAQ -->
+            <div class="step">
+                <div class="step-number">❓</div>
+                <h2>Frequently Asked Questions</h2>
+                <div class="step-content">
+                    <div class="decision">
+                        <div class="option">
+                            <strong>Q: Can I upload my CV after skipping?</strong><br>
+                            <span style="color: #555;">A: Yes! But you must fetch jobs first. Go to main screen → fetch jobs → then upload CV → fetch jobs again.</span>
+                        </div>
+
+                        <div class="option">
+                            <strong>Q: What file formats are accepted for CV?</strong><br>
+                            <span style="color: #555;">A: PDF, DOC, and DOCX files. Maximum file size is 5 MB.</span>
+                        </div>
+
+                        <div class="option">
+                            <strong>Q: Will my CV data be safe?</strong><br>
+                            <span style="color: #555;">A: Yes! Your CV is securely stored and only used for job matching purposes.</span>
+                        </div>
+
+                        <div class="option">
+                            <strong>Q: Can I update my CV?</strong><br>
+                            <span style="color: #555;">A: Yes! You can upload a new CV anytime. It will replace the old one and show updated job matches.</span>
+                        </div>
+
+                        <div class="option">
+                            <strong>Q: Where does "Apply Now" take me?</strong><br>
+                            <span style="color: #555;">A: It redirects you to the company's official application page/career website.</span>
+                        </div>
+
+                        <div class="option">
+                            <strong>Q: Can I apply to multiple jobs?</strong><br>
+                            <span style="color: #555;">A: Absolutely! Browse through our listings and apply to as many jobs as you want.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="footer">
+            <h3>🚀 Ready to Find Your Dream Job?</h3>
+            <p>Start by signing in and following the steps above. Good luck with your applications!</p>
+            <p style="margin-top: 20px; font-size: 0.9em; color: #999;">
+                For support or questions, contact: support@jobportal.com
+            </p>
+        </div>
+    </div>
+</body>
+</html>
