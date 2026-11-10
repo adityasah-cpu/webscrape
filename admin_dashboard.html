@@ -496,6 +496,11 @@
             const grid = document.getElementById('statsGrid');
             grid.innerHTML = '';
 
+            // Safe division: prevent division by zero
+            const total = data.total_users || 1;
+            const cvYesPercent = Math.round((data.cv_uploaded_yes / total) * 100);
+            const cvNoPercent = Math.round((data.cv_uploaded_no / total) * 100);
+
             const stats = [
                 {
                     title: 'Total Users',
@@ -506,13 +511,13 @@
                 {
                     title: 'CV Uploaded (Yes)',
                     value: data.cv_uploaded_yes,
-                    label: `${Math.round((data.cv_uploaded_yes / data.total_users) * 100)}% of users`,
+                    label: data.total_users === 0 ? 'No users' : `${cvYesPercent}% of users`,
                     class: 'success'
                 },
                 {
                     title: 'CV Uploaded (No)',
                     value: data.cv_uploaded_no,
-                    label: `${Math.round((data.cv_uploaded_no / data.total_users) * 100)}% of users`,
+                    label: data.total_users === 0 ? 'No users' : `${cvNoPercent}% of users`,
                     class: 'warning'
                 },
                 {
