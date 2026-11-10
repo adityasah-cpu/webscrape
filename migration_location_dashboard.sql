@@ -63,8 +63,31 @@ CREATE TABLE IF NOT EXISTS admin_access_logs (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS cv_uploaded BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_cv_upload_date DATETIME;
 
--- Create index for faster location-based queries
+-- Create indexes for faster queries (performance optimization)
+-- User table indexes
 CREATE INDEX IF NOT EXISTS idx_users_location ON users(location);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_cv_uploaded ON users(cv_uploaded);
+CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
+CREATE INDEX IF NOT EXISTS idx_users_is_admin ON users(is_admin);
+
+-- Event tracking indexes (most frequently queried)
+CREATE INDEX IF NOT EXISTS idx_user_events_email ON user_events(user_email);
+CREATE INDEX IF NOT EXISTS idx_user_events_location ON user_events(location);
+CREATE INDEX IF NOT EXISTS idx_user_events_type ON user_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_user_events_location_type ON user_events(location, event_type);
+CREATE INDEX IF NOT EXISTS idx_user_events_date ON user_events(event_date);
+
+-- Session tracking indexes
+CREATE INDEX IF NOT EXISTS idx_user_sessions_email ON user_sessions(user_email);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_location ON user_sessions(location);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_date ON user_sessions(login_date);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_location_date ON user_sessions(location, login_date);
+
+-- CV upload tracking indexes
+CREATE INDEX IF NOT EXISTS idx_cv_uploads_email ON user_cv_uploads(user_email);
+CREATE INDEX IF NOT EXISTS idx_cv_uploads_location ON user_cv_uploads(location);
+CREATE INDEX IF NOT EXISTS idx_cv_uploads_date ON user_cv_uploads(uploaded_at);
 
 -- Add admin role support
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
