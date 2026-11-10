@@ -7,7 +7,7 @@ Run:
     Then open http://localhost:5000 in browser
 """
 
-from flask import Flask, jsonify, request, Response, session
+from flask import Flask, jsonify, request, Response, session, send_file
 from flask_cors import CORS
 from functools import wraps
 import remote_job_scraper as rjs
@@ -497,6 +497,14 @@ def _ping_db() -> bool:
         except Exception:
             pass
 
+
+@app.route("/", methods=["GET"])
+def root() -> Any:
+    """Serve the main index.html page"""
+    try:
+        return send_file("index.html", mimetype="text/html")
+    except FileNotFoundError:
+        return jsonify({"error": "index.html not found"}), 404
 
 @app.route("/api/health", methods=["GET"])
 def health() -> Any:
