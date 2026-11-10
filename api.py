@@ -114,6 +114,27 @@ class DatabaseUnavailableError(Exception):
     handler below turns it into a 503 JSON response.
     """
 
+def is_admin_user(email: str) -> bool:
+    """Check if email is from allowed admin domain or in allowed admin emails list."""
+    if not email:
+        return False
+
+    # Check allowed admin emails
+    allowed_emails = os.getenv('ALLOWED_ADMIN_EMAILS', '').split(',')
+    allowed_emails = [e.strip() for e in allowed_emails if e.strip()]
+    if email in allowed_emails:
+        return True
+
+    # Check allowed admin domains
+    allowed_domains = os.getenv('ALLOWED_ADMIN_DOMAINS', '').split(',')
+    allowed_domains = [d.strip() for d in allowed_domains if d.strip()]
+
+    for domain in allowed_domains:
+        if email.endswith('@' + domain):
+            return True
+
+    return False
+
 # Add security headers
 @app.after_request
 def set_security_headers(response: Response) -> Response:
@@ -2748,19 +2769,18 @@ def index() -> Any:
 
 @app.route("/admin", methods=["GET"])
 def admin_dashboard_page() -> Any:
-    """Serve admin dashboard UI - Only for aditya.sah@thegttech.com"""
+    """Serve admin dashboard UI - Only for allowed admin domains and emails"""
     # Check if user is logged in
     user = session.get("user")
     if not user:
         return jsonify({"error": "Unauthorized - Please log in first"}), 401
 
-    # Check if user is the admin
-    admin_email = "aditya.sah@thegttech.com"
+    # Check if user is an admin
     user_email = user.get("email", "")
 
-    if user_email != admin_email:
+    if not is_admin_user(user_email):
         logger.warning(f"Unauthorized admin access attempt by {user_email}")
-        return jsonify({"error": f"Access Denied - Only {admin_email} can access admin dashboard"}), 403
+        return jsonify({"error": "Access Denied - Only users from allowed admin domains can access admin dashboard"}), 403
 
     try:
         with open("admin_dashboard.html", encoding="utf-8") as f:
@@ -2798,13 +2818,9 @@ def require_admin(f):
 
         user_email = user.get("email")
 
-        # Check if user is admin (from environment variable)
-        admin_emails = os.getenv('ADMIN_EMAILS', 'admin@cutm.ac.in').split(',')
-        # Strip whitespace from emails
-        admin_emails = [email.strip() for email in admin_emails]
-
-        if user_email not in admin_emails:
-            logger.warning(f"require_admin: User {user_email} not in admin list: {admin_emails}")
+        # Check if user is admin (from allowed domains and emails)
+        if not is_admin_user(user_email):
+            logger.warning(f"require_admin: User {user_email} not in admin list")
             return jsonify({"error": "Forbidden - Admin access required"}), 403
 
         return f(*args, **kwargs)
@@ -3252,11 +3268,16 @@ def get_admin_users() -> Any:
         cursor.close()
         conn.close()
 
-        admin_emails = os.getenv('ADMIN_EMAILS', 'admin@cutm.ac.in').split(',')
+        allowed_emails = os.getenv('ALLOWED_ADMIN_EMAILS', '').split(',')
+        allowed_domains = os.getenv('ALLOWED_ADMIN_DOMAINS', '').split(',')
+        allowed_emails = [e.strip() for e in allowed_emails if e.strip()]
+        allowed_domains = [d.strip() for d in allowed_domains if d.strip()]
+
         return jsonify({
             "success": True,
             "admins": admins or [],
-            "allowed_admin_emails": admin_emails
+            "allowed_admin_emails": allowed_emails,
+            "allowed_admin_domains": allowed_domains
         })
     except Exception as e:
         logger.error(f"Error getting admin users: {e}")
