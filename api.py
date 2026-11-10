@@ -2770,13 +2770,27 @@ def require_admin(f):
     def decorated_function(*args, **kwargs):
         user = session.get("user")
         if not user:
-            return jsonify({"error": "Unauthorized"}), 401
+            # Dev mode auto-login if GOOGLE_CLIENT_ID is not set
+            if not GOOGLE_CLIENT_ID:
+                session["user"] = {
+                    "email": "dev@localhost",
+                    "name": "Developer",
+                    "picture": None
+                }
+                user = session["user"]
+                logger.debug("require_admin: Auto-logged in as dev@localhost")
+            else:
+                return jsonify({"error": "Unauthorized"}), 401
 
         user_email = user.get("email")
 
         # Check if user is admin (from environment variable)
         admin_emails = os.getenv('ADMIN_EMAILS', 'admin@cutm.ac.in').split(',')
+        # Strip whitespace from emails
+        admin_emails = [email.strip() for email in admin_emails]
+
         if user_email not in admin_emails:
+            logger.warning(f"require_admin: User {user_email} not in admin list: {admin_emails}")
             return jsonify({"error": "Forbidden - Admin access required"}), 403
 
         return f(*args, **kwargs)
