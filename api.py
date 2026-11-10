@@ -3003,7 +3003,8 @@ def get_location_users(location: str) -> Any:
 
         cursor = conn.cursor(dictionary=True)
 
-        # Get users by location with their engagement stats
+        # Get users by location with their engagement stats using JOINs (not subqueries)
+        # This single query replaces 1000+ queries (1 main + 4 subqueries per user)
         query = """
             SELECT
                 u.email,
@@ -3011,11 +3012,34 @@ def get_location_users(location: str) -> Any:
                 u.cv_uploaded,
                 u.created_at as signup_date,
                 u.last_cv_upload_date,
-                (SELECT COUNT(*) FROM user_events WHERE user_email = u.email AND event_type = 'job_viewed') as jobs_viewed,
-                (SELECT COUNT(*) FROM user_events WHERE user_email = u.email AND event_type = 'job_clicked') as jobs_clicked,
-                (SELECT COUNT(*) FROM user_events WHERE user_email = u.email AND event_type = 'job_applied') as jobs_applied,
-                (SELECT MAX(last_activity) FROM user_sessions WHERE user_email = u.email) as last_active
+                COALESCE(viewed_count.count, 0) as jobs_viewed,
+                COALESCE(clicked_count.count, 0) as jobs_clicked,
+                COALESCE(applied_count.count, 0) as jobs_applied,
+                sessions.last_active
             FROM users u
+            LEFT JOIN (
+                SELECT user_email, COUNT(*) as count
+                FROM user_events
+                WHERE event_type = 'job_viewed'
+                GROUP BY user_email
+            ) viewed_count ON u.email = viewed_count.user_email
+            LEFT JOIN (
+                SELECT user_email, COUNT(*) as count
+                FROM user_events
+                WHERE event_type = 'job_clicked'
+                GROUP BY user_email
+            ) clicked_count ON u.email = clicked_count.user_email
+            LEFT JOIN (
+                SELECT user_email, COUNT(*) as count
+                FROM user_events
+                WHERE event_type = 'job_applied'
+                GROUP BY user_email
+            ) applied_count ON u.email = applied_count.user_email
+            LEFT JOIN (
+                SELECT user_email, MAX(last_activity) as last_active
+                FROM user_sessions
+                GROUP BY user_email
+            ) sessions ON u.email = sessions.user_email
             WHERE u.location = %s
             ORDER BY u.created_at DESC
             LIMIT 1000
