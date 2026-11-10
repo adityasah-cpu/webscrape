@@ -2748,10 +2748,24 @@ def index() -> Any:
 
 @app.route("/admin", methods=["GET"])
 def admin_dashboard_page() -> Any:
-    """Serve admin dashboard UI"""
+    """Serve admin dashboard UI - Only for aditya.sah@thegttech.com"""
+    # Check if user is logged in
+    user = session.get("user")
+    if not user:
+        return jsonify({"error": "Unauthorized - Please log in first"}), 401
+
+    # Check if user is the admin
+    admin_email = "aditya.sah@thegttech.com"
+    user_email = user.get("email", "")
+
+    if user_email != admin_email:
+        logger.warning(f"Unauthorized admin access attempt by {user_email}")
+        return jsonify({"error": f"Access Denied - Only {admin_email} can access admin dashboard"}), 403
+
     try:
         with open("admin_dashboard.html", encoding="utf-8") as f:
             content = f.read()
+        logger.info(f"Admin dashboard accessed by {user_email}")
         return content, 200, {"Content-Type": "text/html"}
     except FileNotFoundError:
         logger.error("admin_dashboard.html not found")
