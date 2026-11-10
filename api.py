@@ -2767,6 +2767,27 @@ def index() -> Any:
         return f"Error loading page: {str(e)}", 500
 
 
+@app.route("/api/check-admin", methods=["GET"])
+def check_admin() -> Any:
+    """Check if current user is admin"""
+    try:
+        user = session.get("user")
+        if not user:
+            return jsonify({"success": False, "is_admin": False}), 200
+
+        user_email = user.get("email", "")
+        is_admin = is_admin_user(user_email)
+
+        return jsonify({
+            "success": True,
+            "is_admin": is_admin,
+            "email": user_email
+        }), 200
+    except Exception as e:
+        logger.error(f"Error checking admin status: {e}")
+        return jsonify({"success": False, "is_admin": False}), 200
+
+
 @app.route("/admin", methods=["GET"])
 def admin_dashboard_page() -> Any:
     """Serve admin dashboard UI - Only for allowed admin domains and emails"""
