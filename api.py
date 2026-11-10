@@ -2777,17 +2777,26 @@ def require_admin(f):
 
 
 def log_user_event(event_type: str, job_id: Optional[str] = None, job_title: Optional[str] = None):
-    """Log user events: 'job_viewed', 'job_clicked', 'job_applied'"""
+    """Log user events: 'job_viewed', 'job_clicked', 'job_applied'
+    Validates event type and ensures data quality before logging"""
     try:
         user = session.get("user")
         if not user:
+            logger.debug(f"Skipped event logging: No user in session")
             return
 
         user_email = user.get("email")
         location = user.get("location", "Unknown")
 
+        # Validate event type
+        valid_events = ['job_viewed', 'job_clicked', 'job_applied']
+        if event_type not in valid_events:
+            logger.warning(f"Invalid event_type: {event_type}. Valid: {valid_events}")
+            return
+
         conn = get_db_connection()
         if not conn:
+            logger.error(f"Event logging failed: Cannot connect to database for event {event_type}")
             return
 
         cursor = conn.cursor()
@@ -2799,22 +2808,35 @@ def log_user_event(event_type: str, job_id: Optional[str] = None, job_title: Opt
         conn.commit()
         cursor.close()
         conn.close()
+
+        logger.debug(f"Event logged: {event_type} for {user_email} (location: {location})")
     except Exception as e:
-        logger.error(f"Error logging user event: {e}")
+        logger.error(f"Error logging event {event_type}: {type(e).__name__}: {str(e)[:200]}")
 
 
 def log_cv_upload(filename: str, file_size: int, status: str = 'success'):
-    """Log CV upload event"""
+    """Log CV upload event with validation and audit trail"""
     try:
         user = session.get("user")
         if not user:
+            logger.debug("Skipped CV upload logging: No user in session")
             return
 
         user_email = user.get("email")
         location = user.get("location", "Unknown")
 
+        # Validate file size
+        if file_size <= 0:
+            logger.warning(f"Invalid file size for CV upload: {file_size} bytes")
+            return
+
+        if file_size > 50 * 1024 * 1024:  # 50MB limit
+            logger.warning(f"CV file too large: {file_size} bytes for user {user_email}")
+            return
+
         conn = get_db_connection()
         if not conn:
+            logger.error(f"CV upload logging failed: Cannot connect to database for user {user_email}")
             return
 
         cursor = conn.cursor()
@@ -2827,6 +2849,9 @@ def log_cv_upload(filename: str, file_size: int, status: str = 'success'):
         """
         cursor.execute(update_query, (user_email,))
 
+        if cursor.rowcount == 0:
+            logger.warning(f"CV upload logged but user not found: {user_email}")
+
         # Log the upload
         insert_query = """
             INSERT INTO user_cv_uploads (user_email, location, cv_filename, file_size, extraction_status, uploaded_at)
@@ -2837,21 +2862,30 @@ def log_cv_upload(filename: str, file_size: int, status: str = 'success'):
         conn.commit()
         cursor.close()
         conn.close()
+
+        logger.info(f"CV uploaded: {filename} ({file_size} bytes) by {user_email} from {location}")
     except Exception as e:
-        logger.error(f"Error logging CV upload: {e}")
+        logger.error(f"Error logging CV upload for {filename}: {type(e).__name__}: {str(e)[:200]}")
 
 
 def track_user_session(location: str):
-    """Track user login/session"""
+    """Track user login/session with audit trail"""
     try:
         user = session.get("user")
         if not user:
+            logger.debug("Skipped session tracking: No user in session")
             return
 
         user_email = user.get("email")
 
+        # Validate location
+        if not location or location.strip() == "":
+            logger.warning(f"Invalid location for session tracking: {location}")
+            location = "Unknown"
+
         conn = get_db_connection()
         if not conn:
+            logger.error(f"Session tracking failed: Cannot connect to database for user {user_email}")
             return
 
         cursor = conn.cursor()
@@ -2870,8 +2904,10 @@ def track_user_session(location: str):
         conn.commit()
         cursor.close()
         conn.close()
+
+        logger.debug(f"Session tracked: {user_email} from {location}")
     except Exception as e:
-        logger.error(f"Error tracking user session: {e}")
+        logger.error(f"Error tracking session for {user_email if user else 'unknown'}: {type(e).__name__}: {str(e)[:200]}")
 
 
 # ==================== ADMIN ENDPOINTS ====================
