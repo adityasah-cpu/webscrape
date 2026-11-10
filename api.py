@@ -231,27 +231,22 @@ _AUTH_EXEMPT_ENDPOINTS = {"google_sign_in", "auth_me", "auth_config", "static", 
 
 @app.before_request
 def require_login():
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            if not request.path.startswith("/api/"):
-                return f(*args, **kwargs)  # only gate the API, not the frontend/static files
-            if request.endpoint in _AUTH_EXEMPT_ENDPOINTS:
-                return f(*args, **kwargs)
-            if not session.get("user"):
-                # Development mode: auto-login if GOOGLE_CLIENT_ID is not set
-                if not GOOGLE_CLIENT_ID:
-                    session["user"] = {
-                        "email": "dev@localhost",
-                        "name": "Developer",
-                        "picture": None
-                    }
-                    logger.info("Development mode: auto-logged in as dev@localhost (GOOGLE_CLIENT_ID not set)")
-                    return f(*args, **kwargs)
-                return jsonify({"success": False, "error": "Not signed in. Please sign in with Google."}), 401
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
+    if not request.path.startswith("/api/"):
+        return None  # only gate the API, not the frontend/static files
+    if request.endpoint in _AUTH_EXEMPT_ENDPOINTS:
+        return None
+    if not session.get("user"):
+        # Development mode: auto-login if GOOGLE_CLIENT_ID is not set
+        if not GOOGLE_CLIENT_ID:
+            session["user"] = {
+                "email": "dev@localhost",
+                "name": "Developer",
+                "picture": None
+            }
+            logger.info("Development mode: auto-logged in as dev@localhost (GOOGLE_CLIENT_ID not set)")
+            return None
+        return jsonify({"success": False, "error": "Not signed in. Please sign in with Google."}), 401
+    return None
 
 @app.route("/api/auth/google", methods=["POST"])
 @limiter.limit("20 per minute")
@@ -2171,7 +2166,6 @@ def get_sources() -> Any:
 
 
 @app.route("/api/fetch", methods=["POST"])
-@require_login()
 @limiter.limit("5 per minute")
 def fetch_jobs() -> Any:
     """Fetch jobs from selected sources and store in file"""
@@ -2440,7 +2434,6 @@ def ats_score() -> Any:
 
 
 @app.route("/api/jobs", methods=["GET"])
-@require_login()
 def get_jobs() -> Any:
     """Get filtered jobs from file storage"""
     try:
@@ -3316,7 +3309,6 @@ def demote_admin(email: str) -> Any:
 # ==================== EVENT LOGGING ENDPOINTS ====================
 
 @app.route("/api/log-event", methods=["POST"])
-@require_login()
 def log_event_endpoint() -> Any:
     """Log user interactions with jobs (views, clicks, applications)"""
     try:
