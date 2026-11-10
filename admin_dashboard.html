@@ -366,10 +366,22 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>📊 Analytics Dashboard</h1>
-        <p>Location-Based Management & Insights</p>
+    <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1>📊 Analytics Dashboard</h1>
+            <p>Location-Based Management & Insights</p>
+        </div>
+        <button class="btn-logout" onclick="logout()" style="background: rgba(255,255,255,0.2); border: 2px solid white; color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; margin-top: 20px;">
+            Logout
+        </button>
     </div>
+
+    <style>
+        .btn-logout:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+    </style>
 
     <div class="container">
         <div class="selector-card">
@@ -431,6 +443,16 @@
         document.addEventListener('DOMContentLoaded', async () => {
             await loadLocations();
         });
+
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Logout failed:', error);
+                alert('Logout failed. Please try again.');
+            }
+        }
 
         function showError(message) {
             const errorDiv = document.getElementById('errorMessage');
