@@ -3331,16 +3331,14 @@ def get_user_updates() -> Any:
 
         cursor = conn.cursor(dictionary=True)
 
-        base_where = ""
         params_base = []
+        location_filter = ""
         if location and location != 'all':
-            base_where = " WHERE u.location = %s"
+            location_filter = " AND u.location = %s"
             params_base = [location]
-        else:
-            params_base = []
 
         # Daily stats (last 24 hours)
-        daily_query = f"""
+        daily_query = """
             SELECT
                 COALESCE(COUNT(DISTINCT u.email), 0) as new_users,
                 COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'cv_uploaded' THEN u.email END), 0) as cv_uploads,
@@ -3348,13 +3346,12 @@ def get_user_updates() -> Any:
                 COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'job_applied' THEN u.email END), 0) as jobs_applied
             FROM users u
             LEFT JOIN user_events ue ON u.email = ue.user_email AND ue.created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
-            {base_where} AND u.created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
-        """
+            WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY) """ + location_filter
         cursor.execute(daily_query, params_base)
         daily = cursor.fetchone() or {}
 
         # Weekly stats (last 7 days)
-        weekly_query = f"""
+        weekly_query = """
             SELECT
                 COALESCE(COUNT(DISTINCT u.email), 0) as new_users,
                 COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'cv_uploaded' THEN u.email END), 0) as cv_uploads,
@@ -3362,13 +3359,12 @@ def get_user_updates() -> Any:
                 COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'job_applied' THEN u.email END), 0) as jobs_applied
             FROM users u
             LEFT JOIN user_events ue ON u.email = ue.user_email AND ue.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            {base_where} AND u.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-        """
+            WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)""" + location_filter
         cursor.execute(weekly_query, params_base)
         weekly = cursor.fetchone() or {}
 
         # Monthly stats (last 30 days)
-        monthly_query = f"""
+        monthly_query = """
             SELECT
                 COALESCE(COUNT(DISTINCT u.email), 0) as new_users,
                 COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'cv_uploaded' THEN u.email END), 0) as cv_uploads,
@@ -3376,8 +3372,7 @@ def get_user_updates() -> Any:
                 COALESCE(COUNT(DISTINCT CASE WHEN ue.event_type = 'job_applied' THEN u.email END), 0) as jobs_applied
             FROM users u
             LEFT JOIN user_events ue ON u.email = ue.user_email AND ue.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-            {base_where} AND u.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-        """
+            WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)""" + location_filter
         cursor.execute(monthly_query, params_base)
         monthly = cursor.fetchone() or {}
 
