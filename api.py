@@ -3154,6 +3154,108 @@ def get_location_engagement(location: str) -> Any:
         return jsonify({"error": str(e)}), 500
 
 
+# ==================== ADMIN USER MANAGEMENT ====================
+
+@app.route("/api/admin/users", methods=["GET"])
+@require_admin
+def get_admin_users() -> Any:
+    """Get list of admin users"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 503
+
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT email, name, is_admin, created_at
+            FROM users
+            WHERE is_admin = TRUE
+            ORDER BY created_at DESC
+        """)
+        admins = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        admin_emails = os.getenv('ADMIN_EMAILS', 'admin@cutm.ac.in').split(',')
+        return jsonify({
+            "success": True,
+            "admins": admins or [],
+            "allowed_admin_emails": admin_emails
+        })
+    except Exception as e:
+        logger.error(f"Error getting admin users: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/promote/<email>", methods=["POST"])
+@require_admin
+def promote_admin(email: str) -> Any:
+    """Promote a user to admin"""
+    try:
+        # Only existing admins can promote new admins
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 503
+
+        cursor = conn.cursor()
+
+        # Update user to admin
+        query = "UPDATE users SET is_admin = TRUE WHERE email = %s"
+        cursor.execute(query, (email,))
+
+        if cursor.rowcount == 0:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "User not found"}), 404
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        logger.info(f"User {email} promoted to admin by {session['user'].get('email')}")
+        return jsonify({"success": True, "message": f"User {email} promoted to admin"})
+    except Exception as e:
+        logger.error(f"Error promoting admin: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/demote/<email>", methods=["POST"])
+@require_admin
+def demote_admin(email: str) -> Any:
+    """Demote an admin user (prevent self-demotion)"""
+    try:
+        user_email = session.get("user", {}).get("email")
+
+        # Prevent self-demotion
+        if user_email == email:
+            return jsonify({"error": "Cannot demote yourself"}), 400
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 503
+
+        cursor = conn.cursor()
+
+        # Update user to non-admin
+        query = "UPDATE users SET is_admin = FALSE WHERE email = %s"
+        cursor.execute(query, (email,))
+
+        if cursor.rowcount == 0:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "User not found"}), 404
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        logger.info(f"User {email} demoted from admin by {user_email}")
+        return jsonify({"success": True, "message": f"User {email} demoted from admin"})
+    except Exception as e:
+        logger.error(f"Error demoting admin: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 # ==================== EVENT LOGGING ENDPOINTS ====================
 
 @app.route("/api/log-event", methods=["POST"])
