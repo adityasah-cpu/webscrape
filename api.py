@@ -2855,29 +2855,16 @@ def track_user_session(location: str):
 
         cursor = conn.cursor()
 
-        # Check if session exists for today
-        check_query = """
-            SELECT id, session_count FROM user_sessions
-            WHERE user_email = %s AND login_date = CURDATE()
+        # Use INSERT ... ON DUPLICATE KEY UPDATE for atomic operation (no race condition)
+        # UNIQUE key (user_email, login_date) ensures at most one row per user per day
+        query = """
+            INSERT INTO user_sessions (user_email, location, login_date, last_activity, session_count)
+            VALUES (%s, %s, CURDATE(), NOW(), 1)
+            ON DUPLICATE KEY UPDATE
+                last_activity = NOW(),
+                session_count = session_count + 1
         """
-        cursor.execute(check_query, (user_email,))
-        result = cursor.fetchone()
-
-        if result:
-            # Update existing session
-            update_query = """
-                UPDATE user_sessions
-                SET last_activity = NOW(), session_count = session_count + 1
-                WHERE user_email = %s AND login_date = CURDATE()
-            """
-            cursor.execute(update_query, (user_email,))
-        else:
-            # Create new session record
-            insert_query = """
-                INSERT INTO user_sessions (user_email, location, login_date, last_activity, session_count)
-                VALUES (%s, %s, CURDATE(), NOW(), 1)
-            """
-            cursor.execute(insert_query, (user_email, location))
+        cursor.execute(query, (user_email, location))
 
         conn.commit()
         cursor.close()
