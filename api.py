@@ -2406,6 +2406,10 @@ def ats_score() -> Any:
             logger.warning(f"Local ATS category analysis failed for '{filename}': {e}")
 
         logger.info(f"ATS score for '{filename}': {result['score']}")
+
+        # Log CV upload for analytics
+        log_cv_upload(filename, len(raw_bytes), 'success')
+
         return jsonify({
             "success": True,
             "score": result["score"],
@@ -3115,6 +3119,34 @@ def get_location_engagement(location: str) -> Any:
         })
     except Exception as e:
         logger.error(f"Error getting location engagement: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ==================== EVENT LOGGING ENDPOINTS ====================
+
+@app.route("/api/log-event", methods=["POST"])
+@require_login
+def log_event_endpoint() -> Any:
+    """Log user interactions with jobs (views, clicks, applications)"""
+    try:
+        data = request.json or {}
+        event_type = data.get('event_type')  # 'job_viewed', 'job_clicked', 'job_applied'
+        job_id = data.get('job_id')
+        job_title = data.get('job_title')
+
+        # Validate event type
+        if event_type not in ['job_viewed', 'job_clicked', 'job_applied']:
+            return jsonify({"error": "Invalid event_type"}), 400
+
+        if not job_id:
+            return jsonify({"error": "job_id is required"}), 400
+
+        # Log the event
+        log_user_event(event_type, job_id, job_title)
+
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Error logging event: {e}")
         return jsonify({"error": str(e)}), 500
 
 
