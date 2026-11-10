@@ -288,6 +288,27 @@ def google_sign_in() -> Any:
             "name": payload.get("name"),
             "picture": payload.get("picture"),
         }
+
+        # Store/update user in database
+        try:
+            conn = get_db_connection()
+            if conn:
+                cursor = conn.cursor()
+                # Insert or update user
+                query = """
+                    INSERT INTO users (email, name, picture, location, created_at)
+                    VALUES (%s, %s, %s, 'Vizianagaram', NOW())
+                    ON DUPLICATE KEY UPDATE
+                    name = VALUES(name),
+                    picture = VALUES(picture)
+                """
+                cursor.execute(query, (user['email'], user['name'], user['picture']))
+                conn.commit()
+                cursor.close()
+                conn.close()
+        except Exception as e:
+            logger.error(f"Failed to store user in database: {e}")
+
         session["user"] = user
         session.permanent = True
         logger.info(f"Signed in: {user['email']}")
