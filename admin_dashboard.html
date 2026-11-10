@@ -531,41 +531,38 @@
             document.getElementById('statsContainer').style.display = 'block';
 
             try {
-                const [usersRes, statsRes, updatesRes] = await Promise.all([
+                const [usersRes, updatesRes] = await Promise.all([
                     fetch(`${API_URL}/users${location ? '?location=' + location : ''}`),
-                    fetch(`${API_URL}/location-stats/${location || 'all'}`),
                     fetch(`${API_URL}/user-updates${location ? '?location=' + location : ''}`)
                 ]);
 
-                if (!usersRes.ok || !statsRes.ok || !updatesRes.ok) {
+                if (!usersRes.ok || !updatesRes.ok) {
                     showError('Failed to load dashboard data');
                     return;
                 }
 
                 const usersData = await usersRes.json();
-                const statsData = await statsRes.json();
                 const updatesData = await updatesRes.json();
 
-                if (!usersData.success || !statsData.success || !updatesData.success) {
+                if (!usersData.success || !updatesData.success) {
                     showError('Failed to load dashboard data');
                     return;
                 }
 
-                updateDashboard(usersData, statsData, updatesData);
+                updateDashboard(usersData, updatesData);
             } catch (error) {
                 console.error('Error loading dashboard:', error);
                 showError('Error: ' + error.message);
             }
         }
 
-        function updateDashboard(usersData, statsData, updatesData) {
-            updateStats(statsData, usersData);
+        function updateDashboard(usersData, updatesData) {
+            updateStats(usersData);
             updateUsersTable(usersData);
             updateUpdates(updatesData);
         }
 
-        function updateStats(statsData, usersData) {
-            const stats = statsData.data || statsData;
+        function updateStats(usersData) {
             const users = usersData.users || [];
 
             const totalUsers = users.length;
