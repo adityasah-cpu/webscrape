@@ -2923,6 +2923,7 @@ def validate_location(location: str) -> bool:
 
 @app.route("/api/admin/locations", methods=["GET"])
 @require_admin
+@limiter.limit("60 per minute")
 def get_all_locations() -> Any:
     """Get list of available locations"""
     try:
@@ -2934,6 +2935,7 @@ def get_all_locations() -> Any:
 
 @app.route("/api/admin/location-stats/<location>", methods=["GET"])
 @require_admin
+@limiter.limit("60 per minute")
 def get_location_stats(location: str) -> Any:
     """Get comprehensive stats for a specific location"""
     try:
@@ -3043,6 +3045,7 @@ def get_location_stats(location: str) -> Any:
 
 @app.route("/api/admin/location-users/<location>", methods=["GET"])
 @require_admin
+@limiter.limit("60 per minute")
 def get_location_users(location: str) -> Any:
     """Get detailed user list for a location with engagement metrics"""
     try:
@@ -3131,6 +3134,7 @@ def get_location_users(location: str) -> Any:
 
 @app.route("/api/admin/location-engagement/<location>", methods=["GET"])
 @require_admin
+@limiter.limit("60 per minute")
 def get_location_engagement(location: str) -> Any:
     """Get engagement funnel data for location"""
     try:
@@ -3194,6 +3198,7 @@ def get_location_engagement(location: str) -> Any:
 
 @app.route("/api/admin/users", methods=["GET"])
 @require_admin
+@limiter.limit("60 per minute")
 def get_admin_users() -> Any:
     """Get list of admin users"""
     try:
@@ -3225,6 +3230,7 @@ def get_admin_users() -> Any:
 
 @app.route("/api/admin/promote/<email>", methods=["POST"])
 @require_admin
+@limiter.limit("30 per minute")
 def promote_admin(email: str) -> Any:
     """Promote a user to admin"""
     try:
@@ -3257,6 +3263,7 @@ def promote_admin(email: str) -> Any:
 
 @app.route("/api/admin/demote/<email>", methods=["POST"])
 @require_admin
+@limiter.limit("30 per minute")
 def demote_admin(email: str) -> Any:
     """Demote an admin user (prevent self-demotion)"""
     try:
