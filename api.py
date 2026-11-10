@@ -132,7 +132,7 @@ def set_security_headers(response: Response) -> Response:
         "default-src 'self'; "
         # accounts.google.com/gsi/client is the Google Identity Services
         # library the Sign In With Google button is built from.
-        "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client; "
+        "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client https://cdn.jsdelivr.net; "
         # The Inter font (CampusOne design-token pass) is loaded from Google
         # Fonts: its stylesheet comes from fonts.googleapis.com, and that
         # stylesheet's own @font-face rules pull the actual font files from
