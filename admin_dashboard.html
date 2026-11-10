@@ -562,6 +562,28 @@
         }
 
         function updateCharts(statsData, funnelData) {
+            // Validate input data before rendering charts
+            if (!statsData || !funnelData) {
+                showError('Invalid data received from server');
+                return;
+            }
+
+            // Validate CV chart data
+            if (isNaN(statsData.cv_uploaded_yes) || isNaN(statsData.cv_uploaded_no) ||
+                isNaN(statsData.total_users)) {
+                showError('CV chart data contains invalid values');
+                return;
+            }
+
+            // Validate funnel chart data
+            if (isNaN(funnelData.total_users.count) ||
+                isNaN(funnelData.viewed_jobs.count) ||
+                isNaN(funnelData.clicked_jobs.count) ||
+                isNaN(funnelData.applied_jobs.count)) {
+                showError('Funnel chart data contains invalid values');
+                return;
+            }
+
             // CV Upload Chart
             const cvCtx = document.getElementById('cvChart').getContext('2d');
             if (cvChart) cvChart.destroy();
