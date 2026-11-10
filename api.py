@@ -115,25 +115,15 @@ class DatabaseUnavailableError(Exception):
     """
 
 def is_admin_user(email: str) -> bool:
-    """Check if email is from allowed admin domain or in allowed admin emails list."""
+    """Check if email is in allowed admin emails list (only specific emails, not domains)."""
     if not email:
         return False
 
-    # Check allowed admin emails
+    # Check allowed admin emails - ONLY these specific 5 emails
     allowed_emails = os.getenv('ALLOWED_ADMIN_EMAILS', '').split(',')
     allowed_emails = [e.strip() for e in allowed_emails if e.strip()]
-    if email in allowed_emails:
-        return True
 
-    # Check allowed admin domains
-    allowed_domains = os.getenv('ALLOWED_ADMIN_DOMAINS', '').split(',')
-    allowed_domains = [d.strip() for d in allowed_domains if d.strip()]
-
-    for domain in allowed_domains:
-        if email.endswith('@' + domain):
-            return True
-
-    return False
+    return email in allowed_emails
 
 # Add security headers
 @app.after_request
