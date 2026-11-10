@@ -1537,6 +1537,9 @@
                     <button class="export-btn" onclick="exportToCSV()" title="Export current jobs to CSV">
                         📊 EXPORT CSV
                     </button>
+                    <button class="export-btn" id="adminLink" onclick="goToAdminDashboard()" title="View admin dashboard" style="display:none; background-color:#ff6b6b;">
+                        🔐 ADMIN
+                    </button>
                 </div>
             </div>
 
@@ -2812,6 +2815,10 @@
             })();
         }
 
+        function goToAdminDashboard() {
+            window.location.href = "/admin";
+        }
+
         window.onclick = function(event) {
             const modal = document.getElementById("jobModal");
             if (event.target === modal) {
@@ -2871,6 +2878,13 @@
                     const avatar = document.getElementById("userAvatar");
                     avatar.src = user.picture;
                     avatar.style.display = "block";
+                }
+                // Show admin link if user is admin
+                if (user.is_admin) {
+                    const adminLink = document.getElementById("adminLink");
+                    if (adminLink) {
+                        adminLink.style.display = "block";
+                    }
                 }
             }
             loadSources();
