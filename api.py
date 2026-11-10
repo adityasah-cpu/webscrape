@@ -2875,13 +2875,21 @@ def track_user_session(location: str):
 
 # ==================== ADMIN ENDPOINTS ====================
 
+# Allowed locations for validation
+ALLOWED_LOCATIONS = ["Vizianagaram", "Parlakhemundi", "Bhubaneswar"]
+
+
+def validate_location(location: str) -> bool:
+    """Validate location is in allowed list"""
+    return location in ALLOWED_LOCATIONS
+
+
 @app.route("/api/admin/locations", methods=["GET"])
 @require_admin
 def get_all_locations() -> Any:
     """Get list of available locations"""
     try:
-        locations = ["Vizianagaram", "Parlakhemundi", "Bhubaneswar"]
-        return jsonify({"success": True, "locations": locations})
+        return jsonify({"success": True, "locations": ALLOWED_LOCATIONS})
     except Exception as e:
         logger.error(f"Error getting locations: {e}")
         return jsonify({"error": str(e)}), 500
@@ -2892,6 +2900,10 @@ def get_all_locations() -> Any:
 def get_location_stats(location: str) -> Any:
     """Get comprehensive stats for a specific location"""
     try:
+        # Validate location parameter
+        if not validate_location(location):
+            return jsonify({"error": f"Invalid location. Allowed: {', '.join(ALLOWED_LOCATIONS)}"}), 400
+
         conn = get_db_connection()
         if not conn:
             return jsonify({"error": "Database connection failed"}), 503
@@ -2997,6 +3009,10 @@ def get_location_stats(location: str) -> Any:
 def get_location_users(location: str) -> Any:
     """Get detailed user list for a location with engagement metrics"""
     try:
+        # Validate location parameter
+        if not validate_location(location):
+            return jsonify({"error": f"Invalid location. Allowed: {', '.join(ALLOWED_LOCATIONS)}"}), 400
+
         conn = get_db_connection()
         if not conn:
             return jsonify({"error": "Database connection failed"}), 503
@@ -3081,6 +3097,10 @@ def get_location_users(location: str) -> Any:
 def get_location_engagement(location: str) -> Any:
     """Get engagement funnel data for location"""
     try:
+        # Validate location parameter
+        if not validate_location(location):
+            return jsonify({"error": f"Invalid location. Allowed: {', '.join(ALLOWED_LOCATIONS)}"}), 400
+
         conn = get_db_connection()
         if not conn:
             return jsonify({"error": "Database connection failed"}), 503
