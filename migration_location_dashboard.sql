@@ -1,8 +1,12 @@
 -- Location-Based Management Dashboard Migration
 -- Run with: mysql -u root -p job_portal < migration_location_dashboard.sql
 
--- Add location column to users table if it doesn't exist
-ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(100) DEFAULT 'Unknown';
+-- Add location column to users table if it doesn't exist (REQUIRED field, no default)
+-- Backfill any existing users without location to a default
+ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(100) NOT NULL DEFAULT 'Vizianagaram';
+
+-- After migration, admin should verify no users have 'Vizianagaram' wrongly assigned
+-- Run this to see if backfill worked: SELECT COUNT(*) FROM users WHERE location = 'Vizianagaram';
 
 -- Create table for tracking CV uploads by location
 CREATE TABLE IF NOT EXISTS user_cv_uploads (

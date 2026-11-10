@@ -311,6 +311,7 @@ def auth_me() -> Any:
             "location": "Vizianagaram"  # Default location for dev
         }
         session["user"] = user
+        track_user_session("Vizianagaram")  # Track dev user sessions
 
     # Track user session when they check auth
     if user:
