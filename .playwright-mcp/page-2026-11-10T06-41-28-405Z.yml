@@ -1,0 +1,10 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - img "Centurion Logo" [ref=f2e3]
+    - generic [ref=f2e4]: Sign in to Centurion Nextgen Novagig
+    - generic [ref=f2e5]: Discover jobs, internships, and hackathons tailored to you
+    - generic [ref=f2e7]:
+      - button "Sign in with Google. Opens in new tab" [ref=f2e9] [cursor=pointer]:
+        - generic [ref=f2e11]: Sign in with Google
+      - iframe
+  - text: 📊 🌍 🏢 📍 🎓
