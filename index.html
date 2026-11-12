@@ -1367,7 +1367,7 @@
                             <div id="onbMatchSummary" style="font-size:13px; color:var(--text-secondary); margin-top:4px;"></div>
                         </div>
                     </div>
-                    <button class="fetch-btn" onclick="onbFinish()">View My Matches on the Dashboard →</button>
+                    <button class="fetch-btn" id="onbContinueBtn" onclick="onbFinish()" style="display:none;">View My Matches on the Dashboard →</button>
                 </div>
 
                 <div id="onbError" style="color:var(--danger); font-size:13px; margin-top:12px; display:none;"></div>
@@ -2984,15 +2984,16 @@
             document.getElementById("onbProgress").style.display = "block";
 
             try {
-                // Step 3a: ATS score (also gives us a seniority estimate we
-                // reuse below instead of asking the user a separate
-                // fresher/experienced question).
+                // Step 1: ATS score
+                onbUpdateProgress(1, "📊 Analyzing your resume...");
                 const atsForm = new FormData();
                 atsForm.append("resume", file);
                 const atsData = await apiFetch("/ats-score", { method: "POST", body: atsForm }, 5 * 60 * 1000);
                 if (!atsData || atsData.success === false) {
                     throw new Error((atsData && atsData.error) || "Could not score this resume.");
                 }
+
+                onbUpdateProgress(1, `📊 ATS Score: ${atsData.score} ✓`);
 
                 let experienceLevel = "experienced";
                 const seniority = atsData.local_analysis && atsData.local_analysis.categories && atsData.local_analysis.categories.seniority;
@@ -3002,11 +3003,12 @@
                     experienceLevel = years >= 2 ? "experienced" : "fresher";
                 }
 
-                // Step 3b: fetch the sources implied by Step 1, so there's
-                // something in the DB to match against.
+                // Step 2: Fetch sources
+                onbUpdateProgress(2, "🔍 Fetching matching jobs...");
                 const sourcesToFetch = [];
                 if (onbSelections.remote) sourcesToFetch.push(...ONB_REMOTE_SOURCES);
                 if (onbSelections.internship) sourcesToFetch.push(...ONB_INTERNSHIP_SOURCES);
+
                 if (sourcesToFetch.length) {
                     await apiFetch("/fetch", {
                         method: "POST",
@@ -3017,10 +3019,10 @@
                 if (onbSelections.hackathon) {
                     await apiFetch("/hackathons/fetch", { method: "POST" }, 3 * 60 * 1000);
                 }
+                onbUpdateProgress(2, "🔍 Jobs fetched ✓");
 
-                // Step 3c: match the same resume against whatever's now in
-                // the DB (reuses the single file upload instead of asking
-                // the user to upload twice).
+                // Step 3: Match resume
+                onbUpdateProgress(3, "⚙️ Matching jobs to your profile...");
                 const matchForm = new FormData();
                 matchForm.append("resume", file);
                 matchForm.append("experience_level", experienceLevel);
@@ -3028,14 +3030,52 @@
                 if (!matchData || matchData.success === false) {
                     throw new Error((matchData && matchData.error) || "Could not match this resume.");
                 }
+                onbUpdateProgress(3, "⚙️ Matching complete ✓");
 
+                // Step 4: Show results and auto-redirect
+                onbUpdateProgress(4, "✓ Success! Preparing dashboard...");
                 onbShowResult(atsData, matchData, experienceLevel);
+
+                // Auto-redirect after brief delay to show success message
+                setTimeout(() => {
+                    onbFinish();
+                }, 2000);
             } catch (e) {
                 console.error("Onboarding ATS/match failed:", e);
                 document.getElementById("onbProgress").style.display = "none";
                 document.getElementById("onbUploadBox").style.display = "block";
-                errorEl.textContent = e.message || "Something went wrong. Please try again.";
+
+                let errorMessage = e.message || "Something went wrong. Please try again.";
+                if (e.message && e.message.includes("timeout")) {
+                    errorMessage = "⏱️ Request took too long. Please check your internet connection and try again.";
+                } else if (e.message && e.message.includes("resume")) {
+                    errorMessage = "📄 Resume error: " + e.message;
+                }
+
+                errorEl.innerHTML = `<strong>❌ Error:</strong> ${errorMessage}<br><small style="margin-top:8px; display:block;"><button onclick="document.getElementById('onbUploadBox').style.display='block'; document.getElementById('onbError').style.display='none';" style="background:#667eea; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">Try Again</button></small>`;
                 errorEl.style.display = "block";
+            }
+        }
+
+        function onbUpdateProgress(step, message) {
+            const progressEl = document.getElementById("onbProgress");
+            const existingContent = progressEl.innerHTML;
+            const stepLine = `<div style="padding:8px 0; color:var(--text-secondary); font-size:14px;">Step ${step}/4: ${message}</div>`;
+
+            if (!existingContent.includes("Step 1/4")) {
+                progressEl.innerHTML = stepLine;
+            } else if (!existingContent.includes("Step 2/4") && step === 2) {
+                progressEl.innerHTML = existingContent + stepLine;
+            } else if (!existingContent.includes("Step 3/4") && step === 3) {
+                progressEl.innerHTML = existingContent + stepLine;
+            } else if (!existingContent.includes("Step 4/4") && step === 4) {
+                progressEl.innerHTML = existingContent + stepLine;
+            } else {
+                const lines = progressEl.innerHTML.split("</div>");
+                if (lines[step-1]) {
+                    lines[step-1] = `<div style="padding:8px 0; color:var(--text-secondary); font-size:14px;">Step ${step}/4: ${message}`;
+                    progressEl.innerHTML = lines.join("</div>");
+                }
             }
         }
 
@@ -3053,10 +3093,20 @@
 
             const levelLabel = experienceLevel === "experienced" ? "Experienced" : "Fresher";
             const matchCount = (matchData.matches || []).length;
-            document.getElementById("onbMatchSummary").textContent =
-                matchCount > 0
-                    ? `Classified as ${levelLabel} · found ${matchCount} matching job${matchCount === 1 ? "" : "s"}`
-                    : `Classified as ${levelLabel} · ${matchData.message || "no matches yet - try fetching more sources"}`;
+            let summaryText = `Classified as ${levelLabel}`;
+
+            if (matchCount > 0) {
+                summaryText += ` · found ${matchCount} matching job${matchCount === 1 ? "" : "s"}`;
+            } else {
+                summaryText += ` · ${matchData.message || "no matches found"}`;
+            }
+
+            document.getElementById("onbMatchSummary").innerHTML = `
+                <div style="margin-bottom:8px;">${summaryText}</div>
+                <div style="font-size:12px; color:var(--text-secondary); margin-top:12px;">
+                    ✓ Auto-redirecting to dashboard in 2 seconds...
+                </div>
+            `;
 
             onbPendingMatchData = matchData;
         }
