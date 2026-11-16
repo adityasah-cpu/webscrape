@@ -584,7 +584,7 @@ def scrape_angellist():
                 "page": page,
                 "page_size": 50
             }
-            data = get_json("https://api.angellist.com/1/jobs", params=params, timeout=TIMEOUT)
+            data = get_json("https://api.angellist.com/1/jobs", params=params)
             if not data:
                 break
             for j in data:
