@@ -2210,13 +2210,20 @@ def fetch_jobs() -> Any:
         if "sources" not in data:
             return jsonify({"success": False, "error": "No sources provided. Expected {\"sources\": [...]}."}), 400
 
+        logger.info(f"Received fetch request for sources: {selected}")
+
         sources = {s.__name__.replace("scrape_", ""): s for s in rjs.SCRAPERS}
+        logger.info(f"Available sources: {list(sources.keys())}")
+
         enabled = [sources[name] for name in selected if name in sources]
+        not_found = [name for name in selected if name not in sources]
+        if not_found:
+            logger.warning(f"Some sources not found: {not_found}")
 
         all_jobs = []
         status = {}
 
-        logger.info(f"Fetching jobs from {len(enabled)} sources...")
+        logger.info(f"Fetching jobs from {len(enabled)} sources: {[s.__name__ for s in enabled]}...")
 
         for scraper in enabled:
             name = scraper.__name__.replace("scrape_", "")

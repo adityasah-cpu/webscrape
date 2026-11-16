@@ -2380,8 +2380,14 @@
         }
 
         async function fetchJobs() {
+            const allCheckboxes = document.querySelectorAll('.source-item input');
+            console.log("Total checkboxes found:", allCheckboxes.length);
+            allCheckboxes.forEach(cb => console.log(`  ${cb.id}: ${cb.checked}`));
+
             const sources = Array.from(document.querySelectorAll('.source-item input:checked'))
                 .map(cb => cb.value);
+
+            console.log("Selected sources for fetch:", sources);
 
             if (!sources.length) {
                 alert("Please select at least one source");
@@ -2400,6 +2406,7 @@
                 // A full fetch across many sources can legitimately take
                 // minutes (multi-page pagination + per-page sleeps), so allow
                 // well beyond the default request timeout.
+                console.log("Sending fetch request with sources:", JSON.stringify({ sources }));
                 const data = await apiFetch("/fetch", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
