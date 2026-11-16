@@ -18,6 +18,7 @@ import csv
 import html
 import logging
 import os
+import random
 import re
 import sys
 import time
@@ -28,6 +29,22 @@ import feedparser
 import requests
 
 logger = logging.getLogger(__name__)
+
+# Rotating User-Agents to bypass 403 blocks from sites that reject bots
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/91.0.864.59",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",
+]
+
+def get_random_user_agent():
+    """Return a random User-Agent from the rotation list."""
+    return random.choice(USER_AGENTS)
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (job-scraper; personal use)"}
 TIMEOUT = 30
@@ -268,7 +285,9 @@ def job(
 
 
 def get_json(url, **kwargs):
-    r = requests.get(url, headers=HEADERS, timeout=TIMEOUT, **kwargs)
+    headers = HEADERS.copy()
+    headers["User-Agent"] = get_random_user_agent()
+    r = requests.get(url, headers=headers, timeout=TIMEOUT, **kwargs)
     r.raise_for_status()
     return r.json()
 
@@ -341,9 +360,11 @@ def scrape_weworkremotely():
     # stalled RSS host could hang the entire /api/fetch request forever.
     # Fetch the bytes through requests (which enforces TIMEOUT) and let
     # feedparser only parse the already-downloaded body.
+    headers = HEADERS.copy()
+    headers["User-Agent"] = get_random_user_agent()
     response = requests.get(
         "https://weworkremotely.com/remote-jobs.rss",
-        headers=HEADERS, timeout=TIMEOUT,
+        headers=headers, timeout=TIMEOUT,
     )
     response.raise_for_status()
     feed = feedparser.parse(response.content)
@@ -546,9 +567,11 @@ def scrape_firstnaukri():
         # FirstNaukri RSS feed for fresher jobs. Fetch with requests (which
         # enforces TIMEOUT) instead of feedparser.parse(url) - that call has
         # no timeout and could hang the whole /api/fetch request.
+        headers = HEADERS.copy()
+        headers["User-Agent"] = get_random_user_agent()
         response = requests.get(
             "https://www.firstnaukri.com/feed/jobs-fresher",
-            headers=HEADERS, timeout=TIMEOUT,
+            headers=headers, timeout=TIMEOUT,
         )
         response.raise_for_status()
         feed = feedparser.parse(response.content)
@@ -565,6 +588,7 @@ def scrape_firstnaukri():
                             date=date,
                             url=entry.get("link", ""),
                             description=summary))
+        time.sleep(1)
     except Exception as e:
         logger.warning(f"FirstNaukri: {e}")
     return jobs
@@ -635,9 +659,11 @@ def scrape_upwork():
     try:
         # Upwork RSS feed for job postings. Same timeout fix as the other
         # RSS sources - feedparser.parse(url) itself has no timeout.
+        headers = HEADERS.copy()
+        headers["User-Agent"] = get_random_user_agent()
         response = requests.get(
             "https://www.upwork.com/ab/feed/jobs/rss?q=remote+entry+level&rss=1&sort=recency",
-            headers=HEADERS, timeout=TIMEOUT,
+            headers=headers, timeout=TIMEOUT,
         )
         response.raise_for_status()
         feed = feedparser.parse(response.content)
