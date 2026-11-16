@@ -1112,21 +1112,281 @@
         }
 
         /* ============ RESPONSIVE ============ */
-        @media (max-width: 1024px) {
+        /* Mobile First: Base styles for small screens (320px+) */
+        @media (max-width: 480px) {
+            :root {
+                --font-size-base: 14px;
+                --font-size-4xl: 20px;
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            .container {
+                flex-direction: column;
+                min-height: 100vh;
+            }
+
             .sidebar {
-                width: 260px;
+                width: 100%;
+                height: auto;
+                position: relative;
+                sticky: none;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                padding: 12px;
+            }
+
+            .sidebar-header {
+                margin-bottom: 16px;
+                padding-bottom: 12px;
+                gap: 10px;
+            }
+
+            .sidebar-logo {
+                width: 36px;
+                height: 36px;
+                font-size: 18px;
+            }
+
+            .sidebar-title-text {
+                font-size: 16px;
+            }
+
+            .sidebar-section-title {
+                margin: 16px 0 12px 0;
+                font-size: 11px;
+            }
+
+            .source-item {
+                padding: 10px;
+                margin-bottom: 6px;
+                gap: 8px;
+            }
+
+            .source-item label {
+                font-size: 13px;
+            }
+
+            .main-content {
+                flex: 1;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+                padding: 16px 12px;
+            }
+
+            .header h1 {
+                font-size: 18px;
+                line-height: 1.2;
+                word-break: break-word;
+            }
+
+            .header-right {
+                width: 100%;
+                gap: 12px;
+            }
+
+            .export-btn {
+                align-self: flex-end;
+                width: auto;
+                padding: 8px 12px;
+                font-size: 11px;
+                margin-top: 0;
+            }
+
+            .last-fetch {
+                font-size: 11px;
+                width: 100%;
+            }
+
+            .filters {
+                grid-template-columns: 1fr;
+                padding: 12px;
+                gap: 12px;
+            }
+
+            .filter-input {
+                width: 100%;
+                padding: 8px 12px;
+                font-size: 13px;
+                min-width: auto;
             }
 
             .stats {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: 1fr;
+                padding: 12px;
+                gap: 12px;
+            }
+
+            .stat-item {
+                min-height: 100px;
+                padding: 16px;
+            }
+
+            .stat-value {
+                font-size: 24px;
+            }
+
+            .stat-label {
+                font-size: 12px;
+            }
+
+            /* Mobile Table: Convert to card layout */
+            .jobs-container {
+                padding: 8px;
+            }
+
+            .jobs-table {
+                border-collapse: separate;
+                border-spacing: 0;
+            }
+
+            .jobs-table thead {
+                display: none;
+            }
+
+            .jobs-table tbody tr {
+                display: flex;
+                flex-direction: column;
+                margin-bottom: 12px;
+                border: 1px solid var(--border-color);
+                border-radius: var(--radius-sm);
+                overflow: hidden;
+            }
+
+            .jobs-table tbody tr:hover {
+                transform: none;
+                box-shadow: var(--shadow-md);
+            }
+
+            .jobs-table td {
+                padding: 12px;
+                border: none;
+                border-bottom: 1px solid var(--border-color);
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .jobs-table td:last-child {
+                border-bottom: none;
+            }
+
+            .jobs-table td::before {
+                content: attr(data-label);
+                font-weight: 700;
+                font-size: 11px;
+                color: var(--text-secondary);
+                text-transform: uppercase;
+                letter-spacing: 0.4px;
+            }
+
+            .job-title {
+                font-size: 14px;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+                margin: 30% auto;
+                border-radius: var(--radius-md);
+            }
+
+            .modal-header {
+                margin-bottom: 20px;
+                padding-bottom: 16px;
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+
+            .modal-title {
+                font-size: 20px;
             }
 
             .modal-grid {
                 grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .modal-item {
+                padding: 12px;
+            }
+
+            .modal-buttons {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .btn-apply,
+            .btn-close {
+                padding: 12px;
+                font-size: 13px;
+            }
+
+            .modal-close {
+                width: 32px;
+                height: 32px;
+                font-size: 24px;
+            }
+
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .bar-row-label {
+                width: 35%;
+            }
+
+            .empty-state {
+                padding: 60px 20px;
+            }
+
+            .empty-icon {
+                font-size: 60px;
+            }
+
+            .empty-title {
+                font-size: 18px;
+            }
+
+            .empty-text {
+                font-size: 13px;
+                max-width: 300px;
+            }
+
+            .fetch-btn {
+                padding: 12px 14px;
+                font-size: 13px;
+                margin-top: 16px;
+            }
+
+            .pagination-bar {
+                flex-direction: column;
+                gap: 12px;
+                padding: 12px;
+            }
+
+            .pagination-controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .pagination-btn {
+                padding: 8px 12px;
+                font-size: 12px;
             }
         }
 
-        @media (max-width: 768px) {
+        /* Tablet (480px - 768px) */
+        @media (min-width: 481px) and (max-width: 768px) {
             .container {
                 flex-direction: column;
             }
@@ -1148,29 +1408,20 @@
             }
 
             .header h1 {
-                font-size: 24px;
+                font-size: 22px;
             }
 
             .export-btn {
                 align-self: flex-end;
                 width: auto;
                 padding: 10px 16px;
-                font-size: 11px;
+                font-size: 12px;
             }
 
             .filters {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
                 padding: 16px;
                 gap: 16px;
-            }
-
-            .filter-group {
-                width: 100%;
-            }
-
-            .filter-input {
-                width: 100%;
-                min-width: auto;
             }
 
             .stats {
@@ -1180,23 +1431,60 @@
             }
 
             .stat-item {
-                min-height: 120px;
-                padding: 20px 16px;
+                min-height: 110px;
+                padding: 16px;
             }
 
             .stat-value {
-                font-size: 32px;
+                font-size: 28px;
             }
 
             .jobs-container {
+                padding: 16px;
+            }
+
+            .jobs-table {
+                font-size: 13px;
+            }
+
+            .jobs-table th,
+            .jobs-table td {
                 padding: 12px;
             }
 
             .modal-content {
-                width: 95%;
-                padding: 24px;
+                width: 90%;
+                padding: 28px;
                 margin: 20% auto;
             }
+
+            .modal-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Desktop (1024px) */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 260px;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .modal-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Large Desktop (1025px+) - Default layout */
+        @media (min-width: 1025px) {
+            /* All default styles apply */
         }
 
         /* ============ SKELETON LOADING ============ */
@@ -2239,8 +2527,8 @@
                 const tier = score >= 70 ? "high" : score >= 40 ? "mid" : "low";
                 return `
                 <tr onclick="openRecommendedJobModal(${idx})">
-                    <td><span class="match-score-badge ${tier}">${score}%</span></td>
-                    <td>
+                    <td data-label="Match"><span class="match-score-badge ${tier}">${score}%</span></td>
+                    <td data-label="Position & Domain">
                         <div class="job-title-wrapper">
                             <div class="job-title">${escapeHtml(job.title || "N/A")}</div>
                             <div class="job-domains">
@@ -2248,9 +2536,9 @@
                             </div>
                         </div>
                     </td>
-                    <td><div class="job-company">${escapeHtml(job.company || "N/A")}</div></td>
-                    <td><span class="work-type-badge ${escapeHtml((job.work_type || "Remote").toLowerCase())}">${escapeHtml(job.work_type || "N/A")}</span></td>
-                    <td><div style="font-weight:600; font-size:13px;">${escapeHtml(job.source || "N/A")}</div></td>
+                    <td data-label="Company"><div class="job-company">${escapeHtml(job.company || "N/A")}</div></td>
+                    <td data-label="Type"><span class="work-type-badge ${escapeHtml((job.work_type || "Remote").toLowerCase())}">${escapeHtml(job.work_type || "N/A")}</span></td>
+                    <td data-label="Source"><div style="font-weight:600; font-size:13px;">${escapeHtml(job.source || "N/A")}</div></td>
                 </tr>`;
             }).join("");
         }
@@ -2437,7 +2725,7 @@
 
             tbody.innerHTML = hackathons.map((h, idx) => `
                 <tr data-hackathon-idx="${idx}" style="cursor:pointer;">
-                    <td>
+                    <td data-label="Event & Theme">
                         <div class="job-title-wrapper">
                             <div class="job-title">${escapeHtml(h.title || "N/A")}</div>
                             <div class="job-domains">
@@ -2445,10 +2733,10 @@
                             </div>
                         </div>
                     </td>
-                    <td><div class="job-company">${escapeHtml(h.organizer || "N/A")}</div></td>
-                    <td><div style="font-weight:600; font-size:13px;">${escapeHtml(h.prize_amount || "N/A")}</div></td>
-                    <td><div style="font-size:13px;">${escapeHtml(h.location || "Online")}</div></td>
-                    <td><div style="font-size:13px;">${escapeHtml(h.time_left || h.submission_dates || "N/A")}</div></td>
+                    <td data-label="Organizer"><div class="job-company">${escapeHtml(h.organizer || "N/A")}</div></td>
+                    <td data-label="Prize"><div style="font-weight:600; font-size:13px;">${escapeHtml(h.prize_amount || "N/A")}</div></td>
+                    <td data-label="Location"><div style="font-size:13px;">${escapeHtml(h.location || "Online")}</div></td>
+                    <td data-label="Deadline"><div style="font-size:13px;">${escapeHtml(h.time_left || h.submission_dates || "N/A")}</div></td>
                 </tr>
             `).join("");
 
@@ -2648,7 +2936,7 @@
                 } else {
                     tbody.innerHTML = allJobs.map((job, idx) => `
                         <tr onclick="openJobModal(${idx})">
-                            <td>
+                            <td data-label="Position & Domain">
                                 <div class="job-title-wrapper">
                                     <div class="job-title">${escapeHtml(job.title || "N/A")}</div>
                                     <div class="job-domains">
@@ -2656,15 +2944,15 @@
                                     </div>
                                 </div>
                             </td>
-                            <td>
+                            <td data-label="Company">
                                 <div class="job-company">${escapeHtml(job.company || "N/A")}</div>
                             </td>
-                            <td>
+                            <td data-label="Type">
                                 <span class="work-type-badge ${escapeHtml((job.work_type || "Remote").toLowerCase())}">
                                     ${escapeHtml(job.work_type || "N/A")}
                                 </span>
                             </td>
-                            <td>
+                            <td data-label="Source">
                                 <div style="font-weight: 600; font-size: 13px;">${escapeHtml(job.source || "N/A")}</div>
                             </td>
                         </tr>
