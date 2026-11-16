@@ -16,6 +16,7 @@ Or use the web UI:  streamlit run app.py
 
 import csv
 import html
+import json
 import logging
 import os
 import random
@@ -27,6 +28,7 @@ from typing import Any, Dict, List
 
 import feedparser
 import requests
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -494,137 +496,231 @@ def scrape_ashby():
 # ============ NEW SOURCES: Freshers, Internships, India-focused ============
 
 def scrape_internshala(max_pages=None):
-    """Internshala: largest internship platform in India. Free API."""
+    """Internshala: largest internship platform in India (web scraping)."""
     if max_pages is None:
         max_pages = INTERNSHALA_PAGES
     jobs = []
-    for page in range(max_pages):
-        try:
-            data = get_json(
-                "https://internshala.com/api/v2/internship_search_results/",
-                params={"offset": page * 20, "limit": 20, "search_filter": "work_from_home"}
-            )
-        except Exception as e:
-            logger.warning(f"Internshala request failed on page {page}: {e}")
-            break
-        results = data.get("internships", [])
-        if not results:
-            break
-        for j in results:
-            jobs.append(job("Internshala", j.get("title"), j.get("company_name"),
-                            work_type="Remote",
-                            location=j.get("location_string", "Remote"),
-                            country="India",
-                            job_type="Internship",
-                            category=j.get("profile", ""),
-                            salary=fmt_salary(j.get("stipend_min"), j.get("stipend_max"), "₹"),
-                            date=j.get("start_date", "")[:10],
-                            url=f"https://internshala.com/internship/{j.get('id')}"
-                            if j.get("id") else "",
-                            description=j.get("internship_profile") or j.get("company_profile")))
-        time.sleep(1)
+    try:
+        for page in range(1, max_pages + 1):
+            try:
+                headers = HEADERS.copy()
+                headers["User-Agent"] = get_random_user_agent()
+                url = f"https://internshala.com/internships/work-from-home/?page={page}"
+                response = requests.get(url, headers=headers, timeout=TIMEOUT)
+                response.raise_for_status()
+
+                soup = BeautifulSoup(response.content, 'html.parser')
+                internship_cards = soup.find_all('div', class_='internship_card')
+
+                if not internship_cards:
+                    break
+
+                for card in internship_cards:
+                    try:
+                        title_elem = card.find('a', class_='internship-link')
+                        if not title_elem:
+                            title_elem = card.find('h2')
+                        title = title_elem.get_text(strip=True) if title_elem else "N/A"
+
+                        company_elem = card.find('p', class_='company_name')
+                        if not company_elem:
+                            company_elem = card.find('a', class_='company-link')
+                        company = company_elem.get_text(strip=True) if company_elem else "N/A"
+
+                        link = title_elem.get('href') if title_elem and title_elem.name == 'a' else ""
+                        if link and link.startswith('/'):
+                            link = f"https://internshala.com{link}"
+
+                        location = "Remote"
+                        category = ""
+
+                        jobs.append(job("Internshala", title, company,
+                                        work_type="Remote",
+                                        location=location,
+                                        country="India",
+                                        job_type="Internship",
+                                        category=category,
+                                        date=datetime.now().strftime("%Y-%m-%d"),
+                                        url=link))
+                    except Exception as e:
+                        logger.debug(f"Error parsing Internshala card: {e}")
+                        continue
+
+                time.sleep(2)
+            except Exception as e:
+                logger.warning(f"Internshala page {page} failed: {e}")
+                break
+    except Exception as e:
+        logger.warning(f"Internshala scraping failed: {e}")
+
     return jobs
 
 
 def scrape_unstop(max_pages=None):
-    """Unstop (HackerEarth): fresher internships + early-career jobs."""
+    """Unstop (HackerEarth): fresher internships + early-career jobs (web scraping)."""
     if max_pages is None:
         max_pages = UNSTOP_PAGES
     jobs = []
-    for page in range(1, max_pages + 1):
-        try:
-            # Unstop API for internships
-            data = get_json(
-                "https://unstop.com/api/public/opportunity/search",
-                params={"page": page, "limit": 20, "category": "internships",
-                        "search": "", "sort": "-posted_at"}
-            )
-        except Exception as e:
-            logger.warning(f"Unstop request failed on page {page}: {e}")
-            break
-        results = data.get("opportunities", [])
-        if not results:
-            break
-        for opp in results:
-            loc = (opp.get("locations") or [{}])[0].get("name", "Remote")
-            category = (opp.get("categories") or [{}])[0].get("name", "")
-            jobs.append(job("Unstop", opp.get("title"), opp.get("organization_name"),
-                            work_type="Remote" if "remote" in opp.get("title", "").lower() else "Onsite",
-                            location=loc,
-                            country="India" if "india" in opp.get("title", "").lower() or loc.lower() in ["remote", "online"] else "Unspecified",
-                            job_type="Internship",
-                            category=category,
-                            date=opp.get("posted_at", "")[:10],
-                            url=f"https://unstop.com/o/{opp.get('id')}" if opp.get("id") else ""))
-        time.sleep(1)
+    try:
+        for page in range(1, max_pages + 1):
+            try:
+                headers = HEADERS.copy()
+                headers["User-Agent"] = get_random_user_agent()
+                headers["Referer"] = "https://unstop.com"
+                url = f"https://unstop.com/internships?page={page}"
+                response = requests.get(url, headers=headers, timeout=TIMEOUT)
+                response.raise_for_status()
+
+                soup = BeautifulSoup(response.content, 'html.parser')
+                opportunity_cards = soup.find_all('div', class_='opportunity-card')
+
+                if not opportunity_cards:
+                    break
+
+                for card in opportunity_cards:
+                    try:
+                        title_elem = card.find('h2') or card.find('a', class_='opportunity-link')
+                        title = title_elem.get_text(strip=True) if title_elem else "N/A"
+
+                        org_elem = card.find('p', class_='organization-name')
+                        if not org_elem:
+                            org_elem = card.find('span', class_='org-name')
+                        organization = org_elem.get_text(strip=True) if org_elem else "N/A"
+
+                        link_elem = card.find('a', class_='opportunity-link') or card.find('a', href=True)
+                        link = link_elem.get('href') if link_elem else ""
+                        if link and link.startswith('/'):
+                            link = f"https://unstop.com{link}"
+
+                        location = "Remote"
+                        jobs.append(job("Unstop", title, organization,
+                                        work_type="Remote",
+                                        location=location,
+                                        country="India",
+                                        job_type="Internship",
+                                        date=datetime.now().strftime("%Y-%m-%d"),
+                                        url=link))
+                    except Exception as e:
+                        logger.debug(f"Error parsing Unstop card: {e}")
+                        continue
+
+                time.sleep(2)
+            except Exception as e:
+                logger.warning(f"Unstop page {page} failed: {e}")
+                break
+    except Exception as e:
+        logger.warning(f"Unstop scraping failed: {e}")
+
     return jobs
 
 
 def scrape_firstnaukri():
-    """FirstNaukri: built for freshers (0-3 years experience) in India."""
+    """FirstNaukri: built for freshers (0-3 years experience) in India (web scraping)."""
     jobs = []
     try:
-        # FirstNaukri RSS feed for fresher jobs. Fetch with requests (which
-        # enforces TIMEOUT) instead of feedparser.parse(url) - that call has
-        # no timeout and could hang the whole /api/fetch request.
         headers = HEADERS.copy()
         headers["User-Agent"] = get_random_user_agent()
-        response = requests.get(
-            "https://www.firstnaukri.com/feed/jobs-fresher",
-            headers=headers, timeout=TIMEOUT,
-        )
+        headers["Referer"] = "https://www.firstnaukri.com"
+
+        # Scrape FirstNaukri fresher jobs listing
+        url = "https://www.firstnaukri.com/jobs-fresher"
+        response = requests.get(url, headers=headers, timeout=TIMEOUT)
         response.raise_for_status()
-        feed = feedparser.parse(response.content)
-        for entry in feed.entries[:50]:
-            title = entry.get("title", "")
-            summary = entry.get("summary", "")
-            date = ""
-            if entry.get("published_parsed"):
-                date = time.strftime("%Y-%m-%d", entry.published_parsed)
-            jobs.append(job("FirstNaukri", title, "",
-                            location="India",
-                            country="India",
-                            job_type=norm_job_type("Full-time"),
-                            date=date,
-                            url=entry.get("link", ""),
-                            description=summary))
-        time.sleep(1)
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+        job_cards = soup.find_all('div', class_='jobCard') or soup.find_all('div', class_='job-card')
+
+        if not job_cards:
+            # Try alternative selector
+            job_cards = soup.find_all('article', class_='job')
+
+        for card in job_cards[:50]:  # Limit to 50 jobs
+            try:
+                title_elem = card.find('h2') or card.find('a', class_='job-title')
+                title = title_elem.get_text(strip=True) if title_elem else "N/A"
+
+                company_elem = card.find('p', class_='company') or card.find('span', class_='company-name')
+                company = company_elem.get_text(strip=True) if company_elem else ""
+
+                link_elem = card.find('a', href=True)
+                link = link_elem.get('href') if link_elem else ""
+                if link and link.startswith('/'):
+                    link = f"https://www.firstnaukri.com{link}"
+
+                jobs.append(job("FirstNaukri", title, company,
+                                location="India",
+                                country="India",
+                                job_type="Full-time",
+                                date=datetime.now().strftime("%Y-%m-%d"),
+                                url=link))
+            except Exception as e:
+                logger.debug(f"Error parsing FirstNaukri card: {e}")
+                continue
+
+        time.sleep(2)
     except Exception as e:
-        logger.warning(f"FirstNaukri: {e}")
+        logger.warning(f"FirstNaukri scraping failed: {e}")
     return jobs
 
 
 def scrape_angellist():
-    """AngelList (Wellfound): startup jobs, often open to freshers."""
+    """AngelList (Wellfound): startup jobs, often open to freshers (web scraping)."""
     jobs = []
-    headers_al = HEADERS.copy()
-    if ANGELLIST_API_KEY:
-        headers_al["Authorization"] = f"Bearer {ANGELLIST_API_KEY}"
     try:
-        # AngelList jobs API
+        headers = HEADERS.copy()
+        headers["User-Agent"] = get_random_user_agent()
+        headers["Referer"] = "https://www.wellfound.com"
+
+        # Scrape Wellfound (formerly AngelList) jobs for entry-level roles
         for page in range(1, 4):
-            params = {
-                "filter_role_tags": ["engineering", "design", "business", "marketing"],
-                "page": page,
-                "page_size": 50
-            }
-            data = get_json("https://api.angellist.com/1/jobs", params=params)
-            if not data:
+            try:
+                url = f"https://www.wellfound.com/jobs?j_level_id=1&page={page}"
+                response = requests.get(url, headers=headers, timeout=TIMEOUT)
+                response.raise_for_status()
+
+                soup = BeautifulSoup(response.content, 'html.parser')
+                job_listings = soup.find_all('div', class_='job-listing') or soup.find_all('a', class_='job-card-link')
+
+                if not job_listings:
+                    break
+
+                for listing in job_listings:
+                    try:
+                        title_elem = listing.find('h2') or listing.find('span', class_='job-title')
+                        title = title_elem.get_text(strip=True) if title_elem else "N/A"
+
+                        company_elem = listing.find('span', class_='company-name') or listing.find('p', class_='company')
+                        company = company_elem.get_text(strip=True) if company_elem else "N/A"
+
+                        link = listing.get('href') if listing.name == 'a' else ""
+                        if not link:
+                            link_elem = listing.find('a', href=True)
+                            link = link_elem.get('href') if link_elem else ""
+
+                        if link and link.startswith('/'):
+                            link = f"https://www.wellfound.com{link}"
+
+                        location_elem = listing.find('span', class_='location')
+                        location = location_elem.get_text(strip=True) if location_elem else "Remote"
+
+                        jobs.append(job("Wellfound", title, company,
+                                        work_type="Remote" if "remote" in location.lower() else "Onsite",
+                                        location=location,
+                                        country="Worldwide",
+                                        job_type="Full-time",
+                                        date=datetime.now().strftime("%Y-%m-%d"),
+                                        url=link))
+                    except Exception as e:
+                        logger.debug(f"Error parsing Wellfound job: {e}")
+                        continue
+
+                time.sleep(2)
+            except Exception as e:
+                logger.warning(f"Wellfound page {page} failed: {e}")
                 break
-            for j in data:
-                startup = j.get("startup") or {}
-                jobs.append(job("AngelList", j.get("title"), startup.get("name", ""),
-                                work_type="Remote" if j.get("remote") else "Onsite",
-                                location=j.get("location", ""),
-                                country=detect_countries(j.get("location", "")),
-                                job_type=norm_job_type(j.get("job_type")),
-                                category=j.get("tag_list", [{}])[0].get("name", "") if j.get("tag_list") else "",
-                                date=j.get("created_at", "")[:10],
-                                url=j.get("angellist_url", ""),
-                                description=j.get("description")))
-            time.sleep(1)
     except Exception as e:
-        logger.warning(f"AngelList: {e}")
+        logger.warning(f"Wellfound scraping failed: {e}")
+
     return jobs
 
 
