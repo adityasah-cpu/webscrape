@@ -10,6 +10,7 @@ Run:
 from flask import Flask, jsonify, request, Response, session, send_file
 from flask_cors import CORS
 from functools import wraps
+import secrets
 import remote_job_scraper as rjs
 import enggroom_scraper
 import hackathon_scraper
@@ -270,9 +271,11 @@ def google_sign_in() -> Any:
         data = request.get_json(silent=True) or {}
         credential = data.get("credential")
         if not credential:
+            logger.warning(f"Auth attempt without credential from {request.remote_addr}")
             return jsonify({"success": False, "error": "No credential provided."}), 400
 
         if not GOOGLE_CLIENT_ID:
+            logger.error("Google Sign-In not configured")
             return jsonify({"success": False, "error": "Google Sign-In is not configured on the server."}), 500
 
         try:
@@ -280,7 +283,7 @@ def google_sign_in() -> Any:
                 credential, google_auth_requests.Request(), GOOGLE_CLIENT_ID
             )
         except ValueError as ve:
-            logger.warning(f"Google Sign-In token verification failed: {ve}")
+            logger.warning(f"Google Sign-In token verification failed: {ve} from {request.remote_addr}")
             return jsonify({"success": False, "error": "Invalid or expired sign-in token."}), 401
 
         user = {
@@ -317,6 +320,37 @@ def google_sign_in() -> Any:
     except Exception as e:
         logger.error(f"Google Sign-In failed: {e}")
         return jsonify({"success": False, "error": "Sign-in failed. Please try again."}), 500
+
+@app.route("/api/auth/csrf-token", methods=["GET"])
+def get_csrf_token() -> Any:
+    """Generate and return a CSRF token for state-changing requests."""
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_hex(32)
+    return jsonify({"csrf_token": session["csrf_token"]})
+
+
+def validate_csrf_token():
+    """Middleware to validate CSRF tokens on POST/DELETE requests."""
+    if request.method in ["POST", "DELETE", "PUT"]:
+        # Skip CSRF check for auth endpoints and file uploads
+        if request.path.startswith("/api/auth/") or request.path.startswith("/api/resources/"):
+            return
+
+        token_from_header = request.headers.get("X-CSRF-Token", "")
+        token_from_session = session.get("csrf_token", "")
+
+        if not token_from_header or token_from_header != token_from_session:
+            logger.warning(f"CSRF token validation failed from {request.remote_addr}")
+            return jsonify({"success": False, "error": "CSRF token validation failed"}), 403
+
+
+@app.before_request
+def before_request():
+    """Run before each request to validate CSRF tokens."""
+    csrf_error = validate_csrf_token()
+    if csrf_error:
+        return csrf_error
+
 
 @app.route("/api/auth/config", methods=["GET"])
 def auth_config() -> Any:
@@ -694,6 +728,11 @@ def init_db() -> bool:
                     cursor.execute(f"ALTER TABLE jobs MODIFY COLUMN country VARCHAR({target_width})")
                     existing_indexes.discard("idx_country")  # recreated below
                 else:
+                    # Validate column_name against whitelist to prevent SQL injection
+                    allowed_columns = {"category", "country", "location", "job_type", "source"}
+                    if column_name not in allowed_columns:
+                        logger.warning(f"Skipping unknown column {column_name}")
+                        continue
                     cursor.execute(f"ALTER TABLE jobs MODIFY COLUMN {column_name} VARCHAR({target_width})")
                 conn.commit()
 

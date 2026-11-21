@@ -3347,7 +3347,7 @@
                     errorMessage = "📄 Resume error: " + e.message;
                 }
 
-                errorEl.innerHTML = `<strong>❌ Error:</strong> ${errorMessage}<br><small style="margin-top:8px; display:block;"><button onclick="document.getElementById('onbUploadBox').style.display='block'; document.getElementById('onbError').style.display='none';" style="background:#667eea; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">Try Again</button></small>`;
+                errorEl.innerHTML = `<strong>❌ Error:</strong> ${escapeHtml(errorMessage)}<br><small style="margin-top:8px; display:block;"><button onclick="document.getElementById('onbUploadBox').style.display='block'; document.getElementById('onbError').style.display='none';" style="background:#667eea; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">Try Again</button></small>`;
                 errorEl.style.display = "block";
             }
         }
