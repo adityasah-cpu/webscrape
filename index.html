@@ -2549,7 +2549,7 @@
                 tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">
                     <div class="empty-icon">🤷</div>
                     <div class="empty-title">No Recommendations</div>
-                    <div class="empty-text">${data.message || "Try fetching more jobs first."}</div>
+                    <div class="empty-text">${escapeHtml(data.message) || "Try fetching more jobs first."}</div>
                 </div></td></tr>`;
                 return;
             }
