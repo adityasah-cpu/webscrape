@@ -68,8 +68,7 @@ CORS(app, origins=cors_origins, allow_headers=['Content-Type'], methods=['GET', 
 # just means everyone gets signed out on restart until a real key is set.
 _flask_secret = os.getenv('FLASK_SECRET_KEY')
 if not _flask_secret:
-    import secrets as _secrets
-    _flask_secret = _secrets.token_hex(32)
+    _flask_secret = secrets.token_hex(32)
     logger.warning(
         "FLASK_SECRET_KEY not set in .env - using a random per-process key. "
         "Every running server restart will sign all users out. Set "
