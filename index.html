@@ -2148,6 +2148,25 @@
         let currentPage = 1;
         const JOBS_PER_PAGE = 50;
         let totalPages = 1;
+        let csrfToken = null;  // CSRF token for security
+
+        // ============ CSRF TOKEN MANAGEMENT ============
+        // Fetch CSRF token from server
+        async function fetchCSRFToken() {
+            try {
+                const response = await fetch(`${API}/auth/csrf-token`);
+                if (response.ok) {
+                    const data = await response.json();
+                    csrfToken = data.csrf_token;
+                    sessionStorage.setItem('csrf_token', csrfToken);
+                    console.log("CSRF token fetched successfully");
+                } else {
+                    console.warn("Failed to fetch CSRF token");
+                }
+            } catch (error) {
+                console.error("Error fetching CSRF token:", error);
+            }
+        }
 
         // XSS Protection: Escape HTML characters to prevent injection attacks
         function escapeHtml(text) {
@@ -2210,6 +2229,16 @@
         async function apiFetch(path, options = {}, timeoutMs = API_TIMEOUT_MS) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+            // Add CSRF token to headers for state-changing requests
+            const method = (options.method || "GET").toUpperCase();
+            if (["POST", "DELETE", "PUT"].includes(method)) {
+                if (!options.headers) options.headers = {};
+                if (csrfToken) {
+                    options.headers["X-CSRF-Token"] = csrfToken;
+                }
+            }
+
             let res;
             try {
                 res = await fetch(`${API}${path}`, { ...options, signal: controller.signal });
@@ -3151,6 +3180,9 @@
 
         async function showApp(user) {
             currentAuthUser = user;
+
+            // Fetch CSRF token for security
+            await fetchCSRFToken();
 
             // Check if user is admin and redirect if so
             if (user && user.email) {
