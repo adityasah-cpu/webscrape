@@ -743,6 +743,8 @@ def init_db() -> bool:
             "idx_work_type": "ALTER TABLE jobs ADD INDEX idx_work_type (work_type)",
             "idx_country": "ALTER TABLE jobs ADD INDEX idx_country (country(100))",
             "idx_owner_email": "ALTER TABLE jobs ADD INDEX idx_owner_email (owner_email)",
+            "idx_category": "ALTER TABLE jobs ADD INDEX idx_category (category(100))",
+            "idx_owner_category": "ALTER TABLE jobs ADD INDEX idx_owner_category (owner_email, category(100))",
         }
         for index_name, alter_sql in expected_indexes.items():
             if index_name not in existing_indexes:
