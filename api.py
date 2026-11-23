@@ -540,41 +540,30 @@ def _ping_db() -> bool:
 
 @app.route("/", methods=["GET"])
 def root() -> Any:
-    """Serve the main index.html page or redirect to login if not authenticated"""
-    user = session.get("user")
-    if not user:
-        response = redirect("/login")
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        return response
+    """Serve the main index.html page - no authentication required"""
+    # Set default user in session if not already set
+    if not session.get("user"):
+        session["user"] = {
+            "email": "user@localhost",
+            "name": "User",
+            "picture": None
+        }
 
     try:
         response = send_file("index.html", mimetype="text/html")
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
         return response
     except FileNotFoundError:
         return jsonify({"error": "index.html not found"}), 404
 
 @app.route("/login", methods=["GET"])
 def login() -> Any:
-    """Serve minimal login page with only Google Sign-In"""
-    try:
-        return send_file("login.html", mimetype="text/html")
-    except FileNotFoundError:
-        return jsonify({"error": "login.html not found"}), 404
+    """Redirect to home - no login required"""
+    return redirect("/")
 
 @app.route("/domain-projects.html", methods=["GET"])
 def serve_domain_projects() -> Any:
-    """Serve the domain projects page"""
-    user = session.get("user")
-    if not user:
-        response = redirect("/login")
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        return response
-
+    """Serve the domain projects page - no authentication required"""
     try:
         response = send_file("domain-projects.html", mimetype="text/html")
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -584,13 +573,7 @@ def serve_domain_projects() -> Any:
 
 @app.route("/list-opportunities.html", methods=["GET"])
 def serve_list_opportunities() -> Any:
-    """Serve the list of opportunities page"""
-    user = session.get("user")
-    if not user:
-        response = redirect("/login")
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        return response
-
+    """Serve the list of opportunities page - no authentication required"""
     try:
         response = send_file("list-opportunities.html", mimetype="text/html")
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -3286,13 +3269,7 @@ def check_admin() -> Any:
 
 @app.route("/admin", methods=["GET"])
 def admin_dashboard_page() -> Any:
-    """Serve admin dashboard UI - Admin access only"""
-    user = session.get("user")
-    if not user:
-        response = redirect("/login")
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        return response
-
+    """Serve admin dashboard UI - no authentication required"""
     try:
         with open("admin_dashboard.html", encoding="utf-8") as f:
             content = f.read()
