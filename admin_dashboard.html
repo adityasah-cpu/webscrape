@@ -859,6 +859,7 @@
 
         // ========== STUDENTS MANAGEMENT ==========
         let allStudents = [];
+        let editingStudentRegNo = null;
 
         async function loadStudents() {
             try {
@@ -919,21 +920,39 @@
             }
 
             try {
-                const response = await fetch('/api/students', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ campus, school, program, reg_no, name, cgpa, backlogs, domain, rating })
-                });
+                let response, url, method;
+                const studentData = { campus, school, program, name, cgpa, backlogs, domain, rating };
+
+                if (editingStudentRegNo) {
+                    // Update existing student
+                    url = `/api/students/${editingStudentRegNo}`;
+                    method = 'PUT';
+                    response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(studentData)
+                    });
+                } else {
+                    // Add new student
+                    url = '/api/students';
+                    method = 'POST';
+                    response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...studentData, reg_no })
+                    });
+                }
+
                 const data = await response.json();
                 if (data.success) {
-                    alert('Student added successfully!');
+                    alert(editingStudentRegNo ? 'Student updated successfully!' : 'Student added successfully!');
                     clearStudentForm();
                     loadStudents();
                 } else {
                     alert('Error: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
-                alert('Error adding student: ' + error.message);
+                alert('Error: ' + error.message);
             }
         }
 
@@ -954,23 +973,29 @@
         function editStudent(reg_no) {
             const student = allStudents.find(s => s.reg_no === reg_no);
             if (student) {
+                editingStudentRegNo = reg_no;
                 document.getElementById('studentCampus').value = student.campus || '';
                 document.getElementById('studentSchool').value = student.school || '';
                 document.getElementById('studentProgram').value = student.program || '';
                 document.getElementById('studentRegNo').value = student.reg_no || '';
+                document.getElementById('studentRegNo').disabled = true;
                 document.getElementById('studentName').value = student.name || '';
                 document.getElementById('studentCGPA').value = student.cgpa || '';
                 document.getElementById('studentBacklogs').value = student.backlogs || '';
                 document.getElementById('studentDomain').value = student.domain || '';
                 document.getElementById('studentRating').value = student.rating || '';
+                // Scroll to form
+                document.getElementById('studentName').parentElement.parentElement.parentElement.scrollIntoView({ behavior: 'smooth' });
             }
         }
 
         function clearStudentForm() {
+            editingStudentRegNo = null;
             document.getElementById('studentCampus').value = '';
             document.getElementById('studentSchool').value = '';
             document.getElementById('studentProgram').value = '';
             document.getElementById('studentRegNo').value = '';
+            document.getElementById('studentRegNo').disabled = false;
             document.getElementById('studentName').value = '';
             document.getElementById('studentCGPA').value = '';
             document.getElementById('studentBacklogs').value = '';
@@ -1051,6 +1076,7 @@
 
         // ========== PROJECTS MANAGEMENT ==========
         let allProjects = [];
+        let editingProjectId = null;
 
         async function loadProjects() {
             try {
@@ -1107,21 +1133,39 @@
             }
 
             try {
-                const response = await fetch('/api/projects', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, description, comments_details, category, mentor1, mentor2, mentor3 })
-                });
+                let response, url, method;
+                const projectData = { title, description, comments_details, category, mentor1, mentor2, mentor3 };
+
+                if (editingProjectId) {
+                    // Update existing project
+                    url = `/api/projects/${editingProjectId}`;
+                    method = 'PUT';
+                    response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(projectData)
+                    });
+                } else {
+                    // Add new project
+                    url = '/api/projects';
+                    method = 'POST';
+                    response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(projectData)
+                    });
+                }
+
                 const data = await response.json();
                 if (data.success) {
-                    alert('Project added successfully!');
+                    alert(editingProjectId ? 'Project updated successfully!' : 'Project added successfully!');
                     clearProjectForm();
                     loadProjects();
                 } else {
                     alert('Error: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
-                alert('Error adding project: ' + error.message);
+                alert('Error: ' + error.message);
             }
         }
 
@@ -1142,6 +1186,7 @@
         function editProject(id) {
             const project = allProjects.find(p => p.id === id);
             if (project) {
+                editingProjectId = id;
                 document.getElementById('projectTitle').value = project.title || '';
                 document.getElementById('projectCategory').value = project.category || '';
                 document.getElementById('projectDesc').value = project.description || '';
@@ -1149,10 +1194,13 @@
                 document.getElementById('projectMentor1').value = project.mentor1 || '';
                 document.getElementById('projectMentor2').value = project.mentor2 || '';
                 document.getElementById('projectMentor3').value = project.mentor3 || '';
+                // Scroll to form
+                document.getElementById('projectTitle').parentElement.parentElement.parentElement.scrollIntoView({ behavior: 'smooth' });
             }
         }
 
         function clearProjectForm() {
+            editingProjectId = null;
             document.getElementById('projectTitle').value = '';
             document.getElementById('projectCategory').value = '';
             document.getElementById('projectDesc').value = '';

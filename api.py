@@ -640,16 +640,28 @@ def manage_students() -> Any:
         cursor.close()
         conn.close()
 
-@app.route("/api/students/<reg_no>", methods=["DELETE"])
-def delete_student(reg_no: str) -> Any:
-    """Delete a student"""
+@app.route("/api/students/<reg_no>", methods=["DELETE", "PUT"])
+def delete_or_update_student(reg_no: str) -> Any:
+    """Delete or update a student"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor()
 
     try:
-        cursor.execute("DELETE FROM admin_students WHERE reg_no = %s", (reg_no,))
-        conn.commit()
-        return jsonify({"success": True, "message": "Student deleted"})
+        if request.method == "DELETE":
+            cursor.execute("DELETE FROM admin_students WHERE reg_no = %s", (reg_no,))
+            conn.commit()
+            return jsonify({"success": True, "message": "Student deleted"})
+
+        elif request.method == "PUT":
+            data = request.get_json()
+            cursor.execute(
+                "UPDATE admin_students SET campus=%s, school=%s, program=%s, name=%s, cgpa=%s, backlogs=%s, domain=%s, rating=%s WHERE reg_no=%s",
+                (data.get("campus"), data.get("school"), data.get("program"), data.get("name"),
+                 data.get("cgpa"), data.get("backlogs"), data.get("domain"), data.get("rating"), reg_no)
+            )
+            conn.commit()
+            return jsonify({"success": True, "message": "Student updated"})
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
     finally:
@@ -753,16 +765,28 @@ def manage_projects() -> Any:
         cursor.close()
         conn.close()
 
-@app.route("/api/projects/<int:project_id>", methods=["DELETE"])
-def delete_project(project_id: int) -> Any:
-    """Delete a project"""
+@app.route("/api/projects/<int:project_id>", methods=["DELETE", "PUT"])
+def delete_or_update_project(project_id: int) -> Any:
+    """Delete or update a project"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor()
 
     try:
-        cursor.execute("DELETE FROM admin_projects WHERE id = %s", (project_id,))
-        conn.commit()
-        return jsonify({"success": True, "message": "Project deleted"})
+        if request.method == "DELETE":
+            cursor.execute("DELETE FROM admin_projects WHERE id = %s", (project_id,))
+            conn.commit()
+            return jsonify({"success": True, "message": "Project deleted"})
+
+        elif request.method == "PUT":
+            data = request.get_json()
+            cursor.execute(
+                "UPDATE admin_projects SET title=%s, description=%s, comments_details=%s, category=%s, mentor1=%s, mentor2=%s, mentor3=%s WHERE id=%s",
+                (data.get("title"), data.get("description"), data.get("comments_details"), data.get("category"),
+                 data.get("mentor1"), data.get("mentor2"), data.get("mentor3"), project_id)
+            )
+            conn.commit()
+            return jsonify({"success": True, "message": "Project updated"})
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
     finally:
