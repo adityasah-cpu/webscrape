@@ -359,16 +359,8 @@ def auth_me() -> Any:
     would be impossible if this endpoint itself required being signed in."""
     user = session.get("user")
 
-    # Development mode: if GOOGLE_CLIENT_ID not configured, always return dev user
-    if not GOOGLE_CLIENT_ID:
-        user = {
-            "email": "dev@localhost",
-            "name": "Developer",
-            "picture": None,
-            "location": "Vizianagaram"  # Default location for dev
-        }
-        session["user"] = user
-        track_user_session("Vizianagaram")  # Track dev user sessions
+    # Only return user if they are actually authenticated
+    # Don't auto-create dev user in production or when Google auth is configured
 
     # Track user session when they check auth
     if user:
