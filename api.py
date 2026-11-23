@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 import threading
 import time
 import os
+import sys
 import mysql.connector
 import requests
 from mysql.connector import Error
@@ -3627,6 +3628,148 @@ if __name__ == "__main__":
     # threaded=True: with 17 selectable scraper sources (several doing
     # multi-page pagination with time.sleep(1) between pages), a single
     # /api/fetch call can now take minutes. Werkzeug's dev server is
+# ============ OPPORTUNITIES & CONSULTANCIES ============
+OPPORTUNITIES = [
+    {
+        "id": 1,
+        "title": "Remote Sensing Scientist",
+        "company": "Commodities Research Firm",
+        "type": "Full-time",
+        "location": "Remote (Global)",
+        "salary": "$80K - $120K",
+        "description": "PhD with machine learning skills to model and forecast commodity crop production globally. Covers crop mapping with optical and microwave data. Occasional travel to South America and West Africa for ground truthing.",
+        "skills": ["Python", "Machine Learning", "Remote Sensing", "GDAL", "Satellite Data"],
+        "experience": "PhD required",
+        "url": "https://loxopangeo.com/jobs",
+        "category": "Remote Sensing",
+        "source": "LoxoPanGeo",
+        "posted_date": "2026-11-20"
+    },
+    {
+        "id": 2,
+        "title": "Remote Sensing Data Scientist",
+        "company": "Syngenta",
+        "type": "Full-time",
+        "location": "Remote (USA)",
+        "salary": "$104.8K - $131K",
+        "description": "Uses geospatial data to speed up seed breeding programs. Work with optical and microwave satellite data for precision agriculture.",
+        "skills": ["Python", "Geospatial Analysis", "Remote Sensing", "Machine Learning", "AWS/GCP"],
+        "experience": "2-4 years experience",
+        "url": "https://remotivetech.com/jobs",
+        "category": "Remote Sensing",
+        "source": "Remotive",
+        "posted_date": "2026-11-18"
+    },
+    {
+        "id": 3,
+        "title": "Remote Sensing Data Scientist (MS/PhD)",
+        "company": "Corteva Agriscience",
+        "type": "Full-time",
+        "location": "Remote",
+        "salary": "Competitive",
+        "description": "Satellite remote sensing for agriculture, working alongside crop scientists, agronomists and breeders.",
+        "skills": ["Remote Sensing", "Python", "GDAL", "Rasterio", "GeoPandas"],
+        "experience": "MS/PhD required",
+        "url": "https://terra.do/jobs",
+        "category": "Agriculture Tech",
+        "source": "Terra.do",
+        "posted_date": "2026-11-19"
+    },
+    {
+        "id": 4,
+        "title": "Senior Geospatial Data Scientist",
+        "company": "Various Companies",
+        "type": "12-month Fixed Contract",
+        "location": "Globally Remote",
+        "salary": "Contract-based",
+        "description": "Fixed-term contract for geospatial data science and analysis work. Great for consultancies and specialized projects.",
+        "skills": ["Geospatial Analysis", "Python", "GIS", "Data Science", "Machine Learning"],
+        "experience": "5+ years",
+        "url": "https://climatebase.org/jobs",
+        "category": "Geospatial",
+        "source": "Climatebase",
+        "posted_date": "2026-08-20"
+    },
+    {
+        "id": 5,
+        "title": "Geospatial Data Engineer",
+        "company": "Digital Agriculture Solutions",
+        "type": "Full-time",
+        "location": "Remote",
+        "salary": "$70K - $110K",
+        "description": "Turns Earth observation data into production analytics and machine learning products for agricultural applications.",
+        "skills": ["Python", "Data Engineering", "GIS", "Cloud Platforms", "GDAL"],
+        "experience": "5+ years",
+        "url": "https://virtualvocations.com/jobs",
+        "category": "Data Engineering",
+        "source": "Virtual Vocations",
+        "posted_date": "2026-11-15"
+    },
+    {
+        "id": 6,
+        "title": "GIS & Remote Sensing Officer",
+        "company": "IRRI (International Rice Research Institute)",
+        "type": "Full-time",
+        "location": "Remote (India-based)",
+        "salary": "Research Institute Scale",
+        "description": "Using SAR, thermal and multispectral data to map rice cropping systems. Great for research-oriented professionals and faculty consultancies.",
+        "skills": ["GIS", "Remote Sensing", "SAR Data", "Python", "QGIS"],
+        "experience": "Bachelor's degree + 2-4 years",
+        "url": "https://impactpool.org/jobs",
+        "category": "Research",
+        "source": "ImpactPool",
+        "posted_date": "2026-11-01"
+    },
+    {
+        "id": 7,
+        "title": "Remote Sensing Consultant",
+        "company": "HabiTerre",
+        "type": "Contract/Consultancy",
+        "location": "Remote",
+        "salary": "Project-based",
+        "description": "Builds large-scale remote sensing pipelines for agricultural monitoring on cloud platforms. Flexible contract and consultancy opportunities.",
+        "skills": ["Remote Sensing", "Cloud Platforms", "Python", "Data Processing"],
+        "experience": "3+ years",
+        "url": "https://habitterre.com/consultants",
+        "category": "Consultancy",
+        "source": "HabiTerre",
+        "posted_date": "2026-10-15"
+    }
+]
+
+@app.route("/api/opportunities", methods=["GET"])
+def get_opportunities():
+    """Get all consultancies and remote opportunities"""
+    try:
+        category = request.args.get('category')
+
+        if category:
+            filtered = [opp for opp in OPPORTUNITIES if opp['category'].lower() == category.lower()]
+            return jsonify({"success": True, "opportunities": filtered, "total": len(filtered)})
+
+        return jsonify({"success": True, "opportunities": OPPORTUNITIES, "total": len(OPPORTUNITIES)})
+    except Exception as e:
+        logger.error(f"Failed to get opportunities: {e}")
+        return jsonify({"success": False, "error": "Failed to load opportunities"}), 500
+
+@app.route("/api/opportunities/<int:opp_id>", methods=["GET"])
+def get_opportunity(opp_id):
+    """Get specific opportunity details"""
+    try:
+        opp = next((o for o in OPPORTUNITIES if o['id'] == opp_id), None)
+        if not opp:
+            return jsonify({"success": False, "error": "Opportunity not found"}), 404
+        return jsonify({"success": True, "opportunity": opp})
+    except Exception as e:
+        logger.error(f"Failed to get opportunity: {e}")
+        return jsonify({"success": False, "error": "Failed to load opportunity"}), 500
+
+if __name__ == "__main__":
+    # Initialize database
+    if not init_db():
+        logger.error("Failed to initialize database")
+        sys.exit(1)
+
     # single-threaded by default, which would freeze the ENTIRE app -
     # every other endpoint, even the static page - for that whole
     # duration. Safe to enable here since the one piece of shared
