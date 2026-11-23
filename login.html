@@ -155,23 +155,32 @@
             try {
                 const response = await fetch('/api/auth/config');
                 const data = await response.json();
-                
+
                 if (!data.google_client_id) {
-                    throw new Error("Google Sign-In library failed to load");
+                    // Dev mode: no Google Client ID configured, auto-login
+                    console.log('Dev mode detected, auto-logging in...');
+                    document.querySelector('.subtitle').textContent = 'Loading...';
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                    return;
                 }
 
                 google.accounts.id.initialize({
                     client_id: data.google_client_id,
                     callback: handleGoogleCredentialResponse,
                 });
-                
+
                 google.accounts.id.renderButton(
                     document.getElementById("googleSignInButton"),
                     { theme: "outline", size: "large", shape: "pill", width: "300" }
                 );
             } catch (error) {
-                console.error('Error initializing Google Sign-In:', error);
-                document.querySelector('.subtitle').textContent = 'Error loading Google Sign-In. Please refresh the page.';
+                console.error('Error initializing Sign-In:', error);
+                document.querySelector('.subtitle').textContent = 'Loading...';
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1000);
             }
         }
 
