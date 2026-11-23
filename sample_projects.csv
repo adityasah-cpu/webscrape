@@ -1,0 +1,6 @@
+ID,Title,Description,Comments / Details,Category,Mentor 1,Mentor 2,Mentor 3
+1,E-Commerce Platform Development,Build a full-stack e-commerce platform with payment integration,Frontend: React, Backend: Node.js, Database: PostgreSQL,Web Development,Dr. John Smith,Sarah Johnson,Mike Chen
+2,Machine Learning Model for Fraud Detection,Develop ML model to detect fraudulent transactions,Use Python, scikit-learn, and TensorFlow,Machine Learning,Prof. Lisa Wang,Dr. David Kumar,
+3,Mobile App for Task Management,Cross-platform mobile app for personal task management,React Native, Firebase, Redux,Mobile Development,Emily Davis,,
+4,Cloud Infrastructure Setup,Deploy and manage cloud infrastructure,AWS/Azure/GCP,Cloud Computing,Alex Thompson,Rebecca Lee,
+5,Blockchain Voting System,Secure voting using blockchain,Ethereum Smart Contracts,Blockchain,Dr. James Wilson,Kate Martinez,
