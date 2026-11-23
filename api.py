@@ -554,10 +554,18 @@ def root() -> Any:
     """Serve the main index.html page or redirect to login if not authenticated"""
     user = session.get("user")
     if not user:
-        return redirect("/login")
+        response = redirect("/login")
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
 
     try:
-        return send_file("index.html", mimetype="text/html")
+        response = send_file("index.html", mimetype="text/html")
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     except FileNotFoundError:
         return jsonify({"error": "index.html not found"}), 404
 
@@ -574,10 +582,14 @@ def serve_domain_projects() -> Any:
     """Serve the domain projects page"""
     user = session.get("user")
     if not user:
-        return redirect("/login")
+        response = redirect("/login")
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return response
 
     try:
-        return send_file("domain-projects.html", mimetype="text/html")
+        response = send_file("domain-projects.html", mimetype="text/html")
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return response
     except FileNotFoundError:
         return jsonify({"error": "domain-projects.html not found"}), 404
 
@@ -586,10 +598,14 @@ def serve_list_opportunities() -> Any:
     """Serve the list of opportunities page"""
     user = session.get("user")
     if not user:
-        return redirect("/login")
+        response = redirect("/login")
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return response
 
     try:
-        return send_file("list-opportunities.html", mimetype="text/html")
+        response = send_file("list-opportunities.html", mimetype="text/html")
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return response
     except FileNotFoundError:
         return jsonify({"error": "list-opportunities.html not found"}), 404
 
@@ -3284,13 +3300,15 @@ def admin_dashboard_page() -> Any:
     """Serve admin dashboard UI - Admin access only"""
     user = session.get("user")
     if not user:
-        return redirect("/login")
+        response = redirect("/login")
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return response
 
     try:
         with open("admin_dashboard.html", encoding="utf-8") as f:
             content = f.read()
         logger.info("Admin dashboard accessed")
-        return content, 200, {"Content-Type": "text/html"}
+        return content, 200, {"Content-Type": "text/html", "Cache-Control": "no-cache, no-store, must-revalidate"}
     except FileNotFoundError:
         logger.error("admin_dashboard.html not found")
         return "Error: admin_dashboard.html not found", 404
