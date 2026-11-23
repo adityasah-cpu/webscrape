@@ -1675,7 +1675,6 @@
                 <div style="flex:1; min-width:0;">
                     <div id="userName" style="font-size:12.5px; font-weight:700; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
                 </div>
-                <button onclick="signOut()" title="Sign out" style="background:none; border:none; cursor:pointer; font-size:14px; color:var(--text-tertiary); padding:4px;">⏻</button>
             </div>
 
             <div class="sidebar-section-title">🌍 Remote-only Boards</div>
@@ -1831,6 +1830,9 @@
                     </button>
                     <button class="export-btn" id="adminLink" onclick="goToAdminDashboard()" title="View admin dashboard" style="display:none; background-color:#ff6b6b;">
                         🔐 ADMIN
+                    </button>
+                    <button class="export-btn" onclick="handleLogout()" title="Logout" style="background-color:#ef4444;">
+                        🚪 LOGOUT
                     </button>
                 </div>
             </div>
@@ -3145,6 +3147,11 @@
 
         function goToAdminDashboard() {
             window.location.href = "/admin";
+        }
+
+        async function handleLogout() {
+            await signOut();
+            window.location.href = "/login";
         }
 
         window.onclick = function(event) {
