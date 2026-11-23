@@ -567,6 +567,45 @@ def root() -> Any:
     except FileNotFoundError:
         return jsonify({"error": "index.html not found"}), 404
 
+@app.route("/domain-projects.html", methods=["GET"])
+def serve_domain_projects() -> Any:
+    """Serve the domain projects page"""
+    try:
+        return send_file("domain-projects.html", mimetype="text/html")
+    except FileNotFoundError:
+        return jsonify({"error": "domain-projects.html not found"}), 404
+
+@app.route("/list-opportunities.html", methods=["GET"])
+def serve_list_opportunities() -> Any:
+    """Serve the list of opportunities page"""
+    try:
+        return send_file("list-opportunities.html", mimetype="text/html")
+    except FileNotFoundError:
+        return jsonify({"error": "list-opportunities.html not found"}), 404
+
+@app.route("/USER_GUIDE.html", methods=["GET"])
+def serve_user_guide() -> Any:
+    """Serve the user guide page"""
+    try:
+        return send_file("USER_GUIDE.html", mimetype="text/html")
+    except FileNotFoundError:
+        return jsonify({"error": "USER_GUIDE.html not found"}), 404
+
+@app.route("/favicon.ico", methods=["GET"])
+def favicon() -> Any:
+    """Serve favicon"""
+    favicon_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#0284c7;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1e40af;stop-opacity:1" />
+        </linearGradient>
+    </defs>
+    <rect fill="url(#grad)" width="100" height="100" rx="20"/>
+    <text x="50" y="65" font-size="60" font-weight="700" fill="white" text-anchor="middle">J</text>
+</svg>'''
+    return Response(favicon_svg, mimetype="image/svg+xml")
+
 @app.route("/api/health", methods=["GET"])
 def health() -> Any:
     """Unauthenticated liveness/readiness probe. Returns 200 when the app
