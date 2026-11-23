@@ -7,7 +7,7 @@ Run:
     Then open http://localhost:5000 in browser
 """
 
-from flask import Flask, jsonify, request, Response, session, send_file
+from flask import Flask, jsonify, request, Response, session, send_file, redirect
 from flask_cors import CORS
 from functools import wraps
 import secrets
@@ -558,7 +558,11 @@ def _ping_db() -> bool:
 
 @app.route("/", methods=["GET"])
 def root() -> Any:
-    """Serve the main index.html page"""
+    """Serve the main index.html page or redirect to login if not authenticated"""
+    user = session.get("user")
+    if not user:
+        return redirect("/login")
+
     try:
         return send_file("index.html", mimetype="text/html")
     except FileNotFoundError:
@@ -575,6 +579,10 @@ def login() -> Any:
 @app.route("/domain-projects.html", methods=["GET"])
 def serve_domain_projects() -> Any:
     """Serve the domain projects page"""
+    user = session.get("user")
+    if not user:
+        return redirect("/login")
+
     try:
         return send_file("domain-projects.html", mimetype="text/html")
     except FileNotFoundError:
@@ -583,6 +591,10 @@ def serve_domain_projects() -> Any:
 @app.route("/list-opportunities.html", methods=["GET"])
 def serve_list_opportunities() -> Any:
     """Serve the list of opportunities page"""
+    user = session.get("user")
+    if not user:
+        return redirect("/login")
+
     try:
         return send_file("list-opportunities.html", mimetype="text/html")
     except FileNotFoundError:
@@ -3276,7 +3288,11 @@ def check_admin() -> Any:
 
 @app.route("/admin", methods=["GET"])
 def admin_dashboard_page() -> Any:
-    """Serve admin dashboard UI - Public access"""
+    """Serve admin dashboard UI - Admin access only"""
+    user = session.get("user")
+    if not user:
+        return redirect("/login")
+
     try:
         with open("admin_dashboard.html", encoding="utf-8") as f:
             content = f.read()
