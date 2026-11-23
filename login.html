@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Portal - Sign In</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 48px 40px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 48px;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            font-size: 28px;
+            color: #1f2937;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 16px;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        #googleSignInButton {
+            margin: 24px auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .divider {
+            margin: 24px 0;
+            color: #d1d5db;
+            font-size: 14px;
+        }
+
+        .signin-info {
+            background: #f3f4f6;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 24px;
+            font-size: 13px;
+            color: #4b5563;
+            line-height: 1.6;
+        }
+
+        .signin-info strong {
+            color: #1f2937;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: linear-gradient(135deg, #1e3a8a 0%, #312e81 100%);
+            }
+
+            .login-container {
+                background: #1f2937;
+            }
+
+            h1 {
+                color: #f9fafb;
+            }
+
+            .subtitle {
+                color: #d1d5db;
+            }
+
+            .signin-info {
+                background: #111827;
+                color: #b4bcd0;
+            }
+
+            .signin-info strong {
+                color: #f9fafb;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">🎓</div>
+        <h1>Job Portal</h1>
+        <p class="subtitle">Sign in with your Google account to continue</p>
+        
+        <div id="googleSignInButton"></div>
+        
+        <div class="signin-info">
+            <strong>🔒 Secure Login</strong><br>
+            Sign in securely with your Google account. No password needed.
+        </div>
+    </div>
+
+    <script>
+        async function handleGoogleCredentialResponse(response) {
+            const token = response.credential;
+            
+            try {
+                const result = await fetch('/api/auth/google', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: token })
+                });
+                
+                const data = await result.json();
+                if (data.success) {
+                    // Redirect to home page after successful login
+                    window.location.href = '/';
+                } else {
+                    alert('Login failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Login error: ' + error.message);
+            }
+        }
+
+        async function initializeSignIn() {
+            try {
+                const response = await fetch('/api/auth/config');
+                const data = await response.json();
+                
+                if (!data.google_client_id) {
+                    throw new Error("Google Sign-In library failed to load");
+                }
+
+                google.accounts.id.initialize({
+                    client_id: data.google_client_id,
+                    callback: handleGoogleCredentialResponse,
+                });
+                
+                google.accounts.id.renderButton(
+                    document.getElementById("googleSignInButton"),
+                    { theme: "outline", size: "large", shape: "pill", width: "300" }
+                );
+            } catch (error) {
+                console.error('Error initializing Google Sign-In:', error);
+                document.querySelector('.subtitle').textContent = 'Error loading Google Sign-In. Please refresh the page.';
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', initializeSignIn);
+    </script>
+</body>
+</html>
