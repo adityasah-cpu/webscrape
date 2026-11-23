@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Job Portal - Sign In</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Centurion Nextgen Novagig - Sign In</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * {
@@ -14,12 +14,13 @@
         }
 
         body {
-            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 20px;
         }
 
         .login-container {
@@ -27,27 +28,30 @@
             border-radius: 16px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 48px 40px;
-            max-width: 400px;
-            width: 90%;
+            max-width: 420px;
+            width: 100%;
             text-align: center;
         }
 
-        .logo {
-            margin-bottom: 24px;
+        .logo-container {
+            margin-bottom: 32px;
         }
 
-        .logo img {
-            width: 80px;
-            height: 80px;
+        .logo {
+            width: 100px;
+            height: 100px;
             border-radius: 12px;
             object-fit: cover;
+            margin: 0 auto;
+            display: block;
         }
 
         h1 {
             font-size: 28px;
             color: #1f2937;
             margin-bottom: 12px;
-            font-weight: 700;
+            font-weight: 800;
+            margin-top: 20px;
         }
 
         .subtitle {
@@ -58,18 +62,12 @@
         }
 
         #googleSignInButton {
-            margin: 24px auto;
+            margin: 24px 0;
             display: flex;
             justify-content: center;
         }
 
-        .divider {
-            margin: 24px 0;
-            color: #d1d5db;
-            font-size: 14px;
-        }
-
-        .signin-info {
+        .info-box {
             background: #f3f4f6;
             border-radius: 12px;
             padding: 16px;
@@ -79,17 +77,47 @@
             line-height: 1.6;
         }
 
-        .signin-info strong {
+        .info-box strong {
             color: #1f2937;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+            font-size: 14px;
         }
 
         @media (prefers-color-scheme: dark) {
-            body {
-                background: linear-gradient(135deg, #1e3a8a 0%, #312e81 100%);
-            }
-
             .login-container {
                 background: #1f2937;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
             }
 
             h1 {
@@ -100,12 +128,12 @@
                 color: #d1d5db;
             }
 
-            .signin-info {
+            .info-box {
                 background: #111827;
                 color: #b4bcd0;
             }
 
-            .signin-info strong {
+            .info-box strong {
                 color: #f9fafb;
             }
         }
@@ -113,70 +141,102 @@
 </head>
 <body>
     <div class="login-container">
-        <div class="logo">
-            <img src="/static/centurion-logo.png" alt="Centurion Logo">
+        <div class="logo-container">
+            <img src="/static/centurion-logo.png" alt="Centurion Logo" class="logo">
         </div>
+
         <h1>Centurion Nextgen Novagig</h1>
         <p class="subtitle">Sign in with your Google account to continue</p>
-        
+
+        <div class="error" id="errorBox"></div>
+
         <div id="googleSignInButton"></div>
-        
-        <div class="signin-info">
-            <strong>🔒 Secure Login</strong><br>
-            Sign in securely with your Google account. No password needed.
+
+        <div class="loading" id="loadingBox">
+            <div class="loading-spinner"></div>
+            <p>Signing in...</p>
+        </div>
+
+        <div class="info-box">
+            <strong>🔒 Secure Login</strong>
+            Sign in securely using your Google account. We never store your password.
         </div>
     </div>
 
     <script>
-        async function handleGoogleCredentialResponse(response) {
-            const token = response.credential;
-            
-            try {
-                const result = await fetch('/api/auth/google', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: token })
-                });
-                
-                const data = await result.json();
+        const API_URL = '/';
+        const errorBox = document.getElementById('errorBox');
+        const loadingBox = document.getElementById('loadingBox');
+        const signInButton = document.getElementById('googleSignInButton');
+
+        // Handle Google credential response
+        function handleCredentialResponse(response) {
+            loadingBox.style.display = 'block';
+            signInButton.style.display = 'none';
+            errorBox.style.display = 'none';
+
+            // Send token to backend
+            fetch('/api/auth/google', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    credential: response.credential
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
                 if (data.success) {
-                    // Redirect to home page after successful login
-                    window.location.href = '/';
+                    console.log('✅ Login successful:', data.user);
+                    // Redirect to home page after short delay
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 500);
                 } else {
-                    alert('Login failed: ' + (data.error || 'Unknown error'));
+                    throw new Error(data.error || 'Login failed');
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Login error: ' + error.message);
-            }
+            })
+            .catch(error => {
+                console.error('❌ Login error:', error);
+                loadingBox.style.display = 'none';
+                signInButton.style.display = 'block';
+                errorBox.style.display = 'block';
+                errorBox.textContent = error.message || 'Failed to sign in. Please try again.';
+            });
         }
 
-        async function initializeSignIn() {
-            try {
-                const response = await fetch('/api/auth/config');
-                const data = await response.json();
+        // Initialize Google Sign-In
+        window.onload = function() {
+            fetch('/api/auth/config')
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.google_client_id) {
+                        throw new Error('Google Sign-In not configured');
+                    }
 
-                if (!data.google_client_id) {
-                    throw new Error("Google Sign-In not configured");
-                }
+                    google.accounts.id.initialize({
+                        client_id: data.google_client_id,
+                        callback: handleCredentialResponse,
+                        auto_select: false,
+                    });
 
-                google.accounts.id.initialize({
-                    client_id: data.google_client_id,
-                    callback: handleGoogleCredentialResponse,
+                    google.accounts.id.renderButton(
+                        document.getElementById('googleSignInButton'),
+                        {
+                            theme: 'outline',
+                            size: 'large',
+                            shape: 'pill',
+                            width: '300'
+                        }
+                    );
+                })
+                .catch(error => {
+                    console.error('❌ Failed to initialize Google Sign-In:', error);
+                    errorBox.style.display = 'block';
+                    errorBox.textContent = 'Failed to load Google Sign-In. Please refresh the page.';
                 });
-
-                google.accounts.id.renderButton(
-                    document.getElementById("googleSignInButton"),
-                    { theme: "outline", size: "large", shape: "pill", width: "300" }
-                );
-            } catch (error) {
-                console.error('Error initializing Google Sign-In:', error);
-                document.querySelector('.subtitle').textContent = 'Error loading Google Sign-In. Please refresh the page.';
-            }
-        }
-
-        // Initialize when page loads
-        window.addEventListener('load', initializeSignIn);
+        };
     </script>
 </body>
 </html>
