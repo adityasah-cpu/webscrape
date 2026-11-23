@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domain Projects - Job Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .nav-buttons a, .nav-buttons button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+
+        .nav-buttons a:hover, .nav-buttons button:hover {
+            background: #764ba2;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-btn {
+            padding: 12px 25px;
+            background: #f0f0f0;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filters label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .filters select, .filters input {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .project-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            border-left: 4px solid #667eea;
+        }
+
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .project-card h3 {
+            color: #667eea;
+            font-size: 1.4em;
+            margin-bottom: 10px;
+        }
+
+        .project-card .domain {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            margin-bottom: 15px;
+        }
+
+        .project-info {
+            color: #666;
+            margin: 10px 0;
+            font-size: 0.95em;
+        }
+
+        .project-info strong {
+            color: #333;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #764ba2;
+        }
+
+        .btn-secondary {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #27ae60;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        .form-section {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .form-section h2 {
+            color: #667eea;
+            margin-bottom: 25px;
+        }
+
+        .success-message {
+            background: #d5f4e6;
+            color: #27ae60;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #27ae60;
+        }
+
+        .error-message {
+            background: #fadbd8;
+            color: #c0392b;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c0392b;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            overflow: auto;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .modal h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .confirmation-details {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .confirmation-details p {
+            margin: 10px 0;
+        }
+
+        .confirmation-details strong {
+            color: #667eea;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 10px;
+            color: #999;
+        }
+
+        .group-info {
+            background: #e8f5e9;
+            border: 2px solid #27ae60;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .group-id {
+            font-size: 2em;
+            font-weight: bold;
+            color: #27ae60;
+            font-family: monospace;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .copy-btn {
+            background: #27ae60;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .copy-btn:hover {
+            background: #229954;
+        }
+
+        @media (max-width: 768px) {
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .tab-buttons {
+                flex-direction: column;
+            }
+
+            .tab-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎓 Domain Projects</h1>
+            <p>Join or create teams for exciting domain-based projects. Collaborate with peers and build real-world solutions.</p>
+            <div class="nav-buttons">
+                <a href="/">← Back to Home</a>
+                <button onclick="location.reload()">🔄 Refresh</button>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-buttons">
+            <button class="tab-btn active" onclick="switchTab('browse')">📚 Browse Projects</button>
+            <button class="tab-btn" onclick="switchTab('create')">➕ Create Group</button>
+            <button class="tab-btn" onclick="switchTab('join')">👥 Join Group</button>
+            <button class="tab-btn" onclick="switchTab('myGroups')">📋 My Groups</button>
+        </div>
+
+        <!-- Tab 1: Browse Projects -->
+        <div id="browse" class="tab-content active">
+            <div class="filters">
+                <label for="domainFilter">Filter by Domain:</label>
+                <select id="domainFilter" onchange="filterProjects()">
+                    <option value="">All Domains</option>
+                    <option value="Web Development">Web Development</option>
+                    <option value="Mobile Development">Mobile Development</option>
+                    <option value="Machine Learning">Machine Learning</option>
+                    <option value="Data Science">Data Science</option>
+                    <option value="Cloud Computing">Cloud Computing</option>
+                    <option value="Cybersecurity">Cybersecurity</option>
+                </select>
+
+                <input type="text" id="searchInput" placeholder="Search projects..." onkeyup="filterProjects()">
+            </div>
+
+            <div id="projectsGrid" class="projects-grid">
+                <div class="loading">Loading projects...</div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Create Group -->
+        <div id="create" class="tab-content">
+            <div class="form-section">
+                <h2>Create a New Group</h2>
+                <div id="createMessage"></div>
+
+                <div class="form-group">
+                    <label for="leadName">Your Name (Lead Student)</label>
+                    <input type="text" id="leadName" placeholder="Enter your full name" maxlength="50">
+                </div>
+
+                <div class="form-group">
+                    <label for="leadEmail">Your Email</label>
+                    <input type="email" id="leadEmail" placeholder="Enter your email">
+                </div>
+
+                <div class="form-group">
+                    <label for="projectSelect">Select Project</label>
+                    <select id="projectSelect">
+                        <option value="">-- Choose a project --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="groupDescription">Group Description</label>
+                    <input type="text" id="groupDescription" placeholder="Describe your group's goals (optional)">
+                </div>
+
+                <button class="btn btn-primary" onclick="createGroup()" style="width: 100%;">Create Group & Get ID</button>
+            </div>
+        </div>
+
+        <!-- Tab 3: Join Group -->
+        <div id="join" class="tab-content">
+            <div class="form-section">
+                <h2>Join Existing Group</h2>
+                <div id="joinMessage"></div>
+
+                <div class="form-group">
+                    <label for="memberName">Your Name</label>
+                    <input type="text" id="memberName" placeholder="Enter your full name" maxlength="50">
+                </div>
+
+                <div class="form-group">
+                    <label for="memberEmail">Your Email</label>
+                    <input type="email" id="memberEmail" placeholder="Enter your email">
+                </div>
+
+                <div class="form-group">
+                    <label for="groupIdInput">Group ID</label>
+                    <input type="text" id="groupIdInput" placeholder="Enter group ID (e.g., ADIT2024KX)" maxlength="20" style="text-transform: uppercase;">
+                </div>
+
+                <button class="btn btn-secondary" onclick="verifyAndJoinGroup()" style="width: 100%;">Join Group</button>
+            </div>
+        </div>
+
+        <!-- Tab 4: My Groups -->
+        <div id="myGroups" class="tab-content">
+            <div id="myGroupsList" class="projects-grid">
+                <div class="loading">Loading your groups...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeConfirmModal()">&times;</span>
+            <h2>Confirm Group Join</h2>
+            <div class="confirmation-details">
+                <p><strong>Team Lead:</strong> <span id="confirmLeadName"></span></p>
+                <p><strong>Project:</strong> <span id="confirmProjectName"></span></p>
+                <p><strong>Domain:</strong> <span id="confirmDomain"></span></p>
+                <p><strong>Group ID:</strong> <span id="confirmGroupId" style="font-family: monospace; font-weight: bold;"></span></p>
+            </div>
+            <p style="color: #666; margin: 20px 0;">Please verify the team lead name and project before joining. This will help you avoid joining the wrong group.</p>
+            <div class="buttons">
+                <button class="btn btn-secondary" onclick="confirmJoinGroup()" style="flex: 1;">Confirm & Join</button>
+                <button class="btn" style="flex: 1; background: #95a5a6; color: white;" onclick="closeConfirmModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = "";
+        let allProjects = [];
+        let selectedGroupForJoin = null;
+
+        // Initialize
+        window.onload = function() {
+            loadProjects();
+            loadMyGroups();
+            populateProjectSelects();
+        };
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Remove active class from buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+        async function loadProjects() {
+            try {
+                const response = await fetch(`${API}/api/projects`);
+                const data = await response.json();
+
+                if (data.success) {
+                    allProjects = data.projects;
+                    displayProjects(allProjects);
+                } else {
+                    document.getElementById('projectsGrid').innerHTML =
+                        '<div class="error-message" style="grid-column: 1/-1;">Failed to load projects</div>';
+                }
+            } catch (error) {
+                console.error('Error loading projects:', error);
+                document.getElementById('projectsGrid').innerHTML =
+                    '<div class="error-message" style="grid-column: 1/-1;">Error loading projects</div>';
+            }
+        }
+
+        function displayProjects(projects) {
+            const grid = document.getElementById('projectsGrid');
+
+            if (projects.length === 0) {
+                grid.innerHTML = '<div class="empty" style="grid-column: 1/-1;">No projects available</div>';
+                return;
+            }
+
+            grid.innerHTML = '';
+            projects.forEach(project => {
+                const card = document.createElement('div');
+                card.className = 'project-card';
+                card.innerHTML = `
+                    <h3>${escapeHtml(project.title)}</h3>
+                    <span class="domain">${escapeHtml(project.domain)}</span>
+                    <div class="project-info">
+                        <strong>Duration:</strong> ${escapeHtml(project.duration)}<br>
+                        <strong>Difficulty:</strong> ${escapeHtml(project.difficulty)}<br>
+                        <strong>Deadline:</strong> ${escapeHtml(project.deadline)}
+                    </div>
+                    <p style="color: #666; margin: 15px 0;">${escapeHtml(project.description)}</p>
+                    <div class="buttons">
+                        <button class="btn btn-secondary" onclick="startCreateGroup(${project.id})" style="flex: 1;">Create Group</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function filterProjects() {
+            const domain = document.getElementById('domainFilter').value;
+            const search = document.getElementById('searchInput').value.toLowerCase();
+
+            let filtered = allProjects;
+
+            if (domain) {
+                filtered = filtered.filter(p => p.domain === domain);
+            }
+
+            if (search) {
+                filtered = filtered.filter(p =>
+                    p.title.toLowerCase().includes(search) ||
+                    p.domain.toLowerCase().includes(search) ||
+                    p.description.toLowerCase().includes(search)
+                );
+            }
+
+            displayProjects(filtered);
+        }
+
+        function populateProjectSelects() {
+            const select = document.getElementById('projectSelect');
+            select.innerHTML = '<option value="">-- Choose a project --</option>';
+            allProjects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.id;
+                option.textContent = `${project.title} (${project.domain})`;
+                select.appendChild(option);
+            });
+        }
+
+        function startCreateGroup(projectId) {
+            document.getElementById('projectSelect').value = projectId;
+            switchTab('create');
+        }
+
+        async function createGroup() {
+            const leadName = document.getElementById('leadName').value.trim();
+            const leadEmail = document.getElementById('leadEmail').value.trim();
+            const projectId = document.getElementById('projectSelect').value;
+            const description = document.getElementById('groupDescription').value.trim();
+
+            if (!leadName || !leadEmail || !projectId) {
+                showMessage('createMessage', 'Please fill in all required fields', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API}/api/groups/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        lead_name: leadName,
+                        lead_email: leadEmail,
+                        project_id: parseInt(projectId),
+                        description: description
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('createMessage', `✅ Group created! Your Group ID: <strong>${data.group_id}</strong>`, 'success');
+                    // Clear form
+                    document.getElementById('leadName').value = '';
+                    document.getElementById('leadEmail').value = '';
+                    document.getElementById('projectSelect').value = '';
+                    document.getElementById('groupDescription').value = '';
+                } else {
+                    showMessage('createMessage', data.error || 'Failed to create group', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('createMessage', 'Error creating group', 'error');
+            }
+        }
+
+        async function verifyAndJoinGroup() {
+            const groupId = document.getElementById('groupIdInput').value.trim().toUpperCase();
+            const memberName = document.getElementById('memberName').value.trim();
+
+            if (!groupId || !memberName) {
+                showMessage('joinMessage', 'Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API}/api/groups/${groupId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    // Show confirmation modal
+                    document.getElementById('confirmLeadName').textContent = escapeHtml(data.group.lead_name);
+                    document.getElementById('confirmProjectName').textContent = escapeHtml(data.group.project_title);
+                    document.getElementById('confirmDomain').textContent = escapeHtml(data.group.domain);
+                    document.getElementById('confirmGroupId').textContent = groupId;
+
+                    selectedGroupForJoin = {
+                        groupId: groupId,
+                        memberName: memberName,
+                        memberEmail: document.getElementById('memberEmail').value.trim()
+                    };
+
+                    document.getElementById('confirmModal').style.display = 'block';
+                } else {
+                    showMessage('joinMessage', 'Group ID not found. Please check and try again.', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('joinMessage', 'Error verifying group', 'error');
+            }
+        }
+
+        async function confirmJoinGroup() {
+            if (!selectedGroupForJoin) return;
+
+            try {
+                const response = await fetch(`${API}/api/groups/${selectedGroupForJoin.groupId}/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        member_name: selectedGroupForJoin.memberName,
+                        member_email: selectedGroupForJoin.memberEmail
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    closeConfirmModal();
+                    showMessage('joinMessage', '✅ Successfully joined the group!', 'success');
+                    // Clear form
+                    document.getElementById('memberName').value = '';
+                    document.getElementById('memberEmail').value = '';
+                    document.getElementById('groupIdInput').value = '';
+                    loadMyGroups();
+                } else {
+                    showMessage('joinMessage', data.error || 'Failed to join group', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('joinMessage', 'Error joining group', 'error');
+            }
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').style.display = 'none';
+            selectedGroupForJoin = null;
+        }
+
+        async function loadMyGroups() {
+            try {
+                const response = await fetch(`${API}/api/my-groups`);
+                const data = await response.json();
+
+                if (data.success) {
+                    displayMyGroups(data.groups);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function displayMyGroups(groups) {
+            const container = document.getElementById('myGroupsList');
+
+            if (groups.length === 0) {
+                container.innerHTML = '<div class="empty" style="grid-column: 1/-1;">You haven\'t joined any groups yet</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            groups.forEach(group => {
+                const card = document.createElement('div');
+                card.className = 'project-card';
+                card.innerHTML = `
+                    <h3>${escapeHtml(group.project_title)}</h3>
+                    <div class="group-info">
+                        <strong>Group ID:</strong><br>
+                        <div class="group-id">${group.group_id}</div>
+                        <strong>Team Lead:</strong> ${escapeHtml(group.lead_name)}<br>
+                        <strong>Domain:</strong> ${escapeHtml(group.domain)}<br>
+                        <strong>Members:</strong> ${group.member_count}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.className = type === 'error' ? 'error-message' : 'success-message';
+            element.innerHTML = message;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('confirmModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        };
+    </script>
+</body>
+</html>

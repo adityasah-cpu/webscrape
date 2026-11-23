@@ -849,6 +849,55 @@ def init_db() -> bool:
             cursor.execute("ALTER TABLE hackathons ADD INDEX idx_owner_email (owner_email)")
             conn.commit()
 
+        # Domain projects table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS domain_projects (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            domain VARCHAR(100) NOT NULL,
+            description TEXT,
+            difficulty VARCHAR(50),
+            duration VARCHAR(50),
+            deadline VARCHAR(50),
+            skills_required JSON,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_domain (domain)
+        )
+        """)
+        conn.commit()
+
+        # Student groups table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS student_groups (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            group_id VARCHAR(50) UNIQUE NOT NULL,
+            lead_name VARCHAR(255) NOT NULL,
+            lead_email VARCHAR(255) NOT NULL,
+            project_id INT NOT NULL,
+            description TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_group_id (group_id),
+            INDEX idx_project_id (project_id),
+            FOREIGN KEY (project_id) REFERENCES domain_projects(id)
+        )
+        """)
+        conn.commit()
+
+        # Group members table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS group_members (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            group_id INT NOT NULL,
+            member_name VARCHAR(255) NOT NULL,
+            member_email VARCHAR(255) NOT NULL,
+            joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_group_id (group_id),
+            INDEX idx_member_email (member_email),
+            FOREIGN KEY (group_id) REFERENCES student_groups(id)
+        )
+        """)
+        conn.commit()
+
         cursor.close()
         conn.close()
         logger.info("Database initialized successfully")
@@ -3808,6 +3857,245 @@ def get_opportunity(opp_id):
     except Exception as e:
         logger.error(f"Failed to get opportunity: {e}")
         return jsonify({"success": False, "error": "Failed to load opportunity"}), 500
+
+# ============ DOMAIN PROJECTS ============
+DOMAIN_PROJECTS = [
+    {
+        "id": 1,
+        "title": "AI Chatbot Development",
+        "domain": "Machine Learning",
+        "description": "Build an AI-powered chatbot using NLP techniques. Implement intent recognition and response generation.",
+        "difficulty": "Intermediate",
+        "duration": "8 weeks",
+        "deadline": "2026-12-31",
+        "skills_required": ["Python", "NLP", "Machine Learning", "Flask"]
+    },
+    {
+        "id": 2,
+        "title": "E-Commerce Web Application",
+        "domain": "Web Development",
+        "description": "Create a full-stack e-commerce platform with payment integration, product management, and user authentication.",
+        "difficulty": "Intermediate",
+        "duration": "10 weeks",
+        "deadline": "2027-01-15",
+        "skills_required": ["React", "Node.js", "MongoDB", "Payment APIs"]
+    },
+    {
+        "id": 3,
+        "title": "Data Analysis Dashboard",
+        "domain": "Data Science",
+        "description": "Build an interactive dashboard for real-time data visualization and analysis using large datasets.",
+        "difficulty": "Intermediate",
+        "duration": "6 weeks",
+        "deadline": "2026-12-15",
+        "skills_required": ["Python", "Pandas", "Tableau/PowerBI", "SQL"]
+    },
+    {
+        "id": 4,
+        "title": "Mobile Weather App",
+        "domain": "Mobile Development",
+        "description": "Develop a cross-platform weather application with real-time updates, location services, and weather forecasting.",
+        "difficulty": "Beginner",
+        "duration": "4 weeks",
+        "deadline": "2026-12-01",
+        "skills_required": ["React Native", "APIs", "Location Services"]
+    },
+    {
+        "id": 5,
+        "title": "Cloud Infrastructure Setup",
+        "domain": "Cloud Computing",
+        "description": "Design and deploy scalable cloud infrastructure on AWS/GCP with Docker, Kubernetes, and CI/CD pipelines.",
+        "difficulty": "Advanced",
+        "duration": "12 weeks",
+        "deadline": "2027-02-28",
+        "skills_required": ["AWS/GCP", "Docker", "Kubernetes", "DevOps"]
+    },
+    {
+        "id": 6,
+        "title": "Network Security Analyzer",
+        "domain": "Cybersecurity",
+        "description": "Create tools for network traffic analysis, vulnerability scanning, and security threat detection.",
+        "difficulty": "Advanced",
+        "duration": "10 weeks",
+        "deadline": "2027-01-20",
+        "skills_required": ["Python", "Network Protocols", "Security Tools", "Linux"]
+    }
+]
+
+@app.route("/api/projects", methods=["GET"])
+def get_projects():
+    """Get all domain projects"""
+    try:
+        return jsonify({"success": True, "projects": DOMAIN_PROJECTS, "total": len(DOMAIN_PROJECTS)})
+    except Exception as e:
+        logger.error(f"Failed to get projects: {e}")
+        return jsonify({"success": False, "error": "Failed to load projects"}), 500
+
+@app.route("/api/groups/create", methods=["POST"])
+def create_group():
+    """Create a new group for domain project"""
+    try:
+        data = request.get_json()
+        lead_name = data.get('lead_name', '').strip()
+        lead_email = data.get('lead_email', '').strip()
+        project_id = data.get('project_id')
+        description = data.get('description', '').strip()
+
+        if not lead_name or not lead_email or not project_id:
+            return jsonify({"success": False, "error": "Missing required fields"}), 400
+
+        # Find project
+        project = next((p for p in DOMAIN_PROJECTS if p['id'] == project_id), None)
+        if not project:
+            return jsonify({"success": False, "error": "Project not found"}), 404
+
+        # Generate unique group ID: 4 letters of name + random suffix
+        import random, string
+        name_prefix = lead_name.upper()[:4].replace(" ", "")
+        random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        group_id = f"{name_prefix}{random_suffix}"
+
+        # Store in database
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO student_groups (group_id, lead_name, lead_email, project_id, description, created_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+        """, (group_id, lead_name, lead_email, project_id, description))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        logger.info(f"Group created: {group_id} by {lead_name}")
+        return jsonify({"success": True, "group_id": group_id, "message": "Group created successfully"})
+    except Exception as e:
+        logger.error(f"Failed to create group: {e}")
+        return jsonify({"success": False, "error": "Failed to create group"}), 500
+
+@app.route("/api/groups/<group_id>", methods=["GET"])
+def get_group(group_id):
+    """Get group details"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT sg.group_id, sg.lead_name, sg.project_id, dp.title, dp.domain,
+                   COUNT(gm.id) as member_count
+            FROM student_groups sg
+            JOIN domain_projects dp ON sg.project_id = dp.id
+            LEFT JOIN group_members gm ON sg.id = gm.group_id
+            WHERE sg.group_id = %s
+            GROUP BY sg.id
+        """, (group_id,))
+
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not result:
+            return jsonify({"success": False, "error": "Group not found"}), 404
+
+        group_data = {
+            "group_id": result[0],
+            "lead_name": result[1],
+            "project_id": result[2],
+            "project_title": result[3],
+            "domain": result[4],
+            "member_count": result[5] or 0
+        }
+
+        return jsonify({"success": True, "group": group_data})
+    except Exception as e:
+        logger.error(f"Failed to get group: {e}")
+        return jsonify({"success": False, "error": "Failed to load group"}), 500
+
+@app.route("/api/groups/<group_id>/join", methods=["POST"])
+def join_group(group_id):
+    """Join a group"""
+    try:
+        data = request.get_json()
+        member_name = data.get('member_name', '').strip()
+        member_email = data.get('member_email', '').strip()
+
+        if not member_name or not member_email:
+            return jsonify({"success": False, "error": "Missing required fields"}), 400
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+
+        cursor = conn.cursor()
+
+        # Get group
+        cursor.execute("SELECT id FROM student_groups WHERE group_id = %s", (group_id,))
+        group_result = cursor.fetchone()
+        if not group_result:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "error": "Group not found"}), 404
+
+        group_db_id = group_result[0]
+
+        # Add member
+        cursor.execute("""
+            INSERT INTO group_members (group_id, member_name, member_email, joined_at)
+            VALUES (%s, %s, %s, NOW())
+        """, (group_db_id, member_name, member_email))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        logger.info(f"{member_name} joined group {group_id}")
+        return jsonify({"success": True, "message": "Successfully joined group"})
+    except Exception as e:
+        logger.error(f"Failed to join group: {e}")
+        return jsonify({"success": False, "error": "Failed to join group"}), 500
+
+@app.route("/api/my-groups", methods=["GET"])
+def get_my_groups():
+    """Get user's groups"""
+    try:
+        member_email = request.args.get('email')
+        if not member_email:
+            return jsonify({"success": True, "groups": []})
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT sg.group_id, sg.lead_name, dp.title, dp.domain,
+                   COUNT(gm.id) as member_count
+            FROM student_groups sg
+            JOIN domain_projects dp ON sg.project_id = dp.id
+            JOIN group_members gm ON sg.id = gm.group_id
+            WHERE gm.member_email = %s
+            GROUP BY sg.id
+        """, (member_email,))
+
+        results = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        groups = [{
+            "group_id": row[0],
+            "lead_name": row[1],
+            "project_title": row[2],
+            "domain": row[3],
+            "member_count": row[4]
+        } for row in results]
+
+        return jsonify({"success": True, "groups": groups})
+    except Exception as e:
+        logger.error(f"Failed to get user's groups: {e}")
+        return jsonify({"success": False, "error": "Failed to load groups"}), 500
 
 if __name__ == "__main__":
     # Initialize database
