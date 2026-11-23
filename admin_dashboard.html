@@ -600,14 +600,12 @@
                             <thead>
                                 <tr>
                                     <th>Group ID</th>
-                                    <th>Team Lead</th>
-                                    <th>Project</th>
-                                    <th>Members</th>
-                                    <th>Created</th>
+                                    <th>Lead Student (Reg. No.)</th>
+                                    <th>Domain Project ID</th>
                                 </tr>
                             </thead>
                             <tbody id="groupsTable">
-                                <tr><td colspan="5" style="text-align: center; padding: 32px;">Loading...</td></tr>
+                                <tr><td colspan="3" style="text-align: center; padding: 32px;">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1316,17 +1314,15 @@
         function displayGroups(groups) {
             const tbody = document.getElementById('groupsTable');
             if (groups.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 32px;">No groups yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 32px;">No groups yet</td></tr>';
                 return;
             }
 
             tbody.innerHTML = groups.map(g => `
                 <tr>
                     <td><strong>${g.group_id || 'N/A'}</strong></td>
-                    <td>${g.lead_name || 'N/A'}</td>
-                    <td>${g.project_title || 'N/A'}</td>
-                    <td>${g.member_count || 0}</td>
-                    <td>${formatDate(g.created_at)}</td>
+                    <td>${g.lead_reg_no || g.lead_name || 'N/A'}</td>
+                    <td>${g.project_id || 'N/A'}</td>
                 </tr>
             `).join('');
         }

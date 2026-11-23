@@ -875,16 +875,18 @@ def bulk_upload_projects() -> Any:
 
 @app.route("/api/admin/groups", methods=["GET"])
 def admin_get_groups() -> Any:
-    """Get all groups for admin view"""
+    """Get all groups for admin view with lead student registration number"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
     try:
         cursor.execute("""
-            SELECT sg.*, dp.title as project_title,
-                   COUNT(gm.id) as member_count
+            SELECT sg.group_id, sg.id, sg.project_id, sg.lead_name,
+                   COALESCE(admin_st.reg_no, sg.lead_name) as lead_reg_no,
+                   COUNT(gm.id) as member_count,
+                   sg.created_at
             FROM student_groups sg
-            LEFT JOIN domain_projects dp ON sg.project_id = dp.id
+            LEFT JOIN admin_students admin_st ON sg.lead_name = admin_st.name
             LEFT JOIN group_members gm ON sg.id = gm.group_id
             GROUP BY sg.id
             ORDER BY sg.created_at DESC
