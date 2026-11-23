@@ -33,8 +33,14 @@
         }
 
         .logo {
-            font-size: 48px;
             margin-bottom: 24px;
+        }
+
+        .logo img {
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
+            object-fit: cover;
         }
 
         h1 {
@@ -107,8 +113,10 @@
 </head>
 <body>
     <div class="login-container">
-        <div class="logo">🎓</div>
-        <h1>Job Portal</h1>
+        <div class="logo">
+            <img src="/static/centurion-logo.png" alt="Centurion Logo">
+        </div>
+        <h1>Centurion Nextgen Novagig</h1>
         <p class="subtitle">Sign in with your Google account to continue</p>
         
         <div id="googleSignInButton"></div>
