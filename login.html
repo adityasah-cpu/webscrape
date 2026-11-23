@@ -157,13 +157,7 @@
                 const data = await response.json();
 
                 if (!data.google_client_id) {
-                    // Dev mode: no Google Client ID configured, auto-login
-                    console.log('Dev mode detected, auto-logging in...');
-                    document.querySelector('.subtitle').textContent = 'Loading...';
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 1000);
-                    return;
+                    throw new Error("Google Sign-In not configured");
                 }
 
                 google.accounts.id.initialize({
@@ -176,11 +170,8 @@
                     { theme: "outline", size: "large", shape: "pill", width: "300" }
                 );
             } catch (error) {
-                console.error('Error initializing Sign-In:', error);
-                document.querySelector('.subtitle').textContent = 'Loading...';
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 1000);
+                console.error('Error initializing Google Sign-In:', error);
+                document.querySelector('.subtitle').textContent = 'Error loading Google Sign-In. Please refresh the page.';
             }
         }
 
