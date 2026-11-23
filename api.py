@@ -243,14 +243,7 @@ _AUTH_EXEMPT_ENDPOINTS = {"google_sign_in", "auth_me", "auth_config", "static", 
 
 @app.before_request
 def require_login():
-    # Authentication disabled - allow all requests
-    # Set a default user for session tracking
-    if not session.get("user"):
-        session["user"] = {
-            "email": "anonymous@localhost",
-            "name": "Anonymous User",
-            "picture": None
-        }
+    # Authentication required - pages redirect to login, APIs can use default user
     return None
 
 @app.route("/api/auth/google", methods=["POST"])
