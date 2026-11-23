@@ -738,22 +738,24 @@ def bulk_upload_students() -> Any:
 
 @app.route("/api/projects", methods=["GET", "POST"])
 def manage_projects() -> Any:
-    """Get all projects or add a new project"""
+    """Get all projects or add a new project - Uses domain_projects for student visibility"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
     try:
         if request.method == "GET":
-            cursor.execute("SELECT * FROM admin_projects ORDER BY created_at DESC")
+            # Fetch from domain_projects so students can see projects created by admin
+            cursor.execute("SELECT * FROM domain_projects ORDER BY created_at DESC")
             projects = cursor.fetchall()
             return jsonify({"success": True, "projects": projects})
 
         elif request.method == "POST":
             data = request.get_json()
+            # Insert into domain_projects table so students can see them on domain-projects.html
             cursor.execute(
-                "INSERT INTO admin_projects (title, description, comments_details, category, mentor1, mentor2, mentor3) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                (data.get("title"), data.get("description"), data.get("comments_details"), data.get("category"),
-                 data.get("mentor1"), data.get("mentor2"), data.get("mentor3"))
+                "INSERT INTO domain_projects (title, domain, difficulty, duration, deadline, description) VALUES (%s, %s, %s, %s, %s, %s)",
+                (data.get("title"), data.get("domain"), data.get("difficulty"), data.get("duration"),
+                 data.get("deadline"), data.get("description"))
             )
             conn.commit()
             return jsonify({"success": True, "message": "Project added"})
@@ -767,22 +769,23 @@ def manage_projects() -> Any:
 
 @app.route("/api/projects/<int:project_id>", methods=["DELETE", "PUT"])
 def delete_or_update_project(project_id: int) -> Any:
-    """Delete or update a project"""
+    """Delete or update a project in domain_projects table"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor()
 
     try:
         if request.method == "DELETE":
-            cursor.execute("DELETE FROM admin_projects WHERE id = %s", (project_id,))
+            cursor.execute("DELETE FROM domain_projects WHERE id = %s", (project_id,))
             conn.commit()
             return jsonify({"success": True, "message": "Project deleted"})
 
         elif request.method == "PUT":
             data = request.get_json()
+            # Update domain_projects table so changes reflect for students too
             cursor.execute(
-                "UPDATE admin_projects SET title=%s, description=%s, comments_details=%s, category=%s, mentor1=%s, mentor2=%s, mentor3=%s WHERE id=%s",
-                (data.get("title"), data.get("description"), data.get("comments_details"), data.get("category"),
-                 data.get("mentor1"), data.get("mentor2"), data.get("mentor3"), project_id)
+                "UPDATE domain_projects SET title=%s, domain=%s, difficulty=%s, duration=%s, deadline=%s, description=%s WHERE id=%s",
+                (data.get("title"), data.get("domain"), data.get("difficulty"), data.get("duration"),
+                 data.get("deadline"), data.get("description"), project_id)
             )
             conn.commit()
             return jsonify({"success": True, "message": "Project updated"})
@@ -822,22 +825,22 @@ def bulk_upload_projects() -> Any:
 
         for row in csv_data:
             try:
-                # Map CSV columns to database columns
+                # Map CSV columns to database columns - use domain_projects schema for student visibility
                 title = row.get('Title', '').strip()
                 description = row.get('Description', '').strip()
-                comments_details = row.get('Comments / Details', '').strip()
-                category = row.get('Category', '').strip()
-                mentor1 = row.get('Mentor 1', '').strip()
-                mentor2 = row.get('Mentor 2', '').strip()
-                mentor3 = row.get('Mentor 3', '').strip()
+                domain = row.get('Domain', '').strip()
+                difficulty = row.get('Difficulty', '').strip()
+                duration = row.get('Duration', '').strip()
+                deadline = row.get('Deadline', '').strip()
 
                 if not title:
                     errors.append(f"Row skipped: Title is required")
                     continue
 
+                # Insert into domain_projects so students can see them
                 cursor.execute(
-                    "INSERT INTO admin_projects (title, description, comments_details, category, mentor1, mentor2, mentor3) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                    (title, description, comments_details, category, mentor1, mentor2, mentor3)
+                    "INSERT INTO domain_projects (title, description, domain, difficulty, duration, deadline) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (title, description, domain, difficulty, duration, deadline)
                 )
                 inserted += 1
             except Exception as e:
