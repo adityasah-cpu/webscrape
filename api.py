@@ -591,6 +591,14 @@ def serve_user_guide() -> Any:
     except FileNotFoundError:
         return jsonify({"error": "USER_GUIDE.html not found"}), 404
 
+@app.route("/admin-panel.html", methods=["GET"])
+def serve_admin_panel() -> Any:
+    """Serve the admin panel page"""
+    try:
+        return send_file("admin_panel.html", mimetype="text/html")
+    except FileNotFoundError:
+        return jsonify({"error": "admin_panel.html not found"}), 404
+
 @app.route("/favicon.ico", methods=["GET"])
 def favicon() -> Any:
     """Serve favicon"""
@@ -605,6 +613,77 @@ def favicon() -> Any:
     <text x="50" y="65" font-size="60" font-weight="700" fill="white" text-anchor="middle">J</text>
 </svg>'''
     return Response(favicon_svg, mimetype="image/svg+xml")
+
+# ========== ADMIN API ENDPOINTS ==========
+
+@app.route("/api/students", methods=["GET", "POST"])
+def manage_students() -> Any:
+    """Get all students or add a new student"""
+    conn = mysql.connector.connect(**MYSQL_CONFIG)
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        if request.method == "GET":
+            cursor.execute("SELECT * FROM admin_students ORDER BY created_at DESC")
+            students = cursor.fetchall()
+            return jsonify({"success": True, "students": students})
+
+        elif request.method == "POST":
+            data = request.get_json()
+            cursor.execute(
+                "INSERT INTO admin_students (name, email, department, year) VALUES (%s, %s, %s, %s)",
+                (data.get("name"), data.get("email"), data.get("department"), data.get("year"))
+            )
+            conn.commit()
+            return jsonify({"success": True, "message": "Student added"})
+
+    except Exception as e:
+        logger.error(f"Error managing students: {e}")
+        return jsonify({"success": False, "error": str(e)}), 400
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route("/api/students/<email>", methods=["DELETE"])
+def delete_student(email: str) -> Any:
+    """Delete a student"""
+    conn = mysql.connector.connect(**MYSQL_CONFIG)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("DELETE FROM admin_students WHERE email = %s", (email,))
+        conn.commit()
+        return jsonify({"success": True, "message": "Student deleted"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route("/api/admin/groups", methods=["GET"])
+def admin_get_groups() -> Any:
+    """Get all groups for admin view"""
+    conn = mysql.connector.connect(**MYSQL_CONFIG)
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT sg.*, dp.title as project_title,
+                   COUNT(gm.id) as member_count
+            FROM student_groups sg
+            LEFT JOIN domain_projects dp ON sg.project_id = dp.id
+            LEFT JOIN group_members gm ON sg.id = gm.group_id
+            GROUP BY sg.id
+            ORDER BY sg.created_at DESC
+        """)
+        groups = cursor.fetchall()
+        return jsonify({"success": True, "groups": groups})
+    except Exception as e:
+        logger.error(f"Error getting groups: {e}")
+        return jsonify({"success": False, "error": str(e)}), 400
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route("/api/health", methods=["GET"])
 def health() -> Any:
@@ -933,6 +1012,20 @@ def init_db() -> bool:
             INDEX idx_group_id (group_id),
             INDEX idx_member_email (member_email),
             FOREIGN KEY (group_id) REFERENCES student_groups(id)
+        )
+        """)
+        conn.commit()
+
+        # Admin students table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS admin_students (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            department VARCHAR(100),
+            year INT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_email (email)
         )
         """)
         conn.commit()
