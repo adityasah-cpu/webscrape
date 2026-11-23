@@ -736,8 +736,9 @@ def manage_projects() -> Any:
         elif request.method == "POST":
             data = request.get_json()
             cursor.execute(
-                "INSERT INTO admin_projects (title, domain, difficulty, duration, description, deadline) VALUES (%s, %s, %s, %s, %s, %s)",
-                (data.get("title"), data.get("domain"), data.get("difficulty"), data.get("duration"), data.get("description"), data.get("deadline"))
+                "INSERT INTO admin_projects (title, description, comments_details, category, mentor1, mentor2, mentor3) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (data.get("title"), data.get("description"), data.get("comments_details"), data.get("category"),
+                 data.get("mentor1"), data.get("mentor2"), data.get("mentor3"))
             )
             conn.commit()
             return jsonify({"success": True, "message": "Project added"})
@@ -796,19 +797,20 @@ def bulk_upload_projects() -> Any:
             try:
                 # Map CSV columns to database columns
                 title = row.get('Title', '').strip()
-                domain = row.get('Domain', '').strip()
-                difficulty = row.get('Difficulty', '').strip()
-                duration = row.get('Duration', '').strip()
                 description = row.get('Description', '').strip()
-                deadline = row.get('Deadline', '').strip()
+                comments_details = row.get('Comments / Details', '').strip()
+                category = row.get('Category', '').strip()
+                mentor1 = row.get('Mentor 1', '').strip()
+                mentor2 = row.get('Mentor 2', '').strip()
+                mentor3 = row.get('Mentor 3', '').strip()
 
-                if not title or not domain:
-                    errors.append(f"Row skipped: Title and Domain are required")
+                if not title:
+                    errors.append(f"Row skipped: Title is required")
                     continue
 
                 cursor.execute(
-                    "INSERT INTO admin_projects (title, domain, difficulty, duration, description, deadline) VALUES (%s, %s, %s, %s, %s, %s)",
-                    (title, domain, difficulty, duration, description, deadline if deadline else None)
+                    "INSERT INTO admin_projects (title, description, comments_details, category, mentor1, mentor2, mentor3) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (title, description, comments_details, category, mentor1, mentor2, mentor3)
                 )
                 inserted += 1
             except Exception as e:
@@ -1211,13 +1213,14 @@ def init_db() -> bool:
         CREATE TABLE IF NOT EXISTS admin_projects (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(255) NOT NULL,
-            domain VARCHAR(100) NOT NULL,
-            difficulty VARCHAR(50),
-            duration VARCHAR(100),
             description TEXT,
-            deadline DATE,
+            comments_details TEXT,
+            category VARCHAR(100),
+            mentor1 VARCHAR(255),
+            mentor2 VARCHAR(255),
+            mentor3 VARCHAR(255),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_domain (domain)
+            INDEX idx_category (category)
         )
         """)
         conn.commit()

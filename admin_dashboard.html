@@ -535,18 +535,14 @@
                     <div style="padding: 24px;">
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                             <input type="text" id="projectTitle" placeholder="Project Title" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
-                            <input type="text" id="projectDomain" placeholder="Domain" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
-                            <select id="projectDifficulty" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
-                                <option value="">Select Difficulty</option>
-                                <option value="Beginner">Beginner</option>
-                                <option value="Intermediate">Intermediate</option>
-                                <option value="Advanced">Advanced</option>
-                            </select>
-                            <input type="text" id="projectDuration" placeholder="Duration (e.g., 8 weeks)" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
-                            <input type="date" id="projectDeadline" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="text" id="projectCategory" placeholder="Category" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="text" id="projectMentor1" placeholder="Mentor 1" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="text" id="projectMentor2" placeholder="Mentor 2" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="text" id="projectMentor3" placeholder="Mentor 3" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
                             <div></div>
                         </div>
-                        <textarea id="projectDesc" placeholder="Project Description" style="width: 100%; padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm); min-height: 80px; margin-bottom: 16px; font-family: inherit;"></textarea>
+                        <textarea id="projectDesc" placeholder="Project Description" style="width: 100%; padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm); min-height: 60px; margin-bottom: 10px; font-family: inherit;"></textarea>
+                        <textarea id="projectComments" placeholder="Comments / Details" style="width: 100%; padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm); min-height: 60px; margin-bottom: 16px; font-family: inherit;"></textarea>
                         <button class="btn-load" onclick="addProject()" style="background: #0d9488; margin-right: 8px;">Add Project</button>
                         <button class="btn-load" onclick="clearProjectForm()" style="background: #6b7280;">Clear</button>
                     </div>
@@ -560,7 +556,7 @@
                             <p style="color: var(--color-text-secondary); margin-bottom: 12px;">Drag & drop CSV/Excel file or click to upload</p>
                             <input type="file" id="projectBulkFile" accept=".csv,.xlsx,.xls" style="display: none;">
                         </div>
-                        <p style="color: var(--color-text-secondary); font-size: 12px; margin-top: 12px;">Format: Title, Domain, Difficulty, Duration, Description, Deadline</p>
+                        <p style="color: var(--color-text-secondary); font-size: 12px; margin-top: 12px;">✓ Format: ID, Title, Description, Comments/Details, Category, Mentor 1, Mentor 2, Mentor 3</p>
                         <button class="btn-load" onclick="bulkDeleteProjects()" style="background: #dc2626; margin-top: 16px;">Delete Selected</button>
                     </div>
                 </div>
@@ -574,17 +570,18 @@
                                 <tr>
                                     <th><input type="checkbox" id="selectAllProjects" onchange="toggleAllProjects()"></th>
                                     <th>Title</th>
-                                    <th>Domain</th>
-                                    <th>Difficulty</th>
-                                    <th>Duration</th>
-                                    <th>Deadline</th>
+                                    <th>Category</th>
                                     <th>Description</th>
+                                    <th>Comments/Details</th>
+                                    <th>Mentor 1</th>
+                                    <th>Mentor 2</th>
+                                    <th>Mentor 3</th>
                                     <th>Created</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="projectsTable">
-                                <tr><td colspan="9" style="text-align: center; padding: 32px;">Loading...</td></tr>
+                                <tr><td colspan="10" style="text-align: center; padding: 32px;">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1072,7 +1069,7 @@
         function displayProjects(projects) {
             const tbody = document.getElementById('projectsTable');
             if (projects.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 32px;">No projects yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 32px;">No projects yet</td></tr>';
                 return;
             }
 
@@ -1080,11 +1077,12 @@
                 <tr>
                     <td><input type="checkbox" class="project-checkbox" value="${p.id}"></td>
                     <td><strong>${p.title || 'N/A'}</strong></td>
-                    <td>${p.domain || 'N/A'}</td>
-                    <td>${p.difficulty || 'N/A'}</td>
-                    <td>${p.duration || 'N/A'}</td>
-                    <td>${p.deadline || 'N/A'}</td>
-                    <td>${(p.description || 'N/A').substring(0, 50)}${(p.description || '').length > 50 ? '...' : ''}</td>
+                    <td>${p.category || 'N/A'}</td>
+                    <td>${(p.description || 'N/A').substring(0, 40)}${(p.description || '').length > 40 ? '...' : ''}</td>
+                    <td>${(p.comments_details || 'N/A').substring(0, 40)}${(p.comments_details || '').length > 40 ? '...' : ''}</td>
+                    <td>${p.mentor1 || 'N/A'}</td>
+                    <td>${p.mentor2 || 'N/A'}</td>
+                    <td>${p.mentor3 || 'N/A'}</td>
                     <td>${formatDate(p.created_at)}</td>
                     <td>
                         <button class="btn-load" onclick="editProject(${p.id})" style="padding: 6px 12px; font-size: 12px; background: #2563eb; margin-right: 4px;">Edit</button>
@@ -1096,14 +1094,15 @@
 
         async function addProject() {
             const title = document.getElementById('projectTitle').value.trim();
-            const domain = document.getElementById('projectDomain').value.trim();
-            const difficulty = document.getElementById('projectDifficulty').value;
-            const duration = document.getElementById('projectDuration').value.trim();
+            const category = document.getElementById('projectCategory').value.trim();
             const description = document.getElementById('projectDesc').value.trim();
-            const deadline = document.getElementById('projectDeadline').value;
+            const comments_details = document.getElementById('projectComments').value.trim();
+            const mentor1 = document.getElementById('projectMentor1').value.trim();
+            const mentor2 = document.getElementById('projectMentor2').value.trim();
+            const mentor3 = document.getElementById('projectMentor3').value.trim();
 
-            if (!title || !domain || !difficulty || !duration || !description || !deadline) {
-                alert('Please fill all fields');
+            if (!title) {
+                alert('Project title is required');
                 return;
             }
 
@@ -1111,7 +1110,7 @@
                 const response = await fetch('/api/projects', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, domain, difficulty, duration, description, deadline })
+                    body: JSON.stringify({ title, description, comments_details, category, mentor1, mentor2, mentor3 })
                 });
                 const data = await response.json();
                 if (data.success) {
@@ -1143,22 +1142,24 @@
         function editProject(id) {
             const project = allProjects.find(p => p.id === id);
             if (project) {
-                document.getElementById('projectTitle').value = project.title;
-                document.getElementById('projectDomain').value = project.domain;
-                document.getElementById('projectDifficulty').value = project.difficulty;
-                document.getElementById('projectDuration').value = project.duration;
-                document.getElementById('projectDesc').value = project.description;
-                document.getElementById('projectDeadline').value = project.deadline;
+                document.getElementById('projectTitle').value = project.title || '';
+                document.getElementById('projectCategory').value = project.category || '';
+                document.getElementById('projectDesc').value = project.description || '';
+                document.getElementById('projectComments').value = project.comments_details || '';
+                document.getElementById('projectMentor1').value = project.mentor1 || '';
+                document.getElementById('projectMentor2').value = project.mentor2 || '';
+                document.getElementById('projectMentor3').value = project.mentor3 || '';
             }
         }
 
         function clearProjectForm() {
             document.getElementById('projectTitle').value = '';
-            document.getElementById('projectDomain').value = '';
-            document.getElementById('projectDifficulty').value = '';
-            document.getElementById('projectDuration').value = '';
+            document.getElementById('projectCategory').value = '';
             document.getElementById('projectDesc').value = '';
-            document.getElementById('projectDeadline').value = '';
+            document.getElementById('projectComments').value = '';
+            document.getElementById('projectMentor1').value = '';
+            document.getElementById('projectMentor2').value = '';
+            document.getElementById('projectMentor3').value = '';
         }
 
         function toggleAllProjects() {
