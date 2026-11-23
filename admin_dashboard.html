@@ -470,10 +470,15 @@
                     <h2><span>➕</span>Add New Student</h2>
                     <div style="padding: 24px;">
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <input type="text" id="studentCampus" placeholder="Campus" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="text" id="studentSchool" placeholder="School" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="text" id="studentProgram" placeholder="Program" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="text" id="studentRegNo" placeholder="Reg. No." style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
                             <input type="text" id="studentName" placeholder="Full Name" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
-                            <input type="email" id="studentEmail" placeholder="Email" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
-                            <input type="text" id="studentDept" placeholder="Department" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
-                            <input type="number" id="studentYear" placeholder="Year" min="2020" max="2030" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="number" id="studentCGPA" placeholder="CGPA" min="0" max="4" step="0.01" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="number" id="studentBacklogs" placeholder="Backlogs" min="0" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="text" id="studentDomain" placeholder="Domain" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="number" id="studentRating" placeholder="Rating" min="0" max="5" step="0.1" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
                         </div>
                         <button class="btn-load" onclick="addStudent()" style="background: #0d9488; margin-right: 8px;">Add Student</button>
                         <button class="btn-load" onclick="clearStudentForm()" style="background: #6b7280;">Clear</button>
@@ -485,10 +490,10 @@
                     <h2><span>📤</span>Bulk Upload Students</h2>
                     <div style="padding: 24px;">
                         <div id="studentUploadBox" style="border: 2px dashed var(--color-border-default); padding: 32px; text-align: center; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
-                            <p style="color: var(--color-text-secondary); margin-bottom: 12px;">Drag & drop CSV/Excel file or click to upload</p>
+                            <p style="color: var(--color-text-secondary); margin-bottom: 12px;">📁 Drag & drop CSV/Excel file or click to upload</p>
                             <input type="file" id="studentBulkFile" accept=".csv,.xlsx,.xls" style="display: none;">
                         </div>
-                        <p style="color: var(--color-text-secondary); font-size: 12px; margin-top: 12px;">Format: Name, Email, Department, Year</p>
+                        <p style="color: var(--color-text-secondary); font-size: 12px; margin-top: 12px;">✓ Format: Campus, School, Program, Reg. No., Name, CGPA, Backlogs, Domain, Rating</p>
                         <button class="btn-load" onclick="bulkDeleteStudents()" style="background: #dc2626; margin-top: 16px;">Delete Selected</button>
                     </div>
                 </div>
@@ -501,16 +506,21 @@
                             <thead>
                                 <tr>
                                     <th><input type="checkbox" id="selectAllStudents" onchange="toggleAllStudents()"></th>
+                                    <th>Campus</th>
+                                    <th>School</th>
+                                    <th>Program</th>
+                                    <th>Reg. No.</th>
                                     <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Department</th>
-                                    <th>Year</th>
+                                    <th>CGPA</th>
+                                    <th>Backlogs</th>
+                                    <th>Domain</th>
+                                    <th>Rating</th>
                                     <th>Created</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="studentsTable">
-                                <tr><td colspan="7" style="text-align: center; padding: 32px;">Loading...</td></tr>
+                                <tr><td colspan="12" style="text-align: center; padding: 32px;">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -568,11 +578,13 @@
                                     <th>Difficulty</th>
                                     <th>Duration</th>
                                     <th>Deadline</th>
+                                    <th>Description</th>
+                                    <th>Created</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="projectsTable">
-                                <tr><td colspan="7" style="text-align: center; padding: 32px;">Loading...</td></tr>
+                                <tr><td colspan="9" style="text-align: center; padding: 32px;">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -868,34 +880,44 @@
         function displayStudents(students) {
             const tbody = document.getElementById('studentsTable');
             if (students.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 32px;">No students yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 32px;">No students yet</td></tr>';
                 return;
             }
 
             tbody.innerHTML = students.map((s, idx) => `
                 <tr>
-                    <td><input type="checkbox" class="student-checkbox" value="${s.email}"></td>
+                    <td><input type="checkbox" class="student-checkbox" value="${s.reg_no}"></td>
+                    <td>${s.campus || 'N/A'}</td>
+                    <td>${s.school || 'N/A'}</td>
+                    <td>${s.program || 'N/A'}</td>
+                    <td><strong>${s.reg_no || 'N/A'}</strong></td>
                     <td><strong>${s.name || 'N/A'}</strong></td>
-                    <td>${s.email}</td>
-                    <td>${s.department || 'N/A'}</td>
-                    <td>${s.year || 'N/A'}</td>
+                    <td>${s.cgpa || 'N/A'}</td>
+                    <td>${s.backlogs || 'N/A'}</td>
+                    <td>${s.domain || 'N/A'}</td>
+                    <td>${s.rating || 'N/A'}</td>
                     <td>${formatDate(s.created_at)}</td>
                     <td>
-                        <button class="btn-load" onclick="editStudent('${s.email}')" style="padding: 6px 12px; font-size: 12px; background: #2563eb; margin-right: 4px;">Edit</button>
-                        <button class="btn-load" onclick="deleteStudent('${s.email}')" style="padding: 6px 12px; font-size: 12px; background: #dc2626;">Delete</button>
+                        <button class="btn-load" onclick="editStudent('${s.reg_no}')" style="padding: 6px 12px; font-size: 12px; background: #2563eb; margin-right: 4px;">Edit</button>
+                        <button class="btn-load" onclick="deleteStudent('${s.reg_no}')" style="padding: 6px 12px; font-size: 12px; background: #dc2626;">Delete</button>
                     </td>
                 </tr>
             `).join('');
         }
 
         async function addStudent() {
+            const campus = document.getElementById('studentCampus').value.trim();
+            const school = document.getElementById('studentSchool').value.trim();
+            const program = document.getElementById('studentProgram').value.trim();
+            const reg_no = document.getElementById('studentRegNo').value.trim();
             const name = document.getElementById('studentName').value.trim();
-            const email = document.getElementById('studentEmail').value.trim();
-            const dept = document.getElementById('studentDept').value.trim();
-            const year = document.getElementById('studentYear').value;
+            const cgpa = parseFloat(document.getElementById('studentCGPA').value) || 0;
+            const backlogs = parseInt(document.getElementById('studentBacklogs').value) || 0;
+            const domain = document.getElementById('studentDomain').value.trim();
+            const rating = parseFloat(document.getElementById('studentRating').value) || 0;
 
-            if (!name || !email || !dept || !year) {
-                alert('Please fill all fields');
+            if (!name || !reg_no) {
+                alert('Name and Reg. No. are required');
                 return;
             }
 
@@ -903,7 +925,7 @@
                 const response = await fetch('/api/students', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, department: dept, year: parseInt(year) })
+                    body: JSON.stringify({ campus, school, program, reg_no, name, cgpa, backlogs, domain, rating })
                 });
                 const data = await response.json();
                 if (data.success) {
@@ -918,10 +940,10 @@
             }
         }
 
-        async function deleteStudent(email) {
+        async function deleteStudent(reg_no) {
             if (!confirm('Delete this student?')) return;
             try {
-                const response = await fetch(`/api/students/${email}`, { method: 'DELETE' });
+                const response = await fetch(`/api/students/${reg_no}`, { method: 'DELETE' });
                 const data = await response.json();
                 if (data.success) {
                     alert('Student deleted!');
@@ -932,21 +954,31 @@
             }
         }
 
-        function editStudent(email) {
-            const student = allStudents.find(s => s.email === email);
+        function editStudent(reg_no) {
+            const student = allStudents.find(s => s.reg_no === reg_no);
             if (student) {
-                document.getElementById('studentName').value = student.name;
-                document.getElementById('studentEmail').value = student.email;
-                document.getElementById('studentDept').value = student.department;
-                document.getElementById('studentYear').value = student.year;
+                document.getElementById('studentCampus').value = student.campus || '';
+                document.getElementById('studentSchool').value = student.school || '';
+                document.getElementById('studentProgram').value = student.program || '';
+                document.getElementById('studentRegNo').value = student.reg_no || '';
+                document.getElementById('studentName').value = student.name || '';
+                document.getElementById('studentCGPA').value = student.cgpa || '';
+                document.getElementById('studentBacklogs').value = student.backlogs || '';
+                document.getElementById('studentDomain').value = student.domain || '';
+                document.getElementById('studentRating').value = student.rating || '';
             }
         }
 
         function clearStudentForm() {
+            document.getElementById('studentCampus').value = '';
+            document.getElementById('studentSchool').value = '';
+            document.getElementById('studentProgram').value = '';
+            document.getElementById('studentRegNo').value = '';
             document.getElementById('studentName').value = '';
-            document.getElementById('studentEmail').value = '';
-            document.getElementById('studentDept').value = '';
-            document.getElementById('studentYear').value = '';
+            document.getElementById('studentCGPA').value = '';
+            document.getElementById('studentBacklogs').value = '';
+            document.getElementById('studentDomain').value = '';
+            document.getElementById('studentRating').value = '';
         }
 
         function toggleAllStudents() {
@@ -962,8 +994,8 @@
             }
             if (!confirm(`Delete ${selected.length} students?`)) return;
 
-            for (const email of selected) {
-                await fetch(`/api/students/${email}`, { method: 'DELETE' });
+            for (const reg_no of selected) {
+                await fetch(`/api/students/${reg_no}`, { method: 'DELETE' });
             }
             alert(`Deleted ${selected.length} students`);
             loadStudents();
@@ -993,10 +1025,31 @@
             });
         }
 
-        function handleStudentUpload(file) {
+        async function handleStudentUpload(file) {
             if (!file) return;
-            alert('Bulk upload feature: ' + file.name + ' - Ready to process when backend is configured');
-            // TODO: Parse CSV and bulk insert
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/students/bulk-upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(`✓ Successfully uploaded ${data.inserted} students`);
+                    if (data.errors && data.errors.length > 0) {
+                        console.warn('Upload warnings:', data.errors);
+                    }
+                    loadStudents();
+                } else {
+                    alert('Error: ' + (data.error || 'Upload failed'));
+                }
+            } catch (error) {
+                alert('Error uploading file: ' + error.message);
+            }
         }
 
         // ========== PROJECTS MANAGEMENT ==========
@@ -1019,7 +1072,7 @@
         function displayProjects(projects) {
             const tbody = document.getElementById('projectsTable');
             if (projects.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 32px;">No projects yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 32px;">No projects yet</td></tr>';
                 return;
             }
 
@@ -1031,6 +1084,8 @@
                     <td>${p.difficulty || 'N/A'}</td>
                     <td>${p.duration || 'N/A'}</td>
                     <td>${p.deadline || 'N/A'}</td>
+                    <td>${(p.description || 'N/A').substring(0, 50)}${(p.description || '').length > 50 ? '...' : ''}</td>
+                    <td>${formatDate(p.created_at)}</td>
                     <td>
                         <button class="btn-load" onclick="editProject(${p.id})" style="padding: 6px 12px; font-size: 12px; background: #2563eb; margin-right: 4px;">Edit</button>
                         <button class="btn-load" onclick="deleteProject(${p.id})" style="padding: 6px 12px; font-size: 12px; background: #dc2626;">Delete</button>
@@ -1150,10 +1205,31 @@
             });
         }
 
-        function handleProjectUpload(file) {
+        async function handleProjectUpload(file) {
             if (!file) return;
-            alert('Bulk upload feature: ' + file.name + ' - Ready to process when backend is configured');
-            // TODO: Parse CSV and bulk insert
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/projects/bulk-upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(`✓ Successfully uploaded ${data.inserted} projects`);
+                    if (data.errors && data.errors.length > 0) {
+                        console.warn('Upload warnings:', data.errors);
+                    }
+                    loadProjects();
+                } else {
+                    alert('Error: ' + (data.error || 'Upload failed'));
+                }
+            } catch (error) {
+                alert('Error uploading file: ' + error.message);
+            }
         }
 
         // ========== GROUPS MANAGEMENT ==========

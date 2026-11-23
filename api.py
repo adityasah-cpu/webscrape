@@ -623,8 +623,9 @@ def manage_students() -> Any:
         elif request.method == "POST":
             data = request.get_json()
             cursor.execute(
-                "INSERT INTO admin_students (name, email, department, year) VALUES (%s, %s, %s, %s)",
-                (data.get("name"), data.get("email"), data.get("department"), data.get("year"))
+                "INSERT INTO admin_students (campus, school, program, reg_no, name, cgpa, backlogs, domain, rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (data.get("campus"), data.get("school"), data.get("program"), data.get("reg_no"),
+                 data.get("name"), data.get("cgpa"), data.get("backlogs"), data.get("domain"), data.get("rating"))
             )
             conn.commit()
             return jsonify({"success": True, "message": "Student added"})
@@ -636,14 +637,14 @@ def manage_students() -> Any:
         cursor.close()
         conn.close()
 
-@app.route("/api/students/<email>", methods=["DELETE"])
-def delete_student(email: str) -> Any:
+@app.route("/api/students/<reg_no>", methods=["DELETE"])
+def delete_student(reg_no: str) -> Any:
     """Delete a student"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor()
 
     try:
-        cursor.execute("DELETE FROM admin_students WHERE email = %s", (email,))
+        cursor.execute("DELETE FROM admin_students WHERE reg_no = %s", (reg_no,))
         conn.commit()
         return jsonify({"success": True, "message": "Student deleted"})
     except Exception as e:
@@ -651,6 +652,74 @@ def delete_student(email: str) -> Any:
     finally:
         cursor.close()
         conn.close()
+
+@app.route("/api/students/bulk-upload", methods=["POST"])
+def bulk_upload_students() -> Any:
+    """Bulk upload students from CSV file"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({"success": False, "error": "No file provided"}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"success": False, "error": "No file selected"}), 400
+
+        if not file.filename.endswith(('.csv', '.xlsx', '.xls')):
+            return jsonify({"success": False, "error": "File must be CSV or Excel format"}), 400
+
+        import csv
+        import io
+
+        conn = mysql.connector.connect(**MYSQL_CONFIG)
+        cursor = conn.cursor()
+
+        # Read CSV file
+        stream = io.StringIO(file.stream.read().decode("UTF-8"), newline=None)
+        csv_data = csv.DictReader(stream)
+
+        inserted = 0
+        errors = []
+
+        for row in csv_data:
+            try:
+                # Map CSV columns to database columns
+                campus = row.get('Campus', '').strip()
+                school = row.get('School', '').strip()
+                program = row.get('Program', '').strip()
+                reg_no = row.get('Reg. No.', '').strip()
+                name = row.get('Name', '').strip()
+                cgpa = float(row.get('CGPA', 0)) if row.get('CGPA') else 0
+                backlogs = int(row.get('Backlogs', 0)) if row.get('Backlogs') else 0
+                domain = row.get('Domain', '').strip()
+                rating = float(row.get('Rating', 0)) if row.get('Rating') else 0
+
+                if not name or not reg_no:
+                    errors.append(f"Row skipped: Name and Reg. No. are required")
+                    continue
+
+                cursor.execute(
+                    "INSERT INTO admin_students (campus, school, program, reg_no, name, cgpa, backlogs, domain, rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (campus, school, program, reg_no, name, cgpa, backlogs, domain, rating)
+                )
+                inserted += 1
+            except Exception as e:
+                errors.append(f"Row error: {str(e)}")
+                continue
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "message": f"Uploaded {inserted} students",
+            "inserted": inserted,
+            "errors": errors if errors else None
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error bulk uploading students: {e}")
+        return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route("/api/projects", methods=["GET", "POST"])
 def manage_projects() -> Any:
@@ -695,6 +764,71 @@ def delete_project(project_id: int) -> Any:
     finally:
         cursor.close()
         conn.close()
+
+@app.route("/api/projects/bulk-upload", methods=["POST"])
+def bulk_upload_projects() -> Any:
+    """Bulk upload projects from CSV file"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({"success": False, "error": "No file provided"}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"success": False, "error": "No file selected"}), 400
+
+        if not file.filename.endswith(('.csv', '.xlsx', '.xls')):
+            return jsonify({"success": False, "error": "File must be CSV or Excel format"}), 400
+
+        import csv
+        import io
+
+        conn = mysql.connector.connect(**MYSQL_CONFIG)
+        cursor = conn.cursor()
+
+        # Read CSV file
+        stream = io.StringIO(file.stream.read().decode("UTF-8"), newline=None)
+        csv_data = csv.DictReader(stream)
+
+        inserted = 0
+        errors = []
+
+        for row in csv_data:
+            try:
+                # Map CSV columns to database columns
+                title = row.get('Title', '').strip()
+                domain = row.get('Domain', '').strip()
+                difficulty = row.get('Difficulty', '').strip()
+                duration = row.get('Duration', '').strip()
+                description = row.get('Description', '').strip()
+                deadline = row.get('Deadline', '').strip()
+
+                if not title or not domain:
+                    errors.append(f"Row skipped: Title and Domain are required")
+                    continue
+
+                cursor.execute(
+                    "INSERT INTO admin_projects (title, domain, difficulty, duration, description, deadline) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (title, domain, difficulty, duration, description, deadline if deadline else None)
+                )
+                inserted += 1
+            except Exception as e:
+                errors.append(f"Row error: {str(e)}")
+                continue
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "message": f"Uploaded {inserted} projects",
+            "inserted": inserted,
+            "errors": errors if errors else None
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error bulk uploading projects: {e}")
+        return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route("/api/admin/groups", methods=["GET"])
 def admin_get_groups() -> Any:
@@ -1056,12 +1190,18 @@ def init_db() -> bool:
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS admin_students (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            campus VARCHAR(100),
+            school VARCHAR(100),
+            program VARCHAR(100),
+            reg_no VARCHAR(50) UNIQUE,
             name VARCHAR(255) NOT NULL,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            department VARCHAR(100),
-            year INT,
+            cgpa DECIMAL(3,2),
+            backlogs INT,
+            domain VARCHAR(100),
+            rating DECIMAL(3,2),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_email (email)
+            INDEX idx_reg_no (reg_no),
+            INDEX idx_domain (domain)
         )
         """)
         conn.commit()
