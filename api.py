@@ -564,6 +564,14 @@ def root() -> Any:
     except FileNotFoundError:
         return jsonify({"error": "index.html not found"}), 404
 
+@app.route("/login", methods=["GET"])
+def login() -> Any:
+    """Serve login page with only Google Sign-In"""
+    try:
+        return send_file("index.html", mimetype="text/html")
+    except FileNotFoundError:
+        return jsonify({"error": "index.html not found"}), 404
+
 @app.route("/domain-projects.html", methods=["GET"])
 def serve_domain_projects() -> Any:
     """Serve the domain projects page"""
