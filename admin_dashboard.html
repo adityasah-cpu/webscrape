@@ -428,6 +428,9 @@
             <div class="tabs" style="margin-top: 40px;">
                 <button class="tab-btn active" onclick="switchTab('users-view')">👥 Users</button>
                 <button class="tab-btn" onclick="switchTab('updates-view')">📈 Updates</button>
+                <button class="tab-btn" onclick="switchTab('students-view')">🎓 Students</button>
+                <button class="tab-btn" onclick="switchTab('projects-view')">📚 Projects</button>
+                <button class="tab-btn" onclick="switchTab('groups-view')">👨‍👩‍👧‍👦 Groups</button>
             </div>
 
             <!-- Users Data Table -->
@@ -459,6 +462,75 @@
             <div id="updates-view" class="tab-content">
                 <div class="updates-grid" id="updatesGrid"></div>
             </div>
+
+            <!-- Students Management -->
+            <div id="students-view" class="tab-content">
+                <div class="table-card">
+                    <h2><span>🎓</span>Manage Students</h2>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Department</th>
+                                    <th>Year</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentsTable">
+                                <tr><td colspan="5" style="text-align: center; padding: 32px;">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Projects Management -->
+            <div id="projects-view" class="tab-content">
+                <div class="table-card">
+                    <h2><span>📚</span>Manage Projects</h2>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Domain</th>
+                                    <th>Difficulty</th>
+                                    <th>Duration</th>
+                                    <th>Deadline</th>
+                                </tr>
+                            </thead>
+                            <tbody id="projectsTable">
+                                <tr><td colspan="5" style="text-align: center; padding: 32px;">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Groups Management -->
+            <div id="groups-view" class="tab-content">
+                <div class="table-card">
+                    <h2><span>👨‍👩‍👧‍👦</span>Student Groups</h2>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Group ID</th>
+                                    <th>Team Lead</th>
+                                    <th>Project</th>
+                                    <th>Members</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody id="groupsTable">
+                                <tr><td colspan="5" style="text-align: center; padding: 32px;">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -468,6 +540,9 @@
         document.addEventListener('DOMContentLoaded', async () => {
             await loadLocations();
             await loadDashboard();
+            await loadStudents();
+            await loadProjects();
+            await loadGroups();
         });
 
         async function logout() {
@@ -701,6 +776,99 @@
             if (!dateString) return 'N/A';
             const date = new Date(dateString);
             return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
+        // ========== STUDENTS MANAGEMENT ==========
+        async function loadStudents() {
+            try {
+                const response = await fetch('/api/students');
+                const data = await response.json();
+                if (data.success) {
+                    displayStudents(data.students || []);
+                }
+            } catch (error) {
+                console.error('Error loading students:', error);
+            }
+        }
+
+        function displayStudents(students) {
+            const tbody = document.getElementById('studentsTable');
+            if (students.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 32px;">No students yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = students.map(s => `
+                <tr>
+                    <td><strong>${s.name || 'N/A'}</strong></td>
+                    <td>${s.email}</td>
+                    <td>${s.department || 'N/A'}</td>
+                    <td>${s.year || 'N/A'}</td>
+                    <td>${formatDate(s.created_at)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // ========== PROJECTS MANAGEMENT ==========
+        async function loadProjects() {
+            try {
+                const response = await fetch('/api/projects');
+                const data = await response.json();
+                if (data.success) {
+                    displayProjects(data.projects || []);
+                }
+            } catch (error) {
+                console.error('Error loading projects:', error);
+            }
+        }
+
+        function displayProjects(projects) {
+            const tbody = document.getElementById('projectsTable');
+            if (projects.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 32px;">No projects yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = projects.map(p => `
+                <tr>
+                    <td><strong>${p.title || 'N/A'}</strong></td>
+                    <td>${p.domain || 'N/A'}</td>
+                    <td>${p.difficulty || 'N/A'}</td>
+                    <td>${p.duration || 'N/A'}</td>
+                    <td>${p.deadline || 'N/A'}</td>
+                </tr>
+            `).join('');
+        }
+
+        // ========== GROUPS MANAGEMENT ==========
+        async function loadGroups() {
+            try {
+                const response = await fetch('/api/admin/groups');
+                const data = await response.json();
+                if (data.success) {
+                    displayGroups(data.groups || []);
+                }
+            } catch (error) {
+                console.error('Error loading groups:', error);
+            }
+        }
+
+        function displayGroups(groups) {
+            const tbody = document.getElementById('groupsTable');
+            if (groups.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 32px;">No groups yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = groups.map(g => `
+                <tr>
+                    <td><strong>${g.group_id || 'N/A'}</strong></td>
+                    <td>${g.lead_name || 'N/A'}</td>
+                    <td>${g.project_title || 'N/A'}</td>
+                    <td>${g.member_count || 0}</td>
+                    <td>${formatDate(g.created_at)}</td>
+                </tr>
+            `).join('');
         }
     </script>
 </body>

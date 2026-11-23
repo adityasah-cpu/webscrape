@@ -591,14 +591,6 @@ def serve_user_guide() -> Any:
     except FileNotFoundError:
         return jsonify({"error": "USER_GUIDE.html not found"}), 404
 
-@app.route("/admin-panel.html", methods=["GET"])
-def serve_admin_panel() -> Any:
-    """Serve the admin panel page"""
-    try:
-        return send_file("admin_panel.html", mimetype="text/html")
-    except FileNotFoundError:
-        return jsonify({"error": "admin_panel.html not found"}), 404
-
 @app.route("/favicon.ico", methods=["GET"])
 def favicon() -> Any:
     """Serve favicon"""
