@@ -703,7 +703,7 @@
 
         async function loadProjects() {
             try {
-                const response = await fetch(`${API}/api/projects`);
+                const response = await fetch(`${API}/api/domain-projects`);
                 const data = await response.json();
 
                 if (data.success) {

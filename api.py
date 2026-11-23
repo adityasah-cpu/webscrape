@@ -736,15 +736,32 @@ def bulk_upload_students() -> Any:
         logger.error(f"Error bulk uploading students: {e}")
         return jsonify({"success": False, "error": str(e)}), 400
 
+@app.route("/api/domain-projects", methods=["GET"])
+def get_domain_projects_public() -> Any:
+    """PUBLIC endpoint: Get all domain projects for students"""
+    conn = mysql.connector.connect(**MYSQL_CONFIG)
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("SELECT * FROM domain_projects ORDER BY created_at DESC")
+        projects = cursor.fetchall()
+        return jsonify({"success": True, "projects": projects})
+    except Exception as e:
+        logger.error(f"Error fetching domain projects: {e}")
+        return jsonify({"success": False, "error": str(e)}), 400
+    finally:
+        cursor.close()
+        conn.close()
+
 @app.route("/api/projects", methods=["GET", "POST"])
 def manage_projects() -> Any:
-    """Get all projects or add a new project - Uses domain_projects for student visibility"""
+    """Get all projects or add a new project - Uses domain_projects for admin"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
     try:
         if request.method == "GET":
-            # Fetch from domain_projects so students can see projects created by admin
+            # Fetch from domain_projects so admin can see all projects
             cursor.execute("SELECT * FROM domain_projects ORDER BY created_at DESC")
             projects = cursor.fetchall()
             return jsonify({"success": True, "projects": projects})
