@@ -243,21 +243,14 @@ _AUTH_EXEMPT_ENDPOINTS = {"google_sign_in", "auth_me", "auth_config", "static", 
 
 @app.before_request
 def require_login():
-    if not request.path.startswith("/api/"):
-        return None  # only gate the API, not the frontend/static files
-    if request.endpoint in _AUTH_EXEMPT_ENDPOINTS:
-        return None
+    # Authentication disabled - allow all requests
+    # Set a default user for session tracking
     if not session.get("user"):
-        # Development mode: auto-login if GOOGLE_CLIENT_ID is not set
-        if not GOOGLE_CLIENT_ID:
-            session["user"] = {
-                "email": "dev@localhost",
-                "name": "Developer",
-                "picture": None
-            }
-            logger.info("Development mode: auto-logged in as dev@localhost (GOOGLE_CLIENT_ID not set)")
-            return None
-        return jsonify({"success": False, "error": "Not signed in. Please sign in with Google."}), 401
+        session["user"] = {
+            "email": "anonymous@localhost",
+            "name": "Anonymous User",
+            "picture": None
+        }
     return None
 
 @app.route("/api/auth/google", methods=["POST"])
@@ -349,10 +342,11 @@ def validate_csrf_token():
 
 @app.before_request
 def before_request():
-    """Run before each request to validate CSRF tokens."""
-    csrf_error = validate_csrf_token()
-    if csrf_error:
-        return csrf_error
+    """CSRF validation disabled - API is public"""
+    # csrf_error = validate_csrf_token()
+    # if csrf_error:
+    #     return csrf_error
+    pass
 
 
 @app.route("/api/auth/config", methods=["GET"])
@@ -3272,23 +3266,11 @@ def check_admin() -> Any:
 
 @app.route("/admin", methods=["GET"])
 def admin_dashboard_page() -> Any:
-    """Serve admin dashboard UI - Only for allowed admin domains and emails"""
-    # Check if user is logged in
-    user = session.get("user")
-    if not user:
-        return jsonify({"error": "Unauthorized - Please log in first"}), 401
-
-    # Check if user is an admin
-    user_email = user.get("email", "")
-
-    if not is_admin_user(user_email):
-        logger.warning(f"Unauthorized admin access attempt by {user_email}")
-        return jsonify({"error": "Access Denied - Only users from allowed admin domains can access admin dashboard"}), 403
-
+    """Serve admin dashboard UI - Public access"""
     try:
         with open("admin_dashboard.html", encoding="utf-8") as f:
             content = f.read()
-        logger.info(f"Admin dashboard accessed by {user_email}")
+        logger.info("Admin dashboard accessed")
         return content, 200, {"Content-Type": "text/html"}
     except FileNotFoundError:
         logger.error("admin_dashboard.html not found")
@@ -3476,7 +3458,6 @@ def validate_location(location: str) -> bool:
 
 
 @app.route("/api/admin/locations", methods=["GET"])
-@require_admin
 @limiter.limit("60 per minute")
 def get_all_locations() -> Any:
     """Get list of available locations"""
@@ -3488,7 +3469,6 @@ def get_all_locations() -> Any:
 
 
 @app.route("/api/admin/location-stats/<location>", methods=["GET"])
-@require_admin
 @limiter.limit("60 per minute")
 def get_location_stats(location: str) -> Any:
     """Get comprehensive stats for a specific location"""
@@ -3598,7 +3578,6 @@ def get_location_stats(location: str) -> Any:
 
 
 @app.route("/api/admin/location-users/<location>", methods=["GET"])
-@require_admin
 @limiter.limit("60 per minute")
 def get_location_users(location: str) -> Any:
     """Get detailed user list for a location with engagement metrics"""
@@ -3687,7 +3666,6 @@ def get_location_users(location: str) -> Any:
 
 
 @app.route("/api/admin/location-engagement/<location>", methods=["GET"])
-@require_admin
 @limiter.limit("60 per minute")
 def get_location_engagement(location: str) -> Any:
     """Get engagement funnel data for location"""
@@ -3751,7 +3729,6 @@ def get_location_engagement(location: str) -> Any:
 # ==================== ADMIN USER MANAGEMENT ====================
 
 @app.route("/api/admin/users", methods=["GET"])
-@require_admin
 @limiter.limit("60 per minute")
 def get_admin_users() -> Any:
     """Get all users with engagement metrics for admin dashboard"""
@@ -3822,7 +3799,6 @@ def get_admin_users() -> Any:
 
 
 @app.route("/api/admin/user-updates", methods=["GET"])
-@require_admin
 @limiter.limit("60 per minute")
 def get_user_updates() -> Any:
     """Get daily, weekly, and monthly user updates"""
@@ -3911,7 +3887,6 @@ def get_user_updates() -> Any:
 
 
 @app.route("/api/admin/promote/<email>", methods=["POST"])
-@require_admin
 @limiter.limit("30 per minute")
 def promote_admin(email: str) -> Any:
     """Promote a user to admin"""
@@ -3944,7 +3919,6 @@ def promote_admin(email: str) -> Any:
 
 
 @app.route("/api/admin/demote/<email>", methods=["POST"])
-@require_admin
 @limiter.limit("30 per minute")
 def demote_admin(email: str) -> Any:
     """Demote an admin user (prevent self-demotion)"""
