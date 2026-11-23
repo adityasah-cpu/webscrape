@@ -547,7 +547,7 @@
                             <div></div>
                         </div>
                         <textarea id="projectDesc" placeholder="Project Description" style="width: 100%; padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm); min-height: 80px; margin-bottom: 16px; font-family: inherit;"></textarea>
-                        <button class="btn-load" onclick="addProject()" style="background: #0d9488; margin-right: 8px;">Add Project</button>
+                        <button class="btn-load" id="projectSubmitBtn" onclick="addProject()" style="background: #0d9488; margin-right: 8px;">Add Project</button>
                         <button class="btn-load" onclick="clearProjectForm()" style="background: #6b7280;">Clear</button>
                     </div>
                 </div>
@@ -1137,10 +1137,13 @@
                 let response, url, method;
                 const projectData = { title, domain, difficulty, duration, description, deadline };
 
+                console.log('Submitting project:', { editingProjectId, ...projectData });
+
                 if (editingProjectId) {
                     // Update existing project
                     url = `/api/projects/${editingProjectId}`;
                     method = 'PUT';
+                    console.log('Sending PUT request to:', url);
                     response = await fetch(url, {
                         method: method,
                         headers: { 'Content-Type': 'application/json' },
@@ -1150,6 +1153,7 @@
                     // Add new project
                     url = '/api/projects';
                     method = 'POST';
+                    console.log('Sending POST request to:', url);
                     response = await fetch(url, {
                         method: method,
                         headers: { 'Content-Type': 'application/json' },
@@ -1158,15 +1162,18 @@
                 }
 
                 const data = await response.json();
+                console.log('Response:', data);
+
                 if (data.success) {
-                    alert(editingProjectId ? 'Project updated successfully!' : 'Project added successfully!');
+                    alert(editingProjectId ? '✅ Project updated successfully!' : '✅ Project added successfully!');
                     clearProjectForm();
                     loadProjects();
                 } else {
-                    alert('Error: ' + (data.error || 'Unknown error'));
+                    alert('❌ Error: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
-                alert('Error: ' + error.message);
+                console.error('Error:', error);
+                alert('❌ Error: ' + error.message);
             }
         }
 
@@ -1194,8 +1201,16 @@
                 document.getElementById('projectDuration').value = project.duration || '';
                 document.getElementById('projectDesc').value = project.description || '';
                 document.getElementById('projectDeadline').value = project.deadline || '';
+
+                // Change button to Update mode
+                const submitBtn = document.getElementById('projectSubmitBtn');
+                submitBtn.textContent = '✏️ Update Project';
+                submitBtn.style.background = '#2563eb';
+
                 // Scroll to form
-                document.getElementById('projectTitle').parentElement.parentElement.parentElement.scrollIntoView({ behavior: 'smooth' });
+                document.getElementById('projectTitle').scrollIntoView({ behavior: 'smooth' });
+            } else {
+                alert('Project not found in list!');
             }
         }
 
@@ -1207,6 +1222,11 @@
             document.getElementById('projectDuration').value = '';
             document.getElementById('projectDesc').value = '';
             document.getElementById('projectDeadline').value = '';
+
+            // Reset button to Add mode
+            const submitBtn = document.getElementById('projectSubmitBtn');
+            submitBtn.textContent = 'Add Project';
+            submitBtn.style.background = '#0d9488';
         }
 
         function toggleAllProjects() {
