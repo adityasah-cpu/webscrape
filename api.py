@@ -652,6 +652,50 @@ def delete_student(email: str) -> Any:
         cursor.close()
         conn.close()
 
+@app.route("/api/projects", methods=["GET", "POST"])
+def manage_projects() -> Any:
+    """Get all projects or add a new project"""
+    conn = mysql.connector.connect(**MYSQL_CONFIG)
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        if request.method == "GET":
+            cursor.execute("SELECT * FROM admin_projects ORDER BY created_at DESC")
+            projects = cursor.fetchall()
+            return jsonify({"success": True, "projects": projects})
+
+        elif request.method == "POST":
+            data = request.get_json()
+            cursor.execute(
+                "INSERT INTO admin_projects (title, domain, difficulty, duration, description, deadline) VALUES (%s, %s, %s, %s, %s, %s)",
+                (data.get("title"), data.get("domain"), data.get("difficulty"), data.get("duration"), data.get("description"), data.get("deadline"))
+            )
+            conn.commit()
+            return jsonify({"success": True, "message": "Project added"})
+
+    except Exception as e:
+        logger.error(f"Error managing projects: {e}")
+        return jsonify({"success": False, "error": str(e)}), 400
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route("/api/projects/<int:project_id>", methods=["DELETE"])
+def delete_project(project_id: int) -> Any:
+    """Delete a project"""
+    conn = mysql.connector.connect(**MYSQL_CONFIG)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("DELETE FROM admin_projects WHERE id = %s", (project_id,))
+        conn.commit()
+        return jsonify({"success": True, "message": "Project deleted"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    finally:
+        cursor.close()
+        conn.close()
+
 @app.route("/api/admin/groups", methods=["GET"])
 def admin_get_groups() -> Any:
     """Get all groups for admin view"""
@@ -1018,6 +1062,22 @@ def init_db() -> bool:
             year INT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_email (email)
+        )
+        """)
+        conn.commit()
+
+        # Admin projects table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS admin_projects (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            domain VARCHAR(100) NOT NULL,
+            difficulty VARCHAR(50),
+            duration VARCHAR(100),
+            description TEXT,
+            deadline DATE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_domain (domain)
         )
         """)
         conn.commit()

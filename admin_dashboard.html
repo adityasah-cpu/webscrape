@@ -465,21 +465,52 @@
 
             <!-- Students Management -->
             <div id="students-view" class="tab-content">
+                <!-- Add Student Form -->
+                <div class="table-card" style="margin-bottom: 24px;">
+                    <h2><span>➕</span>Add New Student</h2>
+                    <div style="padding: 24px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <input type="text" id="studentName" placeholder="Full Name" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="email" id="studentEmail" placeholder="Email" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="text" id="studentDept" placeholder="Department" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="number" id="studentYear" placeholder="Year" min="2020" max="2030" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                        </div>
+                        <button class="btn-load" onclick="addStudent()" style="background: #0d9488; margin-right: 8px;">Add Student</button>
+                        <button class="btn-load" onclick="clearStudentForm()" style="background: #6b7280;">Clear</button>
+                    </div>
+                </div>
+
+                <!-- Bulk Upload -->
+                <div class="table-card" style="margin-bottom: 24px;">
+                    <h2><span>📤</span>Bulk Upload Students</h2>
+                    <div style="padding: 24px;">
+                        <div id="studentUploadBox" style="border: 2px dashed var(--color-border-default); padding: 32px; text-align: center; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
+                            <p style="color: var(--color-text-secondary); margin-bottom: 12px;">Drag & drop CSV/Excel file or click to upload</p>
+                            <input type="file" id="studentBulkFile" accept=".csv,.xlsx,.xls" style="display: none;">
+                        </div>
+                        <p style="color: var(--color-text-secondary); font-size: 12px; margin-top: 12px;">Format: Name, Email, Department, Year</p>
+                        <button class="btn-load" onclick="bulkDeleteStudents()" style="background: #dc2626; margin-top: 16px;">Delete Selected</button>
+                    </div>
+                </div>
+
+                <!-- Students Table -->
                 <div class="table-card">
-                    <h2><span>🎓</span>Manage Students</h2>
+                    <h2><span>📋</span>All Students</h2>
                     <div class="table-wrapper">
                         <table>
                             <thead>
                                 <tr>
+                                    <th><input type="checkbox" id="selectAllStudents" onchange="toggleAllStudents()"></th>
                                     <th>Name</th>
                                     <th>Email</th>
                                     <th>Department</th>
                                     <th>Year</th>
                                     <th>Created</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="studentsTable">
-                                <tr><td colspan="5" style="text-align: center; padding: 32px;">Loading...</td></tr>
+                                <tr><td colspan="7" style="text-align: center; padding: 32px;">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -488,21 +519,60 @@
 
             <!-- Projects Management -->
             <div id="projects-view" class="tab-content">
+                <!-- Add Project Form -->
+                <div class="table-card" style="margin-bottom: 24px;">
+                    <h2><span>➕</span>Add New Project</h2>
+                    <div style="padding: 24px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <input type="text" id="projectTitle" placeholder="Project Title" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="text" id="projectDomain" placeholder="Domain" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <select id="projectDifficulty" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                                <option value="">Select Difficulty</option>
+                                <option value="Beginner">Beginner</option>
+                                <option value="Intermediate">Intermediate</option>
+                                <option value="Advanced">Advanced</option>
+                            </select>
+                            <input type="text" id="projectDuration" placeholder="Duration (e.g., 8 weeks)" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="date" id="projectDeadline" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <div></div>
+                        </div>
+                        <textarea id="projectDesc" placeholder="Project Description" style="width: 100%; padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm); min-height: 80px; margin-bottom: 16px; font-family: inherit;"></textarea>
+                        <button class="btn-load" onclick="addProject()" style="background: #0d9488; margin-right: 8px;">Add Project</button>
+                        <button class="btn-load" onclick="clearProjectForm()" style="background: #6b7280;">Clear</button>
+                    </div>
+                </div>
+
+                <!-- Bulk Upload -->
+                <div class="table-card" style="margin-bottom: 24px;">
+                    <h2><span>📤</span>Bulk Upload Projects</h2>
+                    <div style="padding: 24px;">
+                        <div id="projectUploadBox" style="border: 2px dashed var(--color-border-default); padding: 32px; text-align: center; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
+                            <p style="color: var(--color-text-secondary); margin-bottom: 12px;">Drag & drop CSV/Excel file or click to upload</p>
+                            <input type="file" id="projectBulkFile" accept=".csv,.xlsx,.xls" style="display: none;">
+                        </div>
+                        <p style="color: var(--color-text-secondary); font-size: 12px; margin-top: 12px;">Format: Title, Domain, Difficulty, Duration, Description, Deadline</p>
+                        <button class="btn-load" onclick="bulkDeleteProjects()" style="background: #dc2626; margin-top: 16px;">Delete Selected</button>
+                    </div>
+                </div>
+
+                <!-- Projects Table -->
                 <div class="table-card">
-                    <h2><span>📚</span>Manage Projects</h2>
+                    <h2><span>📋</span>All Projects</h2>
                     <div class="table-wrapper">
                         <table>
                             <thead>
                                 <tr>
+                                    <th><input type="checkbox" id="selectAllProjects" onchange="toggleAllProjects()"></th>
                                     <th>Title</th>
                                     <th>Domain</th>
                                     <th>Difficulty</th>
                                     <th>Duration</th>
                                     <th>Deadline</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="projectsTable">
-                                <tr><td colspan="5" style="text-align: center; padding: 32px;">Loading...</td></tr>
+                                <tr><td colspan="7" style="text-align: center; padding: 32px;">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -779,12 +849,16 @@
         }
 
         // ========== STUDENTS MANAGEMENT ==========
+        let allStudents = [];
+
         async function loadStudents() {
             try {
                 const response = await fetch('/api/students');
                 const data = await response.json();
                 if (data.success) {
-                    displayStudents(data.students || []);
+                    allStudents = data.students || [];
+                    displayStudents(allStudents);
+                    setupStudentUpload();
                 }
             } catch (error) {
                 console.error('Error loading students:', error);
@@ -794,28 +868,148 @@
         function displayStudents(students) {
             const tbody = document.getElementById('studentsTable');
             if (students.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 32px;">No students yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 32px;">No students yet</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = students.map(s => `
+            tbody.innerHTML = students.map((s, idx) => `
                 <tr>
+                    <td><input type="checkbox" class="student-checkbox" value="${s.email}"></td>
                     <td><strong>${s.name || 'N/A'}</strong></td>
                     <td>${s.email}</td>
                     <td>${s.department || 'N/A'}</td>
                     <td>${s.year || 'N/A'}</td>
                     <td>${formatDate(s.created_at)}</td>
+                    <td>
+                        <button class="btn-load" onclick="editStudent('${s.email}')" style="padding: 6px 12px; font-size: 12px; background: #2563eb; margin-right: 4px;">Edit</button>
+                        <button class="btn-load" onclick="deleteStudent('${s.email}')" style="padding: 6px 12px; font-size: 12px; background: #dc2626;">Delete</button>
+                    </td>
                 </tr>
             `).join('');
         }
 
+        async function addStudent() {
+            const name = document.getElementById('studentName').value.trim();
+            const email = document.getElementById('studentEmail').value.trim();
+            const dept = document.getElementById('studentDept').value.trim();
+            const year = document.getElementById('studentYear').value;
+
+            if (!name || !email || !dept || !year) {
+                alert('Please fill all fields');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/students', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, department: dept, year: parseInt(year) })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Student added successfully!');
+                    clearStudentForm();
+                    loadStudents();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error adding student: ' + error.message);
+            }
+        }
+
+        async function deleteStudent(email) {
+            if (!confirm('Delete this student?')) return;
+            try {
+                const response = await fetch(`/api/students/${email}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Student deleted!');
+                    loadStudents();
+                }
+            } catch (error) {
+                alert('Error deleting student');
+            }
+        }
+
+        function editStudent(email) {
+            const student = allStudents.find(s => s.email === email);
+            if (student) {
+                document.getElementById('studentName').value = student.name;
+                document.getElementById('studentEmail').value = student.email;
+                document.getElementById('studentDept').value = student.department;
+                document.getElementById('studentYear').value = student.year;
+            }
+        }
+
+        function clearStudentForm() {
+            document.getElementById('studentName').value = '';
+            document.getElementById('studentEmail').value = '';
+            document.getElementById('studentDept').value = '';
+            document.getElementById('studentYear').value = '';
+        }
+
+        function toggleAllStudents() {
+            const checked = document.getElementById('selectAllStudents').checked;
+            document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = checked);
+        }
+
+        async function bulkDeleteStudents() {
+            const selected = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
+            if (selected.length === 0) {
+                alert('Select students to delete');
+                return;
+            }
+            if (!confirm(`Delete ${selected.length} students?`)) return;
+
+            for (const email of selected) {
+                await fetch(`/api/students/${email}`, { method: 'DELETE' });
+            }
+            alert(`Deleted ${selected.length} students`);
+            loadStudents();
+        }
+
+        function setupStudentUpload() {
+            const box = document.getElementById('studentUploadBox');
+            const input = document.getElementById('studentBulkFile');
+
+            box.addEventListener('click', () => input.click());
+            input.addEventListener('change', (e) => handleStudentUpload(e.target.files[0]));
+
+            box.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                box.style.borderColor = '#2563eb';
+                box.style.background = '#f0f9ff';
+            });
+            box.addEventListener('dragleave', () => {
+                box.style.borderColor = 'var(--color-border-default)';
+                box.style.background = 'transparent';
+            });
+            box.addEventListener('drop', (e) => {
+                e.preventDefault();
+                box.style.borderColor = 'var(--color-border-default)';
+                box.style.background = 'transparent';
+                handleStudentUpload(e.dataTransfer.files[0]);
+            });
+        }
+
+        function handleStudentUpload(file) {
+            if (!file) return;
+            alert('Bulk upload feature: ' + file.name + ' - Ready to process when backend is configured');
+            // TODO: Parse CSV and bulk insert
+        }
+
         // ========== PROJECTS MANAGEMENT ==========
+        let allProjects = [];
+
         async function loadProjects() {
             try {
                 const response = await fetch('/api/projects');
                 const data = await response.json();
                 if (data.success) {
-                    displayProjects(data.projects || []);
+                    allProjects = data.projects || [];
+                    displayProjects(allProjects);
+                    setupProjectUpload();
                 }
             } catch (error) {
                 console.error('Error loading projects:', error);
@@ -825,19 +1019,141 @@
         function displayProjects(projects) {
             const tbody = document.getElementById('projectsTable');
             if (projects.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 32px;">No projects yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 32px;">No projects yet</td></tr>';
                 return;
             }
 
             tbody.innerHTML = projects.map(p => `
                 <tr>
+                    <td><input type="checkbox" class="project-checkbox" value="${p.id}"></td>
                     <td><strong>${p.title || 'N/A'}</strong></td>
                     <td>${p.domain || 'N/A'}</td>
                     <td>${p.difficulty || 'N/A'}</td>
                     <td>${p.duration || 'N/A'}</td>
                     <td>${p.deadline || 'N/A'}</td>
+                    <td>
+                        <button class="btn-load" onclick="editProject(${p.id})" style="padding: 6px 12px; font-size: 12px; background: #2563eb; margin-right: 4px;">Edit</button>
+                        <button class="btn-load" onclick="deleteProject(${p.id})" style="padding: 6px 12px; font-size: 12px; background: #dc2626;">Delete</button>
+                    </td>
                 </tr>
             `).join('');
+        }
+
+        async function addProject() {
+            const title = document.getElementById('projectTitle').value.trim();
+            const domain = document.getElementById('projectDomain').value.trim();
+            const difficulty = document.getElementById('projectDifficulty').value;
+            const duration = document.getElementById('projectDuration').value.trim();
+            const description = document.getElementById('projectDesc').value.trim();
+            const deadline = document.getElementById('projectDeadline').value;
+
+            if (!title || !domain || !difficulty || !duration || !description || !deadline) {
+                alert('Please fill all fields');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, domain, difficulty, duration, description, deadline })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Project added successfully!');
+                    clearProjectForm();
+                    loadProjects();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error adding project: ' + error.message);
+            }
+        }
+
+        async function deleteProject(id) {
+            if (!confirm('Delete this project?')) return;
+            try {
+                const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Project deleted!');
+                    loadProjects();
+                }
+            } catch (error) {
+                alert('Error deleting project');
+            }
+        }
+
+        function editProject(id) {
+            const project = allProjects.find(p => p.id === id);
+            if (project) {
+                document.getElementById('projectTitle').value = project.title;
+                document.getElementById('projectDomain').value = project.domain;
+                document.getElementById('projectDifficulty').value = project.difficulty;
+                document.getElementById('projectDuration').value = project.duration;
+                document.getElementById('projectDesc').value = project.description;
+                document.getElementById('projectDeadline').value = project.deadline;
+            }
+        }
+
+        function clearProjectForm() {
+            document.getElementById('projectTitle').value = '';
+            document.getElementById('projectDomain').value = '';
+            document.getElementById('projectDifficulty').value = '';
+            document.getElementById('projectDuration').value = '';
+            document.getElementById('projectDesc').value = '';
+            document.getElementById('projectDeadline').value = '';
+        }
+
+        function toggleAllProjects() {
+            const checked = document.getElementById('selectAllProjects').checked;
+            document.querySelectorAll('.project-checkbox').forEach(cb => cb.checked = checked);
+        }
+
+        async function bulkDeleteProjects() {
+            const selected = Array.from(document.querySelectorAll('.project-checkbox:checked')).map(cb => parseInt(cb.value));
+            if (selected.length === 0) {
+                alert('Select projects to delete');
+                return;
+            }
+            if (!confirm(`Delete ${selected.length} projects?`)) return;
+
+            for (const id of selected) {
+                await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+            }
+            alert(`Deleted ${selected.length} projects`);
+            loadProjects();
+        }
+
+        function setupProjectUpload() {
+            const box = document.getElementById('projectUploadBox');
+            const input = document.getElementById('projectBulkFile');
+
+            box.addEventListener('click', () => input.click());
+            input.addEventListener('change', (e) => handleProjectUpload(e.target.files[0]));
+
+            box.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                box.style.borderColor = '#2563eb';
+                box.style.background = '#f0f9ff';
+            });
+            box.addEventListener('dragleave', () => {
+                box.style.borderColor = 'var(--color-border-default)';
+                box.style.background = 'transparent';
+            });
+            box.addEventListener('drop', (e) => {
+                e.preventDefault();
+                box.style.borderColor = 'var(--color-border-default)';
+                box.style.background = 'transparent';
+                handleProjectUpload(e.dataTransfer.files[0]);
+            });
+        }
+
+        function handleProjectUpload(file) {
+            if (!file) return;
+            alert('Bulk upload feature: ' + file.name + ' - Ready to process when backend is configured');
+            // TODO: Parse CSV and bulk insert
         }
 
         // ========== GROUPS MANAGEMENT ==========
@@ -870,6 +1186,28 @@
                 </tr>
             `).join('');
         }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGroups();
+
+            // Setup tab click handlers
+            const studentsTab = document.getElementById('studentsTab');
+            const projectsTab = document.getElementById('projectsTab');
+
+            if (studentsTab) {
+                studentsTab.addEventListener('click', loadStudents);
+            }
+            if (projectsTab) {
+                projectsTab.addEventListener('click', loadProjects);
+            }
+
+            // Load initial data
+            setTimeout(() => {
+                loadStudents();
+                loadProjects();
+            }, 100);
+        });
     </script>
 </body>
 </html>
