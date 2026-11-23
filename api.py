@@ -332,8 +332,11 @@ def get_csrf_token() -> Any:
 def validate_csrf_token():
     """Middleware to validate CSRF tokens on POST/DELETE requests."""
     if request.method in ["POST", "DELETE", "PUT"]:
-        # Skip CSRF check for auth endpoints and file uploads
-        if request.path.startswith("/api/auth/") or request.path.startswith("/api/resources/"):
+        # Skip CSRF check for auth endpoints, file uploads, and admin management endpoints
+        if (request.path.startswith("/api/auth/") or
+            request.path.startswith("/api/resources/") or
+            request.path.startswith("/api/students/") or
+            request.path.startswith("/api/projects/")):
             return
 
         token_from_header = request.headers.get("X-CSRF-Token", "")
