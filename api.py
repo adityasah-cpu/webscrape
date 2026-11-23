@@ -3734,6 +3734,51 @@ OPPORTUNITIES = [
         "category": "Consultancy",
         "source": "HabiTerre",
         "posted_date": "2026-10-15"
+    },
+    {
+        "id": 8,
+        "title": "Remote Sensing Scientist",
+        "company": "Land IQ",
+        "type": "Full-time",
+        "location": "Remote",
+        "salary": "Competitive",
+        "description": "Remote sensing scientists for crop classification and yield modeling. Work on precision agriculture solutions using satellite imagery.",
+        "skills": ["Remote Sensing", "Python", "Crop Classification", "Yield Modeling", "GIS"],
+        "experience": "2-4 years",
+        "url": "https://ucdavis.org/careers",
+        "category": "Agriculture Tech",
+        "source": "Land IQ / UC Davis",
+        "posted_date": "2026-11-10"
+    },
+    {
+        "id": 9,
+        "title": "Agricultural Remote Sensing Scientist",
+        "company": "Hydrosat",
+        "type": "Full-time",
+        "location": "Remote/Luxembourg",
+        "salary": "$85K - $125K",
+        "description": "Develop algorithms for irrigation management and crop stress detection using satellite data. Work on water management solutions for agriculture.",
+        "skills": ["Remote Sensing", "Python", "Machine Learning", "Agricultural Science", "Data Analysis"],
+        "experience": "3-5 years",
+        "url": "https://hydrosat.com/careers",
+        "category": "Agriculture Tech",
+        "source": "Hydrosat / Built In",
+        "posted_date": "2026-10-20"
+    },
+    {
+        "id": 10,
+        "title": "Data Services & GIS Specialist",
+        "company": "Advanced Agrilytics",
+        "type": "Full-time / Contract",
+        "location": "Remote",
+        "salary": "Project-based",
+        "description": "Data services roles for agricultural analytics. Also offers remote precision agronomist roles for field-based work. Perfect for GIS professionals and agriculture specialists.",
+        "skills": ["GIS", "Agricultural Data", "Python", "QGIS", "Data Analysis"],
+        "experience": "Bachelor's degree + GIS knowledge",
+        "url": "https://remotefirstjobs.com/jobs",
+        "category": "Agriculture Tech",
+        "source": "Advanced Agrilytics",
+        "posted_date": "2026-11-05"
     }
 ]
 
