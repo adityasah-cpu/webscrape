@@ -888,13 +888,13 @@ def admin_get_groups() -> Any:
     try:
         cursor.execute("""
             SELECT sg.group_id, sg.id, sg.project_id, sg.lead_name,
-                   COALESCE(admin_st.reg_no, sg.lead_name) as lead_reg_no,
+                   COALESCE(ast.reg_no, 'Unknown') as lead_reg_no,
                    COUNT(gm.id) as member_count,
                    sg.created_at
             FROM student_groups sg
-            LEFT JOIN admin_students admin_st ON sg.lead_name = admin_st.name
+            LEFT JOIN admin_students ast ON sg.lead_name = ast.name
             LEFT JOIN group_members gm ON sg.id = gm.group_id
-            GROUP BY sg.id
+            GROUP BY sg.id, sg.group_id, sg.project_id, sg.lead_name, ast.reg_no, sg.created_at
             ORDER BY sg.created_at DESC
         """)
         groups = cursor.fetchall()
