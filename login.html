@@ -15,7 +15,7 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #d97706 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -25,10 +25,10 @@
 
         .login-container {
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 48px 40px;
-            max-width: 420px;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15), 0 10px 20px rgba(0, 0, 0, 0.1);
+            padding: 60px 48px;
+            max-width: 450px;
             width: 100%;
             text-align: center;
         }
@@ -47,18 +47,20 @@
         }
 
         h1 {
-            font-size: 28px;
+            font-size: 32px;
             color: #1f2937;
             margin-bottom: 12px;
             font-weight: 800;
             margin-top: 20px;
+            letter-spacing: -0.5px;
         }
 
         .subtitle {
             color: #6b7280;
             font-size: 16px;
-            margin-bottom: 32px;
-            line-height: 1.5;
+            margin-bottom: 40px;
+            line-height: 1.6;
+            font-weight: 500;
         }
 
         #googleSignInButton {
@@ -68,19 +70,22 @@
         }
 
         .info-box {
-            background: #f3f4f6;
+            background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
             border-radius: 12px;
-            padding: 16px;
-            margin-top: 24px;
+            border: 1px solid #fed7aa;
+            padding: 18px;
+            margin-top: 32px;
             font-size: 13px;
-            color: #4b5563;
+            color: #92400e;
             line-height: 1.6;
+            font-weight: 500;
         }
 
         .info-box strong {
-            color: #1f2937;
+            color: #b45309;
             display: block;
             margin-bottom: 8px;
+            font-weight: 700;
         }
 
         .loading {
@@ -90,8 +95,8 @@
         }
 
         .loading-spinner {
-            border: 3px solid #f3f4f6;
-            border-top: 3px solid #667eea;
+            border: 3px solid #fed7aa;
+            border-top: 3px solid #f97316;
             border-radius: 50%;
             width: 40px;
             height: 40px;
