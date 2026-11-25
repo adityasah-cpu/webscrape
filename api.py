@@ -97,6 +97,14 @@ if not GOOGLE_CLIENT_ID:
         "sign-in attempt until it's configured."
     )
 
+# Allowed domains for Google Sign-In
+ALLOWED_DOMAINS = os.getenv('ALLOWED_DOMAINS', 'cutm.ac.in,cutmap.ac.in,centurionuniv.edu.in').split(',')
+ALLOWED_DOMAINS = [d.strip().lower() for d in ALLOWED_DOMAINS if d.strip()]
+if not ALLOWED_DOMAINS:
+    logger.warning(
+        "ALLOWED_DOMAINS not set in .env - Google Sign-In will allow all domains."
+    )
+
 # Configure rate limiting to prevent API abuse
 limiter = Limiter(
     app=app,
@@ -272,8 +280,20 @@ def google_sign_in() -> Any:
             logger.warning(f"Google Sign-In token verification failed: {ve} from {request.remote_addr}")
             return jsonify({"success": False, "error": "Invalid or expired sign-in token."}), 401
 
+        user_email = payload.get("email", "")
+
+        # Validate email domain
+        if ALLOWED_DOMAINS:
+            email_domain = user_email.split("@")[-1].lower() if "@" in user_email else ""
+            if email_domain not in ALLOWED_DOMAINS:
+                logger.warning(f"Sign-in attempt with unauthorized domain: {email_domain} from {request.remote_addr}")
+                return jsonify({
+                    "success": False,
+                    "error": f"Only emails from {', '.join(ALLOWED_DOMAINS)} are allowed to sign in."
+                }), 403
+
         user = {
-            "email": payload.get("email"),
+            "email": user_email,
             "name": payload.get("name"),
             "picture": payload.get("picture"),
         }
@@ -626,7 +646,9 @@ def manage_students() -> Any:
         elif request.method == "POST":
             data = request.get_json()
             reg_no = data.get("reg_no")
-            email = f"{reg_no.lower()}@centurionuniv.edu.in" if reg_no else "student@centurionuniv.edu.in"
+            # Use first allowed domain for student email, default to cutm.ac.in
+            domain = ALLOWED_DOMAINS[0] if ALLOWED_DOMAINS else "cutm.ac.in"
+            email = f"{reg_no.lower()}@{domain}" if reg_no else f"student@{domain}"
             cursor.execute(
                 "INSERT INTO admin_students (campus, school, program, reg_no, name, email, cgpa, backlogs, domain, rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (data.get("campus"), data.get("school"), data.get("program"), reg_no,
@@ -714,7 +736,9 @@ def bulk_upload_students() -> Any:
                     errors.append(f"Row skipped: Name and Reg. No. are required")
                     continue
 
-                email = f"{reg_no.lower()}@centurionuniv.edu.in"
+                # Use first allowed domain for student email
+                domain = ALLOWED_DOMAINS[0] if ALLOWED_DOMAINS else "cutm.ac.in"
+                email = f"{reg_no.lower()}@{domain}"
                 cursor.execute(
                     "INSERT INTO admin_students (campus, school, program, reg_no, name, email, cgpa, backlogs, domain, rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     (campus, school, program, reg_no, name, email, cgpa, backlogs, domain, rating)

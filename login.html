@@ -185,7 +185,14 @@
                     credential: response.credential
                 })
             })
-            .then(res => res.json())
+            .then(res => {
+                if (res.status === 403) {
+                    return res.json().then(data => {
+                        throw new Error(data.error || 'Your email domain is not authorized. Please use an allowed institutional email.');
+                    });
+                }
+                return res.json();
+            })
             .then(data => {
                 if (data.success) {
                     console.log('✅ Login successful:', data.user);
