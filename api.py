@@ -59,7 +59,7 @@ app = Flask(__name__)
 
 # Configure CORS with allowed origins
 cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:5000').split(',')
-CORS(app, origins=cors_origins, allow_headers=['Content-Type'], methods=['GET', 'POST', 'DELETE'])
+CORS(app, origins=cors_origins, allow_headers=['Content-Type'], methods=['GET', 'POST', 'DELETE'], supports_credentials=True)
 
 # Session secret for the Flask session cookie that marks a user as signed
 # in after Google Sign-In verification. A real value should live in .env
