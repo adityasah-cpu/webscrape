@@ -98,7 +98,7 @@ if not GOOGLE_CLIENT_ID:
     )
 
 # Allowed domains for Google Sign-In
-ALLOWED_DOMAINS = os.getenv('ALLOWED_DOMAINS', 'cutm.ac.in,cutmap.ac.in,centurionuniv.edu.in').split(',')
+ALLOWED_DOMAINS = os.getenv('ALLOWED_DOMAINS', 'cutm.ac.in,cutmap.ac.in,centurionuniv.edu.in,thegttech.com').split(',')
 ALLOWED_DOMAINS = [d.strip().lower() for d in ALLOWED_DOMAINS if d.strip()]
 if not ALLOWED_DOMAINS:
     logger.warning(
