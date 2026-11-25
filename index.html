@@ -3169,15 +3169,10 @@
                 const data = await apiFetch("/auth/me", {}, 15000);
                 console.log("Auth response:", data);
 
-                // Check if authenticated (either has user or authenticated flag)
-                if (data && (data.authenticated || data.user)) {
-                    const user = data.user || {
-                        email: "dev@localhost",
-                        name: "Developer",
-                        picture: null
-                    };
-                    console.log("Showing app for user:", user);
-                    showApp(user);
+                // Check if authenticated
+                if (data && data.user) {
+                    console.log("Showing app for user:", data.user);
+                    showApp(data.user);
                 } else {
                     console.log("Not authenticated, showing sign in");
                     showSignIn();
@@ -3471,18 +3466,9 @@
             try {
                 const data = await apiFetch("/auth/config", {}, 15000);
                 if (!data || !data.google_client_id) {
-                    // Dev mode: Google Sign-In not configured
                     const errorEl = document.getElementById("authError");
-                    errorEl.textContent = "Development Mode: Auto-logged in as dev@localhost. Loading...";
-                    errorEl.style.color = "#10b981";  // Green color for success message
+                    errorEl.textContent = "Error: Google Sign-In is not configured. Please contact administrator.";
                     errorEl.style.display = "block";
-
-                    // Auto-login in dev mode - call checkAuthAndInit directly
-                    console.log("Dev mode detected, auto-logging in...");
-                    setTimeout(() => {
-                        console.log("Retrying auth...");
-                        checkAuthAndInit();
-                    }, 1500);
                     return;
                 }
 

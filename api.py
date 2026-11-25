@@ -3412,17 +3412,7 @@ def require_admin(f):
     def decorated_function(*args, **kwargs):
         user = session.get("user")
         if not user:
-            # Dev mode auto-login if GOOGLE_CLIENT_ID is not set
-            if not GOOGLE_CLIENT_ID:
-                session["user"] = {
-                    "email": "dev@localhost",
-                    "name": "Developer",
-                    "picture": None
-                }
-                user = session["user"]
-                logger.debug("require_admin: Auto-logged in as dev@localhost")
-            else:
-                return jsonify({"error": "Unauthorized"}), 401
+            return jsonify({"error": "Unauthorized"}), 401
 
         user_email = user.get("email")
 
