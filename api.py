@@ -625,10 +625,12 @@ def manage_students() -> Any:
 
         elif request.method == "POST":
             data = request.get_json()
+            reg_no = data.get("reg_no")
+            email = f"{reg_no.lower()}@centurionuniv.edu.in" if reg_no else "student@centurionuniv.edu.in"
             cursor.execute(
-                "INSERT INTO admin_students (campus, school, program, reg_no, name, cgpa, backlogs, domain, rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (data.get("campus"), data.get("school"), data.get("program"), data.get("reg_no"),
-                 data.get("name"), data.get("cgpa"), data.get("backlogs"), data.get("domain"), data.get("rating"))
+                "INSERT INTO admin_students (campus, school, program, reg_no, name, email, cgpa, backlogs, domain, rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (data.get("campus"), data.get("school"), data.get("program"), reg_no,
+                 data.get("name"), email, data.get("cgpa"), data.get("backlogs"), data.get("domain"), data.get("rating"))
             )
             conn.commit()
             return jsonify({"success": True, "message": "Student added"})
@@ -712,9 +714,10 @@ def bulk_upload_students() -> Any:
                     errors.append(f"Row skipped: Name and Reg. No. are required")
                     continue
 
+                email = f"{reg_no.lower()}@centurionuniv.edu.in"
                 cursor.execute(
-                    "INSERT INTO admin_students (campus, school, program, reg_no, name, cgpa, backlogs, domain, rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                    (campus, school, program, reg_no, name, cgpa, backlogs, domain, rating)
+                    "INSERT INTO admin_students (campus, school, program, reg_no, name, email, cgpa, backlogs, domain, rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (campus, school, program, reg_no, name, email, cgpa, backlogs, domain, rating)
                 )
                 inserted += 1
             except Exception as e:
@@ -881,20 +884,21 @@ def bulk_upload_projects() -> Any:
 
 @app.route("/api/admin/groups", methods=["GET"])
 def admin_get_groups() -> Any:
-    """Get all groups for admin view with lead student registration number"""
+    """Get all groups for admin view with lead student details"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
     try:
         cursor.execute("""
             SELECT sg.group_id, sg.id, sg.project_id, sg.lead_name,
-                   COALESCE(ast.reg_no, 'Unknown') as lead_reg_no,
+                   COALESCE(ast.email, 'Unknown') as lead_email,
+                   COALESCE(ast.department, 'Unknown') as lead_department,
                    COUNT(gm.id) as member_count,
                    sg.created_at
             FROM student_groups sg
             LEFT JOIN admin_students ast ON sg.lead_name = ast.name
             LEFT JOIN group_members gm ON sg.id = gm.group_id
-            GROUP BY sg.id, sg.group_id, sg.project_id, sg.lead_name, ast.reg_no, sg.created_at
+            GROUP BY sg.id, sg.group_id, sg.project_id, sg.lead_name, ast.email, ast.department, sg.created_at
             ORDER BY sg.created_at DESC
         """)
         groups = cursor.fetchall()
@@ -905,6 +909,90 @@ def admin_get_groups() -> Any:
     finally:
         cursor.close()
         conn.close()
+
+@app.route("/api/groups/bulk-upload", methods=["POST"])
+def bulk_upload_groups() -> Any:
+    """Bulk upload groups from CSV file"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({"success": False, "error": "No file provided"}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"success": False, "error": "No file selected"}), 400
+
+        if not file.filename.endswith(('.csv', '.xlsx', '.xls')):
+            return jsonify({"success": False, "error": "File must be CSV or Excel format"}), 400
+
+        import csv
+        import io
+        import string
+        import random
+
+        conn = mysql.connector.connect(**MYSQL_CONFIG)
+        cursor = conn.cursor()
+
+        stream = io.StringIO(file.stream.read().decode("UTF-8"), newline=None)
+        csv_data = csv.DictReader(stream)
+
+        inserted = 0
+        errors = []
+
+        for row in csv_data:
+            try:
+                group_id = row.get('Group ID', '').strip()
+                project_id = int(row.get('Project ID', 0)) if row.get('Project ID') else 0
+                lead_name = row.get('Lead Name', '').strip()
+                member_names = row.get('Members', '').strip()
+
+                if not group_id or not lead_name or not project_id:
+                    errors.append("Row skipped: Group ID, Project ID, and Lead Name are required")
+                    continue
+
+                # Create group
+                cursor.execute(
+                    "INSERT INTO student_groups (group_id, project_id, lead_name, created_at) VALUES (%s, %s, %s, %s)",
+                    (group_id, project_id, lead_name, datetime.now())
+                )
+
+                # Get the inserted group ID
+                group_internal_id = cursor.lastrowid
+
+                # Add lead as member
+                cursor.execute(
+                    "INSERT INTO group_members (group_id, student_name, joined_at) VALUES (%s, %s, %s)",
+                    (group_internal_id, lead_name, datetime.now())
+                )
+
+                # Add other members if provided
+                if member_names:
+                    members = [m.strip() for m in member_names.split(',')]
+                    for member in members:
+                        if member and member != lead_name:
+                            cursor.execute(
+                                "INSERT INTO group_members (group_id, student_name, joined_at) VALUES (%s, %s, %s)",
+                                (group_internal_id, member, datetime.now())
+                            )
+
+                inserted += 1
+            except Exception as e:
+                errors.append(f"Row error: {str(e)}")
+                continue
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "message": f"{inserted} groups uploaded successfully",
+            "inserted": inserted,
+            "errors": errors
+        })
+
+    except Exception as e:
+        logger.error(f"Error uploading groups: {e}")
+        return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route("/api/health", methods=["GET"])
 def health() -> Any:

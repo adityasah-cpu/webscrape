@@ -593,19 +593,34 @@
 
             <!-- Groups Management -->
             <div id="groups-view" class="tab-content">
+                <!-- Bulk Upload Groups -->
+                <div class="table-card" style="margin-bottom: 24px;">
+                    <h2><span>📤</span>Bulk Upload Groups</h2>
+                    <div style="padding: 24px;">
+                        <div id="groupUploadBox" style="border: 2px dashed var(--color-border-default); padding: 32px; text-align: center; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
+                            <p style="color: var(--color-text-secondary); margin-bottom: 12px;">Drag & drop CSV/Excel file or click to upload</p>
+                            <input type="file" id="groupBulkFile" accept=".csv,.xlsx,.xls" style="display: none;">
+                        </div>
+                        <p style="color: var(--color-text-secondary); font-size: 12px; margin-top: 12px;">✓ Format: Group ID, Project ID, Lead Name, Members (comma-separated)</p>
+                    </div>
+                </div>
+
+                <!-- Groups Table -->
                 <div class="table-card">
-                    <h2><span>👨‍👩‍👧‍👦</span>Student Groups</h2>
+                    <h2><span>👨‍👩‍👧‍👦</span>All Student Groups</h2>
                     <div class="table-wrapper">
                         <table>
                             <thead>
                                 <tr>
                                     <th>Group ID</th>
-                                    <th>Lead Student (Reg. No.)</th>
-                                    <th>Domain Project ID</th>
+                                    <th>Lead Name</th>
+                                    <th>Project ID</th>
+                                    <th>Members</th>
+                                    <th>Created</th>
                                 </tr>
                             </thead>
                             <tbody id="groupsTable">
-                                <tr><td colspan="3" style="text-align: center; padding: 32px;">Loading...</td></tr>
+                                <tr><td colspan="5" style="text-align: center; padding: 32px;">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -920,9 +935,12 @@
                 return;
             }
 
+            // Auto-generate email from reg_no
+            const email = reg_no.toLowerCase() + '@centurionuniv.edu.in';
+
             try {
                 let response, url, method;
-                const studentData = { campus, school, program, name, cgpa, backlogs, domain, rating };
+                const studentData = { campus, school, program, name, email, cgpa, backlogs, domain, rating };
 
                 if (editingStudentRegNo) {
                     // Update existing student
@@ -1314,18 +1332,49 @@
         function displayGroups(groups) {
             const tbody = document.getElementById('groupsTable');
             if (groups.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 32px;">No groups yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 32px;">No groups yet</td></tr>';
                 return;
             }
 
             tbody.innerHTML = groups.map(g => `
                 <tr>
                     <td><strong>${g.group_id || 'N/A'}</strong></td>
-                    <td>${g.lead_reg_no || g.lead_name || 'N/A'}</td>
+                    <td>${g.lead_name || 'N/A'}</td>
                     <td>${g.project_id || 'N/A'}</td>
+                    <td>${g.member_count || 0} members</td>
+                    <td>${formatDate(g.created_at)}</td>
                 </tr>
             `).join('');
         }
+
+        // Setup group bulk upload
+        document.getElementById('groupUploadBox').addEventListener('click', () => {
+            document.getElementById('groupBulkFile').click();
+        });
+
+        document.getElementById('groupBulkFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch('/api/groups/bulk-upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        alert(`Success! ${data.inserted} groups uploaded`);
+                        loadGroups();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                } catch (error) {
+                    alert('Upload failed: ' + error);
+                }
+            }
+        });
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
