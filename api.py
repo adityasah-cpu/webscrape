@@ -869,22 +869,24 @@ def bulk_upload_projects() -> Any:
 
         for row in csv_data:
             try:
-                # Map CSV columns to database columns - use domain_projects schema for student visibility
+                # Map CSV columns to database columns
                 title = row.get('Title', '').strip()
                 description = row.get('Description', '').strip()
-                domain = row.get('Domain', '').strip()
-                difficulty = row.get('Difficulty', '').strip()
-                duration = row.get('Duration', '').strip()
-                deadline = row.get('Deadline', '').strip()
+                comments = row.get('Comments', '').strip()
+                category = row.get('Category', '').strip()
+                rating = float(row.get('Rating', 0)) if row.get('Rating') else 0
+                mentor1 = row.get('Mentor 1', '').strip() or None
+                mentor2 = row.get('Mentor 2', '').strip() or None
+                mentor3 = row.get('Mentor 3', '').strip() or None
 
                 if not title:
-                    errors.append(f"Row skipped: Title is required")
+                    errors.append("Row skipped: Title is required")
                     continue
 
-                # Insert into domain_projects so students can see them
+                # Insert into admin_projects table
                 cursor.execute(
-                    "INSERT INTO domain_projects (title, description, domain, difficulty, duration, deadline) VALUES (%s, %s, %s, %s, %s, %s)",
-                    (title, description, domain, difficulty, duration, deadline)
+                    "INSERT INTO admin_projects (title, description, comments_details, category, rating, mentor1, mentor2, mentor3, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (title, description, comments, category, rating, mentor1, mentor2, mentor3, datetime.now())
                 )
                 inserted += 1
             except Exception as e:
