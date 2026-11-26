@@ -965,18 +965,30 @@ def bulk_upload_groups() -> Any:
         for row in csv_data:
             try:
                 group_id = row.get('Group ID', '').strip()
-                project_id = int(row.get('Project ID', 0)) if row.get('Project ID') else 0
-                lead_name = row.get('Lead Name', '').strip()
-                member_names = row.get('Members', '').strip()
+                project_id = int(row.get('Domain Project ID', 0)) if row.get('Domain Project ID') else 0
+                lead_reg_no = row.get('Lead Student (Regn. No.)', '').strip()
 
-                if not group_id or not lead_name or not project_id:
-                    errors.append("Row skipped: Group ID, Project ID, and Lead Name are required")
+                if not group_id or not lead_reg_no or not project_id:
+                    errors.append("Row skipped: Group ID, Lead Student (Regn. No.), and Domain Project ID are required")
                     continue
+
+                # Fetch lead student details from admin_students table
+                cursor.execute(
+                    "SELECT name, email FROM admin_students WHERE reg_no = %s",
+                    (lead_reg_no,)
+                )
+                lead_data = cursor.fetchone()
+
+                if not lead_data:
+                    errors.append(f"Row skipped: Student with Reg. No. {lead_reg_no} not found")
+                    continue
+
+                lead_name, lead_email = lead_data
 
                 # Create group
                 cursor.execute(
-                    "INSERT INTO student_groups (group_id, project_id, lead_name, created_at) VALUES (%s, %s, %s, %s)",
-                    (group_id, project_id, lead_name, datetime.now())
+                    "INSERT INTO student_groups (group_id, lead_name, lead_email, project_id, created_at) VALUES (%s, %s, %s, %s, %s)",
+                    (group_id, lead_name, lead_email, project_id, datetime.now())
                 )
 
                 # Get the inserted group ID
@@ -984,19 +996,9 @@ def bulk_upload_groups() -> Any:
 
                 # Add lead as member
                 cursor.execute(
-                    "INSERT INTO group_members (group_id, student_name, joined_at) VALUES (%s, %s, %s)",
-                    (group_internal_id, lead_name, datetime.now())
+                    "INSERT INTO group_members (group_id, member_name, member_email, joined_at) VALUES (%s, %s, %s, %s)",
+                    (group_internal_id, lead_name, lead_email, datetime.now())
                 )
-
-                # Add other members if provided
-                if member_names:
-                    members = [m.strip() for m in member_names.split(',')]
-                    for member in members:
-                        if member and member != lead_name:
-                            cursor.execute(
-                                "INSERT INTO group_members (group_id, student_name, joined_at) VALUES (%s, %s, %s)",
-                                (group_internal_id, member, datetime.now())
-                            )
 
                 inserted += 1
             except Exception as e:
