@@ -53,9 +53,9 @@ TIMEOUT = 30
 OUTPUT_FILE = "jobs.csv"
 
 # Company "slugs" from careers URLs, e.g. boards.greenhouse.io/<slug>, jobs.lever.co/<slug>, jobs.ashbyhq.com/<slug>
-GREENHOUSE_COMPANIES = ["gitlab", "airbnb", "stripe"]
-LEVER_COMPANIES = ["netflix", "plaid"]
-ASHBY_COMPANIES = ["notion", "ramp"]
+GREENHOUSE_COMPANIES = ["gitlab", "airbnb", "stripe", "carta", "discord", "netlify"]
+LEVER_COMPANIES = ["guidepoint", "robinhood", "zapier", "mixpanel", "retool", "replit"]
+ASHBY_COMPANIES = ["notion", "ramp", "linear", "figma", "stripe"]
 
 # Adzuna: country-wide job search (remote + hybrid + onsite). Free keys at https://developer.adzuna.com
 ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "")
@@ -505,29 +505,55 @@ def scrape_internshala(max_pages=None):
             try:
                 headers = HEADERS.copy()
                 headers["User-Agent"] = get_random_user_agent()
+                headers["Accept-Language"] = "en-US,en;q=0.9"
                 url = f"https://internshala.com/internships/work-from-home/?page={page}"
                 response = requests.get(url, headers=headers, timeout=TIMEOUT)
                 response.raise_for_status()
 
                 soup = BeautifulSoup(response.content, 'html.parser')
+
+                # Try multiple selectors
                 internship_cards = soup.find_all('div', class_='internship_card')
+                if not internship_cards:
+                    internship_cards = soup.find_all('div', attrs={'data-id': True})
+                if not internship_cards:
+                    internship_cards = soup.find_all('article', class_='internship')
 
                 if not internship_cards:
                     break
 
                 for card in internship_cards:
                     try:
+                        # Try multiple selectors for title
                         title_elem = card.find('a', class_='internship-link')
                         if not title_elem:
                             title_elem = card.find('h2')
-                        title = title_elem.get_text(strip=True) if title_elem else "N/A"
+                        if not title_elem:
+                            title_elem = card.find('span', class_='title')
+                        if not title_elem:
+                            title_elem = card.find('a', href=True)
 
+                        title = title_elem.get_text(strip=True) if title_elem else None
+                        if not title:
+                            continue
+
+                        # Try multiple selectors for company
                         company_elem = card.find('p', class_='company_name')
                         if not company_elem:
                             company_elem = card.find('a', class_='company-link')
-                        company = company_elem.get_text(strip=True) if company_elem else "N/A"
+                        if not company_elem:
+                            company_elem = card.find('span', class_='company')
+                        company = company_elem.get_text(strip=True) if company_elem else ""
 
-                        link = title_elem.get('href') if title_elem and title_elem.name == 'a' else ""
+                        # Get link
+                        link = ""
+                        if title_elem and title_elem.name == 'a':
+                            link = title_elem.get('href', "")
+                        else:
+                            link_elem = card.find('a', href=True)
+                            if link_elem:
+                                link = link_elem.get('href', "")
+
                         if link and link.startswith('/'):
                             link = f"https://internshala.com{link}"
 
@@ -549,7 +575,7 @@ def scrape_internshala(max_pages=None):
                 time.sleep(2)
             except Exception as e:
                 logger.warning(f"Internshala page {page} failed: {e}")
-                break
+                continue
     except Exception as e:
         logger.warning(f"Internshala scraping failed: {e}")
 
@@ -567,27 +593,54 @@ def scrape_unstop(max_pages=None):
                 headers = HEADERS.copy()
                 headers["User-Agent"] = get_random_user_agent()
                 headers["Referer"] = "https://unstop.com"
+                headers["Accept-Language"] = "en-US,en;q=0.9"
                 url = f"https://unstop.com/internships?page={page}"
                 response = requests.get(url, headers=headers, timeout=TIMEOUT)
                 response.raise_for_status()
 
                 soup = BeautifulSoup(response.content, 'html.parser')
+
+                # Try multiple selectors
                 opportunity_cards = soup.find_all('div', class_='opportunity-card')
+                if not opportunity_cards:
+                    opportunity_cards = soup.find_all('div', attrs={'data-id': True})
+                if not opportunity_cards:
+                    opportunity_cards = soup.find_all('article', class_='opportunity')
+                if not opportunity_cards:
+                    opportunity_cards = soup.find_all('div', class_='card')
 
                 if not opportunity_cards:
                     break
 
                 for card in opportunity_cards:
                     try:
-                        title_elem = card.find('h2') or card.find('a', class_='opportunity-link')
-                        title = title_elem.get_text(strip=True) if title_elem else "N/A"
+                        # Try multiple selectors for title
+                        title_elem = card.find('h2')
+                        if not title_elem:
+                            title_elem = card.find('a', class_='opportunity-link')
+                        if not title_elem:
+                            title_elem = card.find('span', class_='title')
+                        if not title_elem:
+                            title_elem = card.find('a', href=True)
 
+                        title = title_elem.get_text(strip=True) if title_elem else None
+                        if not title:
+                            continue
+
+                        # Try multiple selectors for organization
                         org_elem = card.find('p', class_='organization-name')
                         if not org_elem:
                             org_elem = card.find('span', class_='org-name')
-                        organization = org_elem.get_text(strip=True) if org_elem else "N/A"
+                        if not org_elem:
+                            org_elem = card.find('span', class_='company')
+                        if not org_elem:
+                            org_elem = card.find('p', class_='company')
+                        organization = org_elem.get_text(strip=True) if org_elem else ""
 
-                        link_elem = card.find('a', class_='opportunity-link') or card.find('a', href=True)
+                        # Get link
+                        link_elem = card.find('a', class_='opportunity-link')
+                        if not link_elem:
+                            link_elem = card.find('a', href=True)
                         link = link_elem.get('href') if link_elem else ""
                         if link and link.startswith('/'):
                             link = f"https://unstop.com{link}"
@@ -607,7 +660,7 @@ def scrape_unstop(max_pages=None):
                 time.sleep(2)
             except Exception as e:
                 logger.warning(f"Unstop page {page} failed: {e}")
-                break
+                continue
     except Exception as e:
         logger.warning(f"Unstop scraping failed: {e}")
 
@@ -618,46 +671,75 @@ def scrape_firstnaukri():
     """FirstNaukri: built for freshers (0-3 years experience) in India (web scraping)."""
     jobs = []
     try:
-        headers = HEADERS.copy()
-        headers["User-Agent"] = get_random_user_agent()
-        headers["Referer"] = "https://www.firstnaukri.com"
-
-        # Scrape FirstNaukri fresher jobs listing
-        url = "https://www.firstnaukri.com/jobs-fresher"
-        response = requests.get(url, headers=headers, timeout=TIMEOUT)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.content, 'html.parser')
-        job_cards = soup.find_all('div', class_='jobCard') or soup.find_all('div', class_='job-card')
-
-        if not job_cards:
-            # Try alternative selector
-            job_cards = soup.find_all('article', class_='job')
-
-        for card in job_cards[:50]:  # Limit to 50 jobs
+        for page in range(1, 3):  # Try multiple pages
             try:
-                title_elem = card.find('h2') or card.find('a', class_='job-title')
-                title = title_elem.get_text(strip=True) if title_elem else "N/A"
+                headers = HEADERS.copy()
+                headers["User-Agent"] = get_random_user_agent()
+                headers["Referer"] = "https://www.firstnaukri.com"
+                headers["Accept-Language"] = "en-US,en;q=0.9"
 
-                company_elem = card.find('p', class_='company') or card.find('span', class_='company-name')
-                company = company_elem.get_text(strip=True) if company_elem else ""
+                # Scrape FirstNaukri fresher jobs listing
+                url = f"https://www.firstnaukri.com/jobs-fresher?page={page}" if page > 1 else "https://www.firstnaukri.com/jobs-fresher"
+                response = requests.get(url, headers=headers, timeout=TIMEOUT)
+                response.raise_for_status()
 
-                link_elem = card.find('a', href=True)
-                link = link_elem.get('href') if link_elem else ""
-                if link and link.startswith('/'):
-                    link = f"https://www.firstnaukri.com{link}"
+                soup = BeautifulSoup(response.content, 'html.parser')
 
-                jobs.append(job("FirstNaukri", title, company,
-                                location="India",
-                                country="India",
-                                job_type="Full-time",
-                                date=datetime.now().strftime("%Y-%m-%d"),
-                                url=link))
+                # Try multiple selectors
+                job_cards = soup.find_all('div', class_='jobCard')
+                if not job_cards:
+                    job_cards = soup.find_all('div', class_='job-card')
+                if not job_cards:
+                    job_cards = soup.find_all('article', class_='job')
+                if not job_cards:
+                    job_cards = soup.find_all('div', attrs={'data-id': True})
+
+                if not job_cards:
+                    break
+
+                for card in job_cards[:50]:  # Limit to 50 jobs per page
+                    try:
+                        # Try multiple selectors for title
+                        title_elem = card.find('h2')
+                        if not title_elem:
+                            title_elem = card.find('a', class_='job-title')
+                        if not title_elem:
+                            title_elem = card.find('span', class_='title')
+                        if not title_elem:
+                            title_elem = card.find('a', href=True)
+
+                        title = title_elem.get_text(strip=True) if title_elem else None
+                        if not title:
+                            continue
+
+                        # Try multiple selectors for company
+                        company_elem = card.find('p', class_='company')
+                        if not company_elem:
+                            company_elem = card.find('span', class_='company-name')
+                        if not company_elem:
+                            company_elem = card.find('div', class_='company')
+                        company = company_elem.get_text(strip=True) if company_elem else ""
+
+                        # Get link
+                        link_elem = card.find('a', href=True)
+                        link = link_elem.get('href') if link_elem else ""
+                        if link and link.startswith('/'):
+                            link = f"https://www.firstnaukri.com{link}"
+
+                        jobs.append(job("FirstNaukri", title, company,
+                                        location="India",
+                                        country="India",
+                                        job_type="Full-time",
+                                        date=datetime.now().strftime("%Y-%m-%d"),
+                                        url=link))
+                    except Exception as e:
+                        logger.debug(f"Error parsing FirstNaukri card: {e}")
+                        continue
+
+                time.sleep(2)
             except Exception as e:
-                logger.debug(f"Error parsing FirstNaukri card: {e}")
+                logger.warning(f"FirstNaukri page {page} failed: {e}")
                 continue
-
-        time.sleep(2)
     except Exception as e:
         logger.warning(f"FirstNaukri scraping failed: {e}")
     return jobs
@@ -697,10 +779,15 @@ def scrape_angellist():
                             link_elem = listing.find('a', href=True)
                             link = link_elem.get('href') if link_elem else ""
 
+                        if not title or not link:
+                            continue
+
                         if link and link.startswith('/'):
                             link = f"https://www.wellfound.com{link}"
 
                         location_elem = listing.find('span', class_='location')
+                        if not location_elem:
+                            location_elem = listing.find('div', class_='location')
                         location = location_elem.get_text(strip=True) if location_elem else "Remote"
 
                         jobs.append(job("Wellfound", title, company,
@@ -717,7 +804,7 @@ def scrape_angellist():
                 time.sleep(2)
             except Exception as e:
                 logger.warning(f"Wellfound page {page} failed: {e}")
-                break
+                continue
     except Exception as e:
         logger.warning(f"Wellfound scraping failed: {e}")
 
@@ -753,32 +840,44 @@ def scrape_upwork():
     """Upwork: freelance and project-based work (no API key needed for public board)."""
     jobs = []
     try:
-        # Upwork RSS feed for job postings. Same timeout fix as the other
-        # RSS sources - feedparser.parse(url) itself has no timeout.
-        headers = HEADERS.copy()
-        headers["User-Agent"] = get_random_user_agent()
-        response = requests.get(
-            "https://www.upwork.com/ab/feed/jobs/rss?q=remote+entry+level&rss=1&sort=recency",
-            headers=headers, timeout=TIMEOUT,
-        )
-        response.raise_for_status()
-        feed = feedparser.parse(response.content)
-        for entry in feed.entries[:100]:
-            title = entry.get("title", "")
-            description = entry.get("summary", "")
-            date = ""
-            if entry.get("published_parsed"):
-                date = time.strftime("%Y-%m-%d", entry.published_parsed)
-            jobs.append(job("Upwork", title, "",
-                            work_type="Remote",
-                            location="Remote",
-                            country="Worldwide",
-                            job_type="Freelance, Project-based",
-                            category="",
-                            salary=extract_budget(description),
-                            date=date,
-                            url=entry.get("link", ""),
-                            description=description))
+        # Upwork RSS feed for job postings with enhanced headers and retry logic
+        queries = ["remote+entry+level", "remote+python", "remote+javascript", "remote+web", "remote+design"]
+        for query in queries:
+            try:
+                headers = HEADERS.copy()
+                headers["User-Agent"] = get_random_user_agent()
+                headers["Accept"] = "application/rss+xml, application/atom+xml"
+                headers["Accept-Language"] = "en-US,en;q=0.9"
+                headers["Referer"] = "https://www.upwork.com"
+
+                response = requests.get(
+                    f"https://www.upwork.com/ab/feed/jobs/rss?q={query}&rss=1&sort=recency",
+                    headers=headers, timeout=TIMEOUT, allow_redirects=True
+                )
+                response.raise_for_status()
+                feed = feedparser.parse(response.content)
+
+                for entry in feed.entries[:50]:
+                    title = entry.get("title", "")
+                    description = entry.get("summary", "")
+                    date = ""
+                    if entry.get("published_parsed"):
+                        date = time.strftime("%Y-%m-%d", entry.published_parsed)
+                    if title:  # Only add if title exists
+                        jobs.append(job("Upwork", title, "",
+                                        work_type="Remote",
+                                        location="Remote",
+                                        country="Worldwide",
+                                        job_type="Freelance, Project-based",
+                                        category="",
+                                        salary=extract_budget(description),
+                                        date=date,
+                                        url=entry.get("link", ""),
+                                        description=description))
+                time.sleep(1)  # Rate limiting
+            except Exception as e:
+                logger.debug(f"Upwork query {query}: {e}")
+                continue
     except Exception as e:
         logger.warning(f"Upwork: {e}")
     return jobs
@@ -788,20 +887,70 @@ def scrape_toptal():
     """Toptal: vetted remote freelancers and jobs (quality-focused)."""
     jobs = []
     try:
-        # Toptal public jobs board
-        data = get_json("https://www.toptal.com/api/rest/v2/jobs",
-                       params={"limit": 100, "offset": 0, "status": "open"})
-        for j in data.get("data", []):
-            jobs.append(job("Toptal", j.get("title"), j.get("client", {}).get("company_name", ""),
-                            work_type="Remote",
-                            location="Remote",
-                            country="Worldwide",
-                            job_type=norm_job_type(j.get("type")),
-                            category=j.get("skills", [{}])[0].get("name", "") if j.get("skills") else "",
-                            salary=fmt_salary(j.get("budget_min"), j.get("budget_max"), "$"),
-                            date=j.get("posted_at", "")[:10],
-                            url=f"https://www.toptal.com/jobs/{j.get('slug')}" if j.get("slug") else "",
-                            description=j.get("description")))
+        # Toptal jobs board - using web scraping since API may be restricted
+        headers = HEADERS.copy()
+        headers["User-Agent"] = get_random_user_agent()
+
+        for page in range(1, 3):  # Scrape first 2 pages
+            try:
+                url = f"https://www.toptal.com/jobs?page={page}"
+                response = requests.get(url, headers=headers, timeout=TIMEOUT)
+                response.raise_for_status()
+
+                soup = BeautifulSoup(response.content, 'html.parser')
+
+                # Try multiple selectors for job cards
+                job_cards = soup.find_all('div', class_='job-card')
+                if not job_cards:
+                    job_cards = soup.find_all('article', class_='job')
+                if not job_cards:
+                    job_cards = soup.find_all('div', attrs={'data-test': 'job-card'})
+
+                if not job_cards:
+                    break
+
+                for card in job_cards:
+                    try:
+                        # Extract title
+                        title_elem = card.find('h2') or card.find('a', class_='job-title') or card.find('span', class_='title')
+                        title = title_elem.get_text(strip=True) if title_elem else ""
+
+                        # Extract company/client
+                        company_elem = card.find('span', class_='company') or card.find('p', class_='client')
+                        company = company_elem.get_text(strip=True) if company_elem else ""
+
+                        # Extract budget/salary
+                        salary_elem = card.find('span', class_='budget') or card.find('div', class_='salary')
+                        salary = salary_elem.get_text(strip=True) if salary_elem else ""
+
+                        # Extract skills/category
+                        skills_elem = card.find('span', class_='skills') or card.find('div', class_='category')
+                        category = skills_elem.get_text(strip=True) if skills_elem else ""
+
+                        # Extract link
+                        link_elem = card.find('a', href=True)
+                        link = link_elem.get('href') if link_elem else ""
+                        if link and link.startswith('/'):
+                            link = f"https://www.toptal.com{link}"
+
+                        if title:
+                            jobs.append(job("Toptal", title, company,
+                                            work_type="Remote",
+                                            location="Remote",
+                                            country="Worldwide",
+                                            job_type="Freelance, Project-based",
+                                            category=category,
+                                            salary=salary,
+                                            date=datetime.now().strftime("%Y-%m-%d"),
+                                            url=link))
+                    except Exception as e:
+                        logger.debug(f"Error parsing Toptal card: {e}")
+                        continue
+
+                time.sleep(1)
+            except Exception as e:
+                logger.debug(f"Toptal page {page}: {e}")
+                break
     except Exception as e:
         logger.warning(f"Toptal: {e}")
     return jobs
