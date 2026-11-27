@@ -1035,46 +1035,27 @@
         async function bulkDeleteStudents() {
             const selected = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
             if (selected.length === 0) {
-                alert('❌ Select students to delete');
+                alert('Select students to delete');
                 return;
             }
-            if (!confirm(`Delete ${selected.length} students? This cannot be undone.`)) return;
+            if (!confirm('Delete ' + selected.length + ' students? Cannot undo.')) return;
 
-            let deleted = 0;
-            let failed = 0;
-            const errors = [];
+            const response = await fetch('/api/students/bulk-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reg_nos: selected })
+            });
+            const result = await response.json();
 
-            for (const reg_no of selected) {
-                try {
-                    const response = await fetch(`/api/students/${reg_no}`, { method: 'DELETE' });
-                    const data = await response.json();
-
-                    if (data.success) {
-                        deleted++;
-                    } else {
-                        failed++;
-                        errors.push(`${reg_no}: ${data.error}`);
-                    }
-                } catch (error) {
-                    failed++;
-                    errors.push(`${reg_no}: ${error.message}`);
-                }
-                // Small delay to avoid rate limiting
-                await new Promise(r => setTimeout(r, 100));
-            }
-
-            let message = `✅ Deleted ${deleted}/${selected.length} students`;
-            if (failed > 0) {
-                message += `\n⚠️ Failed to delete ${failed} students`;
-                if (errors.length > 0 && errors.length <= 5) {
-                    message += `\n\nErrors:\n${errors.join('\n')}`;
+            let message = 'Deleted ' + result.deleted + '/' + result.total + ' students';
+            if (result.failed > 0) {
+                message += '\nFailed: ' + result.failed;
+                if (result.errors && result.errors.length > 0 && result.errors.length <= 5) {
+                    message += '\nErrors: ' + result.errors.join(', ');
                 }
             }
             alert(message);
-                loadStudents();
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
+            loadStudents();
         }
 
         function setupStudentUpload() {
@@ -1294,42 +1275,28 @@
             document.querySelectorAll('.project-checkbox').forEach(cb => cb.checked = checked);
         }
 
-        async function bulkDeleteProjects() {
+                async function bulkDeleteProjects() {
             const selected = Array.from(document.querySelectorAll('.project-checkbox:checked')).map(cb => parseInt(cb.value));
             if (selected.length === 0) {
-                alert('❌ Select projects to delete');
+                alert('Select projects to delete');
                 return;
             }
-            if (!confirm(`Delete ${selected.length} projects? This cannot be undone.`)) return;
+            if (!confirm('Delete ' + selected.length + ' projects? Cannot undo.')) return;
 
-            let deleted = 0;
-            let failed = 0;
-            const errors = [];
+            const response = await fetch('/api/projects/bulk-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ project_ids: selected })
+            });
+            const result = await response.json();
 
-            for (const id of selected) {
-                try {
-                    const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
-                    const data = await response.json();
-
-                    if (data.success) {
-                        deleted++;
-                    } else {
-                        failed++;
-                        errors.push(`Project ${id}: ${data.error}`);
-                    }
-                } catch (error) {
-                    failed++;
-                    errors.push(`Project ${id}: ${error.message}`);
-                }
-                // Small delay to avoid rate limiting
-                await new Promise(r => setTimeout(r, 100));
-            }
-
-            let message = `✅ Deleted ${deleted}/${selected.length} projects`;
-            if (failed > 0) {
-                message += `\n⚠️ Failed to delete ${failed} projects`;
-                if (errors.length > 0 && errors.length <= 5) {
-                    message += `\n\nErrors:\n${errors.join('\n')}`;
+            let message = 'Deleted ' + result.deleted + '/' + result.total + ' projects';
+            if (result.failed > 0) {
+                message += '
+Failed: ' + result.failed;
+                if (result.errors && result.errors.length > 0 && result.errors.length <= 5) {
+                    message += '
+Errors: ' + result.errors.join(', ');
                 }
             }
             alert(message);
