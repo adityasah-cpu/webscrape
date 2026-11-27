@@ -266,6 +266,30 @@
     <script>
         const API = '/api';
 
+        // Auto-redirect admin users to admin dashboard
+        async function checkAndRedirectAdmin() {
+            try {
+                const response = await fetch(`${API}/auth/me`, { credentials: 'include' });
+                const data = await response.json();
+
+                if (data.user) {
+                    // Check if user is admin
+                    const adminCheckResponse = await fetch(`${API}/check-admin`, { credentials: 'include' });
+                    const adminData = await adminCheckResponse.json();
+
+                    if (adminData.is_admin) {
+                        window.location.href = '/admin';
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking admin status:', error);
+            }
+        }
+
+        // Check on page load
+        checkAndRedirectAdmin();
+
         async function loadJobs() {
             try {
                 const response = await fetch(`${API}/jobs?limit=50`, { credentials: 'include' });
