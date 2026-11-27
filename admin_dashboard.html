@@ -1290,11 +1290,9 @@
 
             let message = 'Deleted ' + result.deleted + '/' + result.total + ' projects';
             if (result.failed > 0) {
-                message += '
-Failed: ' + result.failed;
+                message += ' - Failed: ' + result.failed;
                 if (result.errors && result.errors.length > 0 && result.errors.length <= 5) {
-                    message += '
-Errors: ' + result.errors.join(', ');
+                    message += ' - Errors: ' + result.errors.join(', ');
                 }
             }
             alert(message);
