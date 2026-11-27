@@ -248,8 +248,15 @@
         document.getElementById('fetchJobsBtn').addEventListener('click', fetchJobsFromSources);
         document.getElementById('uploadResumeBtn').addEventListener('click', function() { alert('Resume upload coming soon!'); });
         document.getElementById('uploadResume2').addEventListener('click', function() { alert('Resume upload coming soon!'); });
-        document.getElementById('browseJobsBtn').addEventListener('click', function() { document.getElementById('startSearchBtn').click(); });
-        document.getElementById('startSearchBtn').addEventListener('click', function() { alert('Select sources and click Fetch Jobs button!'); });
+        document.getElementById('browseJobsBtn').addEventListener('click', function() { document.querySelector('.sidebar').scrollIntoView({ behavior: 'smooth' }); });
+
+        // Event delegation for dynamically created startSearchBtn
+        document.addEventListener('click', function(e) {
+            if(e.target.id === 'startSearchBtn') {
+                document.querySelector('.sidebar').scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', loadJobs);
 
         document.getElementById('logoutBtn').addEventListener('click', async function() {
