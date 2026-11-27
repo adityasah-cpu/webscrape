@@ -76,8 +76,8 @@
 <body>
     <header class="header">
         <div style="display: flex; align-items: center; gap: 32px;">
-            <a href="#" class="brand"><div class="brand-icon">🚀</div><span>Novagig</span></a>
-            <ul class="nav-items"><li><a href="#">Discover</a></li><li><a href="#">Opportunities</a></li><li><a href="#">Resources</a></li></ul>
+            <a href="#" class="brand" onclick="window.scrollTo({top:0, behavior:'smooth'}); return false;"><div class="brand-icon">🚀</div><span>Novagig</span></a>
+            <ul class="nav-items"><li><a href="#" onclick="document.getElementById('discover-section').scrollIntoView({behavior:'smooth'}); return false;">Discover</a></li><li><a href="#" onclick="document.getElementById('opportunities-section').scrollIntoView({behavior:'smooth'}); return false;">Opportunities</a></li><li><a href="#" onclick="document.getElementById('resources-section').scrollIntoView({behavior:'smooth'}); return false;">Resources</a></li></ul>
         </div>
         <div class="header-right">
             <div class="user-menu"><div class="avatar">AS</div><span style="font-size: 13px; font-weight: 600; color: var(--text);">Aditya Sah</span></div>
@@ -103,7 +103,7 @@
         </section>
 
         <div class="content-grid">
-            <section class="job-section">
+            <section class="job-section" id="discover-section">
                 <div class="section-header"><h2 class="section-title">Latest Opportunities</h2><button class="sort-btn" id="sortBtn">Sort: Latest</button></div>
                 <div class="filters-container">
                     <div class="filter-box"><label class="filter-label">Type</label><select class="filter-select"><option>All Types</option><option>Jobs</option><option>Internships</option></select></div>
@@ -114,7 +114,7 @@
                 <div class="jobs-container"><div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No jobs found yet</div><div class="empty-text">Select job sources and click Fetch Jobs</div><button class="btn btn-primary" id="startSearchBtn">Start Searching</button></div></div>
             </section>
 
-            <aside class="sidebar">
+            <aside class="sidebar" id="opportunities-section">
                 <div class="sidebar-card">
                     <h3 class="card-title">📌 Job Sources</h3>
                     <div class="source-category">🌐 Remote Jobs</div>
@@ -139,7 +139,7 @@
                     <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">Upload your resume for personalized recommendations.</p>
                     <button class="btn btn-primary" id="uploadResume2" style="width: 100%;">Upload Resume</button>
                 </div>
-                <div class="sidebar-card" style="border-color: rgba(217,119,6,0.3); background: linear-gradient(135deg, rgba(217,119,6,0.08), rgba(249,115,22,0.08));">
+                <div class="sidebar-card" id="resources-section" style="border-color: rgba(217,119,6,0.3); background: linear-gradient(135deg, rgba(217,119,6,0.08), rgba(249,115,22,0.08));">
                     <h3 class="card-title">💡 Pro Tips</h3>
                     <ul style="list-style: none; font-size: 13px; color: var(--gray); line-height: 2;"><li>✨ Upload your resume for AI matching</li><li>✨ Check new jobs daily</li><li>✨ Apply to multiple opportunities</li><li>✨ Update your profile regularly</li></ul>
                 </div>
