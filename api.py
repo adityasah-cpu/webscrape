@@ -734,23 +734,24 @@ def bulk_upload_students() -> Any:
                 campus = row.get('Campus', '').strip()
                 school = row.get('School', '').strip()
                 program = row.get('Program', '').strip()
+                year = row.get('Year', '').strip()
                 reg_no = row.get('Reg. No.', '').strip()
                 name = row.get('Name', '').strip()
                 cgpa = float(row.get('CGPA', 0)) if row.get('CGPA') else 0
                 backlogs = int(row.get('Backlogs', 0)) if row.get('Backlogs') else 0
                 domain = row.get('Domain', '').strip()
-                rating = float(row.get('Rating', 0)) if row.get('Rating') else 0
+                domain_project = row.get('Domain Project', '').strip()
 
                 if not name or not reg_no:
                     errors.append(f"Row skipped: Name and Reg. No. are required")
                     continue
 
                 # Use first allowed domain for student email
-                domain = ALLOWED_DOMAINS[0] if ALLOWED_DOMAINS else "cutm.ac.in"
-                email = f"{reg_no.lower()}@{domain}"
+                email_domain = ALLOWED_DOMAINS[0] if ALLOWED_DOMAINS else "cutm.ac.in"
+                email = f"{reg_no.lower()}@{email_domain}"
                 cursor.execute(
-                    "INSERT INTO admin_students (campus, school, program, reg_no, name, email, cgpa, backlogs, domain, rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                    (campus, school, program, reg_no, name, email, cgpa, backlogs, domain, rating)
+                    "INSERT INTO admin_students (campus, school, program, year, reg_no, name, email, cgpa, backlogs, domain, domain_project) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (campus, school, program, year, reg_no, name, email, cgpa, backlogs, domain, domain_project)
                 )
                 inserted += 1
             except Exception as e:
@@ -791,24 +792,24 @@ def get_domain_projects_public() -> Any:
 
 @app.route("/api/projects", methods=["GET", "POST"])
 def manage_projects() -> Any:
-    """Get all projects or add a new project - Uses domain_projects for admin"""
+    """Get all projects or add a new project - Uses admin_projects for admin"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
     try:
         if request.method == "GET":
-            # Fetch from domain_projects so admin can see all projects
-            cursor.execute("SELECT * FROM domain_projects ORDER BY created_at DESC")
+            # Fetch from admin_projects so admin can see all projects
+            cursor.execute("SELECT * FROM admin_projects ORDER BY created_at DESC")
             projects = cursor.fetchall()
             return jsonify({"success": True, "projects": projects})
 
         elif request.method == "POST":
             data = request.get_json()
-            # Insert into domain_projects table so students can see them on domain-projects.html
+            # Insert into admin_projects table
             cursor.execute(
-                "INSERT INTO domain_projects (title, domain, difficulty, duration, deadline, description) VALUES (%s, %s, %s, %s, %s, %s)",
-                (data.get("title"), data.get("domain"), data.get("difficulty"), data.get("duration"),
-                 data.get("deadline"), data.get("description"))
+                "INSERT INTO admin_projects (title, description, comments_details, category, rating, mentor1, mentor2, mentor3, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (data.get("title"), data.get("description"), data.get("comments_details"), data.get("category"),
+                 data.get("rating"), data.get("mentor1"), data.get("mentor2"), data.get("mentor3"), datetime.now())
             )
             conn.commit()
             return jsonify({"success": True, "message": "Project added"})
@@ -822,23 +823,23 @@ def manage_projects() -> Any:
 
 @app.route("/api/projects/<int:project_id>", methods=["DELETE", "PUT"])
 def delete_or_update_project(project_id: int) -> Any:
-    """Delete or update a project in domain_projects table"""
+    """Delete or update a project in admin_projects table"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor()
 
     try:
         if request.method == "DELETE":
-            cursor.execute("DELETE FROM domain_projects WHERE id = %s", (project_id,))
+            cursor.execute("DELETE FROM admin_projects WHERE id = %s", (project_id,))
             conn.commit()
             return jsonify({"success": True, "message": "Project deleted"})
 
         elif request.method == "PUT":
             data = request.get_json()
-            # Update domain_projects table so changes reflect for students too
+            # Update admin_projects table
             cursor.execute(
-                "UPDATE domain_projects SET title=%s, domain=%s, difficulty=%s, duration=%s, deadline=%s, description=%s WHERE id=%s",
-                (data.get("title"), data.get("domain"), data.get("difficulty"), data.get("duration"),
-                 data.get("deadline"), data.get("description"), project_id)
+                "UPDATE admin_projects SET title=%s, description=%s, comments_details=%s, category=%s, rating=%s, mentor1=%s, mentor2=%s, mentor3=%s WHERE id=%s",
+                (data.get("title"), data.get("description"), data.get("comments_details"), data.get("category"),
+                 data.get("rating"), data.get("mentor1"), data.get("mentor2"), data.get("mentor3"), project_id)
             )
             conn.commit()
             return jsonify({"success": True, "message": "Project updated"})
@@ -879,9 +880,10 @@ def bulk_upload_projects() -> Any:
         for row in csv_data:
             try:
                 # Map CSV columns to database columns
+                project_id = row.get('ID', '').strip()
                 title = row.get('Title', '').strip()
                 description = row.get('Description', '').strip()
-                comments = row.get('Comments', '').strip()
+                comment = row.get('Comment', '').strip()
                 category = row.get('Category', '').strip()
                 rating = row.get('Rating', '').strip() or None
                 mentor1 = row.get('Mentor 1', '').strip() or None
@@ -894,8 +896,8 @@ def bulk_upload_projects() -> Any:
 
                 # Insert into admin_projects table
                 cursor.execute(
-                    "INSERT INTO admin_projects (title, description, comments_details, category, rating, mentor1, mentor2, mentor3, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                    (title, description, comments, category, rating, mentor1, mentor2, mentor3, datetime.now())
+                    "INSERT INTO admin_projects (id, title, description, comments_details, category, rating, mentor1, mentor2, mentor3, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (project_id if project_id else None, title, description, comment, category, rating, mentor1, mentor2, mentor3, datetime.now())
                 )
                 inserted += 1
             except Exception as e:
