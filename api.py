@@ -874,7 +874,6 @@ def bulk_upload_projects() -> Any:
                 description = row.get('Description', '').strip()
                 comments = row.get('Comments', '').strip()
                 category = row.get('Category', '').strip()
-                rating = float(row.get('Rating', 0)) if row.get('Rating') else 0
                 mentor1 = row.get('Mentor 1', '').strip() or None
                 mentor2 = row.get('Mentor 2', '').strip() or None
                 mentor3 = row.get('Mentor 3', '').strip() or None
@@ -885,8 +884,8 @@ def bulk_upload_projects() -> Any:
 
                 # Insert into admin_projects table
                 cursor.execute(
-                    "INSERT INTO admin_projects (title, description, comments_details, category, rating, mentor1, mentor2, mentor3, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                    (title, description, comments, category, rating, mentor1, mentor2, mentor3, datetime.now())
+                    "INSERT INTO admin_projects (title, description, comments_details, category, mentor1, mentor2, mentor3, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    (title, description, comments, category, mentor1, mentor2, mentor3, datetime.now())
                 )
                 inserted += 1
             except Exception as e:
