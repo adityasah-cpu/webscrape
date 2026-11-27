@@ -407,19 +407,9 @@
     </div>
 
     <div class="container">
-        <div class="selector-card">
-            <div class="selector-group">
-                <label for="locationSelect">📍 Location:</label>
-                <select id="locationSelect">
-                    <option value="">-- All Locations --</option>
-                </select>
-            </div>
-            <button class="btn-load" onclick="loadDashboard()">Load Dashboard</button>
-        </div>
-
         <div class="error-message" id="errorMessage"></div>
 
-        <div id="statsContainer" style="display: none;">
+        <div id="statsContainer">
             <!-- Summary Stats -->
             <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 20px; color: var(--color-text-charcoal);">Summary Metrics</h2>
             <div class="stats-grid" id="statsGrid"></div>
@@ -689,14 +679,13 @@
         }
 
         async function loadDashboard() {
-            const location = document.getElementById('locationSelect').value;
             hideError();
             document.getElementById('statsContainer').style.display = 'block';
 
             try {
                 const [usersRes, updatesRes] = await Promise.all([
-                    fetch(`${API_URL}/users${location ? '?location=' + location : ''}`, { credentials: 'include' }),
-                    fetch(`${API_URL}/user-updates${location ? '?location=' + location : ''}`, { credentials: 'include' })
+                    fetch(`${API_URL}/users`, { credentials: 'include' }),
+                    fetch(`${API_URL}/user-updates`, { credentials: 'include' })
                 ]);
 
                 if (!usersRes.ok || !updatesRes.ok) {
@@ -1412,10 +1401,8 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async () => {
-            // Load locations first
-            await loadLocations();
-
-            // Load all data
+            // Load all data automatically
+            await loadDashboard();
             await loadGroups();
             await loadStudents();
             await loadProjects();
