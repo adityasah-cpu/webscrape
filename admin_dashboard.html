@@ -677,7 +677,7 @@
 
         async function loadLocations() {
             try {
-                const response = await fetch(`${API_URL}/locations`);
+                const response = await fetch(`${API_URL}/locations`, { credentials: 'include' });
                 const data = await response.json();
 
                 if (!data.success || !data.locations) {
@@ -703,8 +703,8 @@
 
             try {
                 const [usersRes, updatesRes] = await Promise.all([
-                    fetch(`${API_URL}/users${location ? '?location=' + location : ''}`),
-                    fetch(`${API_URL}/user-updates${location ? '?location=' + location : ''}`)
+                    fetch(`${API_URL}/users${location ? '?location=' + location : ''}`, { credentials: 'include' }),
+                    fetch(`${API_URL}/user-updates${location ? '?location=' + location : ''}`, { credentials: 'include' })
                 ]);
 
                 if (!usersRes.ok || !updatesRes.ok) {
@@ -880,7 +880,7 @@
 
         async function loadStudents() {
             try {
-                const response = await fetch('/api/students');
+                const response = await fetch('/api/students', { credentials: 'include' });
                 const data = await response.json();
                 if (data.success) {
                     allStudents = data.students || [];
@@ -1118,7 +1118,7 @@
 
         async function loadProjects() {
             try {
-                const response = await fetch('/api/projects');
+                const response = await fetch('/api/projects', { credentials: 'include' });
                 const data = await response.json();
                 if (data.success) {
                     allProjects = data.projects || [];
@@ -1363,7 +1363,7 @@ Errors: ' + result.errors.join(', ');
         // ========== GROUPS MANAGEMENT ==========
         async function loadGroups() {
             try {
-                const response = await fetch('/api/admin/groups');
+                const response = await fetch('/api/admin/groups', { credentials: 'include' });
                 const data = await response.json();
                 if (data.success) {
                     displayGroups(data.groups || []);
