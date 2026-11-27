@@ -634,6 +634,16 @@
 
         document.getElementById('fetchJobsBtn').addEventListener('click', fetchJobsFromSources);
 
+        // Source labels are siblings of their checkboxes (not wrapping/linked),
+        // so clicking the name did nothing. Toggle the checkbox from the label.
+        document.querySelectorAll('.source-item label').forEach(label => {
+            label.style.cursor = 'pointer';
+            label.addEventListener('click', () => {
+                const cb = label.previousElementSibling;
+                if (cb && cb.type === 'checkbox' && !cb.disabled) cb.checked = !cb.checked;
+            });
+        });
+
         // Resume upload modal handlers
         const resumeModal = document.getElementById('resumeModal');
         const atsScoreModal = document.getElementById('atsScoreModal');
