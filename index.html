@@ -1,887 +1,160 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Novagig - Your Career Starts Here</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --primary-light: #818cf8;
-            --secondary: #ec4899;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --bg-dark: #0f172a;
-            --bg-darker: #020617;
-            --bg-card: #1e293b;
-            --bg-light: #f8fafc;
-            --text-white: #ffffff;
-            --text-light: #cbd5e1;
-            --text-muted: #94a3b8;
-            --accent-cyan: #06b6d4;
-            --accent-purple: #a855f7;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-darker) 100%);
-            color: var(--text-light);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
-
-        /* ===== HEADER ===== */
-        .header {
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(100, 116, 139, 0.2);
-            padding: 16px 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            animation: slideDown 0.3s ease-out;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 32px;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 22px;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .brand-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--accent-purple) 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            font-weight: 800;
-            color: white;
-            box-shadow: 0 8px 16px rgba(99, 102, 241, 0.3);
-        }
-
-        .nav-items {
-            display: flex;
-            gap: 24px;
-            list-style: none;
-        }
-
-        .nav-items a {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 14px;
-            padding: 8px 12px;
-            border-radius: 8px;
-            transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-        }
-
-        .nav-items a:hover {
-            color: var(--primary);
-            background: rgba(99, 102, 241, 0.1);
-        }
-
-        .nav-items a.active::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 12px;
-            right: 12px;
-            height: 2px;
-            background: var(--primary);
-            border-radius: 2px;
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .user-menu {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 8px 12px;
-            border-radius: 10px;
-            background: rgba(99, 102, 241, 0.1);
-            cursor: pointer;
-            transition: all 300ms;
-        }
-
-        .user-menu:hover {
-            background: rgba(99, 102, 241, 0.2);
-        }
-
-        .avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 14px;
-            color: white;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-            color: white;
-            box-shadow: 0 8px 16px rgba(99, 102, 241, 0.3);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 24px rgba(99, 102, 241, 0.4);
-        }
-
-        .btn-outline {
-            background: transparent;
-            color: var(--text-light);
-            border: 1px solid var(--text-muted);
-        }
-
-        .btn-outline:hover {
-            border-color: var(--primary);
-            color: var(--primary);
-            background: rgba(99, 102, 241, 0.1);
-        }
-
-        /* ===== MAIN ===== */
-        .main {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 48px 32px;
-        }
-
-        /* ===== HERO SECTION ===== */
-        .hero {
-            margin-bottom: 60px;
-            animation: fadeInUp 0.6s ease-out;
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .hero-content {
-            max-width: 800px;
-        }
-
-        .hero h1 {
-            font-family: 'Poppins', sans-serif;
-            font-size: 56px;
-            font-weight: 800;
-            margin-bottom: 16px;
-            line-height: 1.2;
-            background: linear-gradient(135deg, var(--text-white) 0%, var(--text-light) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .hero p {
-            font-size: 18px;
-            color: var(--text-muted);
-            margin-bottom: 32px;
-            line-height: 1.8;
-        }
-
-        .hero-buttons {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-        }
-
-        .btn-secondary {
-            background: rgba(99, 102, 241, 0.2);
-            color: var(--primary-light);
-            border: 1px solid var(--primary);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(99, 102, 241, 0.3);
-            transform: translateY(-2px);
-        }
-
-        /* ===== QUICK STATS ===== */
-        .quick-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 60px;
-        }
-
-        .stat-box {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 16px;
-            padding: 28px;
-            backdrop-filter: blur(10px);
-            transition: all 300ms;
-            animation: fadeInUp 0.6s ease-out;
-            animation-fill-mode: both;
-        }
-
-        .stat-box:nth-child(2) { animation-delay: 0.1s; }
-        .stat-box:nth-child(3) { animation-delay: 0.2s; }
-        .stat-box:nth-child(4) { animation-delay: 0.3s; }
-
-        .stat-box:hover {
-            border-color: var(--primary);
-            transform: translateY(-8px);
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
-        }
-
-        .stat-icon {
-            font-size: 36px;
-            margin-bottom: 12px;
-        }
-
-        .stat-value {
-            font-family: 'Poppins', sans-serif;
-            font-size: 36px;
-            font-weight: 700;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 4px;
-        }
-
-        .stat-label {
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-
-        /* ===== CONTENT GRID ===== */
-        .content-grid {
-            display: grid;
-            grid-template-columns: 1fr 320px;
-            gap: 32px;
-            margin-bottom: 60px;
-        }
-
-        @media (max-width: 1200px) {
-            .content-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* ===== JOB SECTION ===== */
-        .job-section {
-            background: linear-gradient(135deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.5) 100%);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 20px;
-            padding: 32px;
-            backdrop-filter: blur(10px);
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 28px;
-        }
-
-        .section-title {
-            font-family: 'Poppins', sans-serif;
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--text-white);
-        }
-
-        .sort-btn {
-            background: rgba(99, 102, 241, 0.1);
-            color: var(--text-light);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            padding: 8px 16px;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 300ms;
-            font-size: 13px;
-        }
-
-        .sort-btn:hover {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: var(--primary);
-        }
-
-        /* ===== FILTERS ===== */
-        .filters-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 16px;
-            margin-bottom: 32px;
-            padding-bottom: 24px;
-            border-bottom: 1px solid rgba(99, 102, 241, 0.1);
-        }
-
-        .filter-box {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .filter-label {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-            letter-spacing: 0.8px;
-        }
-
-        .filter-select {
-            padding: 12px;
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 10px;
-            color: var(--text-light);
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 300ms;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .filter-select:hover, .filter-select:focus {
-            border-color: var(--primary);
-            background: rgba(99, 102, 241, 0.15);
-            outline: none;
-        }
-
-        /* ===== JOB CARDS ===== */
-        .jobs-container {
-            display: grid;
-            gap: 20px;
-        }
-
-        .job-card {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 16px;
-            padding: 24px;
-            transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .job-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            transition: left 0.5s;
-        }
-
-        .job-card:hover::before {
-            left: 100%;
-        }
-
-        .job-card:hover {
-            border-color: var(--primary);
-            transform: translateY(-8px);
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
-            box-shadow: 0 20px 40px rgba(99, 102, 241, 0.2);
-        }
-
-        .job-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: start;
-            margin-bottom: 16px;
-            gap: 16px;
-        }
-
-        .job-info h3 {
-            font-family: 'Poppins', sans-serif;
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--text-white);
-            margin-bottom: 4px;
-        }
-
-        .job-company {
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-
-        .match-badge {
-            background: linear-gradient(135deg, var(--success) 0%, var(--accent-cyan) 100%);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: 700;
-            font-size: 13px;
-            white-space: nowrap;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-        }
-
-        .job-tags {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-        }
-
-        .tag {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            background: rgba(99, 102, 241, 0.2);
-            color: var(--primary-light);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-        }
-
-        .tag.remote {
-            background: rgba(6, 182, 212, 0.2);
-            color: var(--accent-cyan);
-            border-color: rgba(6, 182, 212, 0.3);
-        }
-
-        .tag.fresher {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--success);
-            border-color: rgba(16, 185, 129, 0.3);
-        }
-
-        .job-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-top: 16px;
-            border-top: 1px solid rgba(99, 102, 241, 0.1);
-            font-size: 13px;
-            color: var(--text-muted);
-        }
-
-        /* ===== SIDEBAR ===== */
-        .sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .sidebar-card {
-            background: linear-gradient(135deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.5) 100%);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 20px;
-            padding: 24px;
-            backdrop-filter: blur(10px);
-        }
-
-        .card-title {
-            font-family: 'Poppins', sans-serif;
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--text-white);
-            margin-bottom: 18px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .source-item {
-            display: flex;
-            align-items: center;
-            padding: 12px;
-            margin-bottom: 10px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 300ms;
-            border: 1px solid transparent;
-        }
-
-        .source-item:hover {
-            background: rgba(99, 102, 241, 0.1);
-            border-color: rgba(99, 102, 241, 0.2);
-        }
-
-        .source-item input {
-            width: 18px;
-            height: 18px;
-            margin-right: 12px;
-            cursor: pointer;
-            accent-color: var(--primary);
-        }
-
-        .source-item label {
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--text-light);
-            flex: 1;
-        }
-
-        .source-item.disabled {
-            opacity: 0.5;
-            pointer-events: none;
-        }
-
-        .source-item.disabled label {
-            color: var(--text-muted);
-        }
-
-        .unavailable-badge {
-            font-size: 10px;
-            color: var(--warning);
-            font-weight: 700;
-            background: rgba(245, 158, 11, 0.2);
-            padding: 2px 8px;
-            border-radius: 4px;
-            margin-left: auto;
-        }
-
-        .source-category {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: var(--primary);
-            margin-top: 16px;
-            margin-bottom: 10px;
-            padding-left: 12px;
-            letter-spacing: 0.8px;
-        }
-
-        .source-category:first-of-type {
-            margin-top: 0;
-        }
-
-        /* ===== EMPTY STATE ===== */
-        .empty-state {
-            text-align: center;
-            padding: 80px 40px;
-        }
-
-        .empty-icon {
-            font-size: 64px;
-            margin-bottom: 20px;
-            animation: bounce 2s infinite;
-        }
-
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-
-        .empty-title {
-            font-family: 'Poppins', sans-serif;
-            font-size: 22px;
-            font-weight: 700;
-            color: var(--text-white);
-            margin-bottom: 12px;
-        }
-
-        .empty-text {
-            font-size: 14px;
-            color: var(--text-muted);
-            margin-bottom: 24px;
-            max-width: 400px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 36px;
-            }
-
-            .hero p {
-                font-size: 16px;
-            }
-
-            .nav-items {
-                display: none;
-            }
-
-            .main {
-                padding: 24px 16px;
-            }
-
-            .filters-container {
-                grid-template-columns: 1fr;
-            }
-
-            .quick-stats {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
+            --primary: #d97706;
+            --accent: #f97316;
+            --bg: #faf7f2;
+            --text: #2d2520;
+            --gray: #6b6158;
+            --muted: #9b8b7e;
+        }
+        body { font-family: Inter, sans-serif; background: linear-gradient(135deg, var(--bg), #f5f1eb); color: var(--text); }
+        .header { background: rgba(255,250,247,0.95); border-bottom: 1px solid rgba(217,119,6,0.1); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; font-weight: 700; font-size: 22px; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .brand-icon { width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), var(--accent)); display: flex; align-items: center; justify-content: center; font-size: 20px; color: white; box-shadow: 0 8px 16px rgba(217,119,6,0.3); }
+        .nav-items { display: flex; gap: 24px; list-style: none; }
+        .nav-items a { color: var(--gray); text-decoration: none; font-weight: 500; font-size: 14px; padding: 8px 12px; border-radius: 8px; transition: 300ms; }
+        .nav-items a:hover { color: var(--primary); background: rgba(217,119,6,0.1); }
+        .header-right { display: flex; align-items: center; gap: 20px; }
+        .user-menu { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 10px; background: rgba(217,119,6,0.1); }
+        .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--accent)); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; }
+        .btn { padding: 12px 24px; border: none; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; transition: 300ms; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; box-shadow: 0 8px 16px rgba(217,119,6,0.3); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(217,119,6,0.4); }
+        .btn-outline { background: transparent; color: var(--gray); border: 1px solid var(--muted); }
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary); background: rgba(217,119,6,0.05); }
+        .btn-secondary { background: rgba(217,119,6,0.15); color: var(--primary); border: 1px solid var(--primary); }
+        .btn-secondary:hover { background: rgba(217,119,6,0.2); transform: translateY(-2px); }
+        .main { max-width: 1600px; margin: 0 auto; padding: 48px 32px; }
+        .hero { margin-bottom: 60px; }
+        .hero h1 { font-family: Poppins, sans-serif; font-size: 56px; font-weight: 800; margin-bottom: 16px; background: linear-gradient(135deg, var(--text), var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero p { font-size: 18px; color: var(--gray); margin-bottom: 32px; }
+        .hero-buttons { display: flex; gap: 16px; flex-wrap: wrap; }
+        .quick-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 60px; }
+        .stat-box { background: linear-gradient(135deg, rgba(217,119,6,0.08), rgba(249,115,22,0.08)); border: 1px solid rgba(217,119,6,0.2); border-radius: 16px; padding: 28px; transition: 300ms; }
+        .stat-box:hover { border-color: var(--primary); transform: translateY(-8px); }
+        .stat-icon { font-size: 36px; margin-bottom: 12px; }
+        .stat-value { font-family: Poppins, sans-serif; font-size: 36px; font-weight: 700; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-label { font-size: 14px; color: var(--muted); }
+        .content-grid { display: grid; grid-template-columns: 1fr 320px; gap: 32px; }
+        @media (max-width: 1200px) { .content-grid { grid-template-columns: 1fr; } }
+        .job-section { background: linear-gradient(135deg, rgba(255,250,247,0.6), rgba(245,241,235,0.6)); border: 1px solid rgba(217,119,6,0.15); border-radius: 20px; padding: 32px; }
+        .section-title { font-family: Poppins, sans-serif; font-size: 24px; font-weight: 700; color: var(--text); }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+        .sort-btn { background: rgba(217,119,6,0.1); color: var(--gray); border: 1px solid rgba(217,119,6,0.2); padding: 8px 16px; border-radius: 10px; cursor: pointer; transition: 300ms; }
+        .sort-btn:hover { background: rgba(217,119,6,0.15); border-color: var(--primary); }
+        .filters-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid rgba(217,119,6,0.1); }
+        .filter-box { display: flex; flex-direction: column; }
+        .filter-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+        .filter-select { padding: 12px; background: rgba(217,119,6,0.08); border: 1px solid rgba(217,119,6,0.15); border-radius: 10px; color: var(--text); cursor: pointer; }
+        .filter-select:hover { border-color: var(--primary); background: rgba(217,119,6,0.12); }
+        .jobs-container { display: grid; gap: 20px; }
+        .empty-state { text-align: center; padding: 80px 40px; }
+        .empty-icon { font-size: 64px; margin-bottom: 20px; }
+        .empty-title { font-family: Poppins, sans-serif; font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+        .empty-text { font-size: 14px; color: var(--muted); margin-bottom: 24px; max-width: 400px; margin-left: auto; margin-right: auto; }
+        .sidebar { display: flex; flex-direction: column; gap: 24px; }
+        .sidebar-card { background: linear-gradient(135deg, rgba(255,250,247,0.6), rgba(245,241,235,0.6)); border: 1px solid rgba(217,119,6,0.15); border-radius: 20px; padding: 24px; }
+        .card-title { font-family: Poppins, sans-serif; font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 18px; }
+        .source-item { display: flex; align-items: center; padding: 12px; margin-bottom: 10px; border-radius: 12px; cursor: pointer; transition: 300ms; }
+        .source-item:hover { background: rgba(217,119,6,0.1); }
+        .source-item input { width: 18px; height: 18px; margin-right: 12px; cursor: pointer; accent-color: var(--primary); }
+        .source-item label { cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text); flex: 1; }
+        .source-item.disabled { opacity: 0.5; pointer-events: none; }
+        .source-category { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--primary); margin-top: 16px; margin-bottom: 10px; }
+        .unavailable-badge { font-size: 10px; color: var(--primary); font-weight: 700; background: rgba(217,119,6,0.2); padding: 2px 8px; border-radius: 4px; margin-left: auto; }
+        @media (max-width: 768px) { .hero h1 { font-size: 36px; } .nav-items { display: none; } .main { padding: 24px 16px; } }
     </style>
 </head>
 <body>
-    <!-- HEADER -->
     <header class="header">
-        <div class="header-left">
-            <a href="#" class="brand">
-                <div class="brand-icon">🚀</div>
-                <span>Novagig</span>
-            </a>
-            <ul class="nav-items">
-                <li><a href="#" class="active">Discover</a></li>
-                <li><a href="#">Opportunities</a></li>
-                <li><a href="#">Resources</a></li>
-                <li><a href="#">Community</a></li>
-            </ul>
+        <div style="display: flex; align-items: center; gap: 32px;">
+            <a href="#" class="brand"><div class="brand-icon">🚀</div><span>Novagig</span></a>
+            <ul class="nav-items"><li><a href="#">Discover</a></li><li><a href="#">Opportunities</a></li><li><a href="#">Resources</a></li></ul>
         </div>
         <div class="header-right">
-            <div class="user-menu">
-                <div class="avatar">AS</div>
-                <span style="font-size: 13px; font-weight: 600;">Aditya Sah</span>
-            </div>
-            <button class="btn btn-outline">Logout</button>
+            <div class="user-menu"><div class="avatar">AS</div><span style="font-size: 13px; font-weight: 600; color: var(--text);">Aditya Sah</span></div>
+            <button class="btn btn-outline" id="logoutBtn">Logout</button>
         </div>
     </header>
 
-    <!-- MAIN -->
     <main class="main">
-        <!-- HERO -->
         <section class="hero">
-            <div class="hero-content">
-                <h1>Your Career Starts Here ✨</h1>
-                <p>Discover 3,776+ jobs and internships perfectly matched for you. Upload your resume and let AI find your perfect role.</p>
-                <div class="hero-buttons">
-                    <button class="btn btn-primary">📄 Upload Resume</button>
-                    <button class="btn btn-secondary">🔍 Explore Jobs</button>
-                </div>
+            <h1>Your Career Starts Here ✨</h1>
+            <p>Discover 3,776+ jobs and internships perfectly matched for you.</p>
+            <div class="hero-buttons">
+                <button class="btn btn-primary" id="uploadResumeBtn">📄 Upload Resume</button>
+                <button class="btn btn-secondary" id="browseJobsBtn">🔍 Explore Jobs</button>
             </div>
         </section>
 
-        <!-- QUICK STATS -->
         <section class="quick-stats">
-            <div class="stat-box">
-                <div class="stat-icon">💼</div>
-                <div class="stat-value">3,776</div>
-                <div class="stat-label">Active Opportunities</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-icon">⭐</div>
-                <div class="stat-value">0</div>
-                <div class="stat-label">Recommended for You</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-icon">🎓</div>
-                <div class="stat-value">0</div>
-                <div class="stat-label">Internships</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-icon">🏆</div>
-                <div class="stat-value">0</div>
-                <div class="stat-label">Hackathons</div>
-            </div>
+            <div class="stat-box"><div class="stat-icon">💼</div><div class="stat-value">3,776</div><div class="stat-label">Active Opportunities</div></div>
+            <div class="stat-box"><div class="stat-icon">⭐</div><div class="stat-value">0</div><div class="stat-label">Recommended</div></div>
+            <div class="stat-box"><div class="stat-icon">🎓</div><div class="stat-value">0</div><div class="stat-label">Internships</div></div>
+            <div class="stat-box"><div class="stat-icon">🏆</div><div class="stat-value">0</div><div class="stat-label">Hackathons</div></div>
         </section>
 
-        <!-- CONTENT GRID -->
         <div class="content-grid">
-            <!-- JOB SECTION -->
             <section class="job-section">
-                <div class="section-header">
-                    <h2 class="section-title">Latest Opportunities</h2>
-                    <button class="sort-btn">Sort by: Latest</button>
-                </div>
-
-                <!-- FILTERS -->
+                <div class="section-header"><h2 class="section-title">Latest Opportunities</h2><button class="sort-btn" id="sortBtn">Sort: Latest</button></div>
                 <div class="filters-container">
-                    <div class="filter-box">
-                        <label class="filter-label">Type</label>
-                        <select class="filter-select">
-                            <option>All Types</option>
-                            <option>Jobs</option>
-                            <option>Internships</option>
-                        </select>
-                    </div>
-                    <div class="filter-box">
-                        <label class="filter-label">Work Mode</label>
-                        <select class="filter-select">
-                            <option>All Modes</option>
-                            <option>Remote</option>
-                            <option>Hybrid</option>
-                            <option>Onsite</option>
-                        </select>
-                    </div>
-                    <div class="filter-box">
-                        <label class="filter-label">Location</label>
-                        <select class="filter-select">
-                            <option>All Locations</option>
-                            <option>India</option>
-                            <option>USA</option>
-                            <option>Global</option>
-                        </select>
-                    </div>
-                    <div class="filter-box">
-                        <label class="filter-label">Level</label>
-                        <select class="filter-select">
-                            <option>All Levels</option>
-                            <option>Fresher</option>
-                            <option>Junior</option>
-                            <option>Senior</option>
-                        </select>
-                    </div>
+                    <div class="filter-box"><label class="filter-label">Type</label><select class="filter-select"><option>All Types</option><option>Jobs</option><option>Internships</option></select></div>
+                    <div class="filter-box"><label class="filter-label">Work Mode</label><select class="filter-select"><option>All Modes</option><option>Remote</option><option>Hybrid</option><option>Onsite</option></select></div>
+                    <div class="filter-box"><label class="filter-label">Location</label><select class="filter-select"><option>All Locations</option><option>India</option><option>USA</option><option>Global</option></select></div>
+                    <div class="filter-box"><label class="filter-label">Level</label><select class="filter-select"><option>All Levels</option><option>Fresher</option><option>Junior</option></select></div>
                 </div>
-
-                <!-- JOB CARDS -->
-                <div class="jobs-container">
-                    <div class="empty-state">
-                        <div class="empty-icon">🔍</div>
-                        <div class="empty-title">No jobs found yet</div>
-                        <div class="empty-text">Select job sources from the sidebar and click "Fetch Jobs" to discover amazing opportunities tailored for you.</div>
-                        <button class="btn btn-primary">Start Searching</button>
-                    </div>
-                </div>
+                <div class="jobs-container"><div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No jobs found yet</div><div class="empty-text">Select job sources and click Fetch Jobs</div><button class="btn btn-primary" id="startSearchBtn">Start Searching</button></div></div>
             </section>
 
-            <!-- SIDEBAR -->
             <aside class="sidebar">
-                <!-- SOURCES CARD -->
                 <div class="sidebar-card">
                     <h3 class="card-title">📌 Job Sources</h3>
-
                     <div class="source-category">🌐 Remote Jobs</div>
-                    <div class="source-item">
-                        <input type="checkbox" id="remotive">
-                        <label for="remotive">Remotive</label>
-                    </div>
-                    <div class="source-item">
-                        <input type="checkbox" id="remoteok">
-                        <label for="remoteok">RemoteOK</label>
-                    </div>
-                    <div class="source-item">
-                        <input type="checkbox" id="himalayas">
-                        <label for="himalayas">Himalayas</label>
-                    </div>
-                    <div class="source-item">
-                        <input type="checkbox" id="jobicy">
-                        <label for="jobicy">Jobicy</label>
-                    </div>
-                    <div class="source-item">
-                        <input type="checkbox" id="weworkremotely">
-                        <label for="weworkremotely">WeWorkRemotely</label>
-                    </div>
-                    <div class="source-item">
-                        <input type="checkbox" id="arbeitnow">
-                        <label for="arbeitnow">Arbeitnow</label>
-                    </div>
-                    <div class="source-item">
-                        <input type="checkbox" id="devto">
-                        <label for="devto">Dev.to</label>
-                    </div>
-
+                    <div class="source-item"><input type="checkbox"><label>Remotive</label></div>
+                    <div class="source-item"><input type="checkbox"><label>RemoteOK</label></div>
+                    <div class="source-item"><input type="checkbox"><label>Himalayas</label></div>
+                    <div class="source-item"><input type="checkbox"><label>Jobicy</label></div>
+                    <div class="source-item"><input type="checkbox"><label>WeWorkRemotely</label></div>
+                    <div class="source-item"><input type="checkbox"><label>Arbeitnow</label></div>
+                    <div class="source-item"><input type="checkbox"><label>Dev.to</label></div>
                     <div class="source-category">🏢 Career Pages</div>
-                    <div class="source-item">
-                        <input type="checkbox" id="greenhouse">
-                        <label for="greenhouse">Greenhouse</label>
-                    </div>
-                    <div class="source-item">
-                        <input type="checkbox" id="ashby">
-                        <label for="ashby">Ashby</label>
-                    </div>
-
+                    <div class="source-item"><input type="checkbox"><label>Greenhouse</label></div>
+                    <div class="source-item"><input type="checkbox"><label>Ashby</label></div>
                     <div class="source-category">🎓 India Internships</div>
-                    <div class="source-item disabled">
-                        <input type="checkbox" disabled>
-                        <label>Internshala</label>
-                        <div class="unavailable-badge">Unavailable</div>
-                    </div>
-                    <div class="source-item disabled">
-                        <input type="checkbox" disabled>
-                        <label>Unstop</label>
-                        <div class="unavailable-badge">Unavailable</div>
-                    </div>
-                    <div class="source-item disabled">
-                        <input type="checkbox" disabled>
-                        <label>FirstNaukri</label>
-                        <div class="unavailable-badge">Unavailable</div>
-                    </div>
-
-                    <button class="btn btn-primary" style="width: 100%; margin-top: 20px;">Fetch Jobs</button>
+                    <div class="source-item disabled"><input type="checkbox" disabled><label>Internshala<div class="unavailable-badge">N/A</div></label></div>
+                    <div class="source-item disabled"><input type="checkbox" disabled><label>Unstop<div class="unavailable-badge">N/A</div></label></div>
+                    <div class="source-item disabled"><input type="checkbox" disabled><label>FirstNaukri<div class="unavailable-badge">N/A</div></label></div>
+                    <button class="btn btn-primary" id="fetchJobsBtn" style="width: 100%; margin-top: 20px;">Fetch Jobs</button>
                 </div>
-
-                <!-- PROFILE CARD -->
                 <div class="sidebar-card">
                     <h3 class="card-title">👤 Your Profile</h3>
-                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Upload your resume to unlock personalized recommendations and job matching.</p>
-                    <button class="btn btn-primary" style="width: 100%;">Upload Resume</button>
+                    <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">Upload your resume for personalized recommendations.</p>
+                    <button class="btn btn-primary" id="uploadResume2" style="width: 100%;">Upload Resume</button>
                 </div>
-
-                <!-- TIPS CARD -->
-                <div class="sidebar-card" style="border-color: rgba(168, 85, 247, 0.3); background: linear-gradient(135deg, rgba(168, 85, 247, 0.05) 0%, rgba(99, 102, 241, 0.05) 100%);">
+                <div class="sidebar-card" style="border-color: rgba(217,119,6,0.3); background: linear-gradient(135deg, rgba(217,119,6,0.08), rgba(249,115,22,0.08));">
                     <h3 class="card-title">💡 Pro Tips</h3>
-                    <ul style="list-style: none; font-size: 13px; color: var(--text-light); line-height: 2;">
-                        <li>✨ Upload your resume for AI matching</li>
-                        <li>✨ Check new jobs daily</li>
-                        <li>✨ Apply to multiple opportunities</li>
-                        <li>✨ Update your profile regularly</li>
-                    </ul>
+                    <ul style="list-style: none; font-size: 13px; color: var(--gray); line-height: 2;"><li>✨ Upload your resume for AI matching</li><li>✨ Check new jobs daily</li><li>✨ Apply to multiple opportunities</li><li>✨ Update your profile regularly</li></ul>
                 </div>
             </aside>
         </div>
     </main>
+
+    <script>
+        document.getElementById('uploadResumeBtn').addEventListener('click', function() { alert('Resume upload coming soon!'); });
+        document.getElementById('uploadResume2').addEventListener('click', function() { alert('Resume upload coming soon!'); });
+        document.getElementById('browseJobsBtn').addEventListener('click', function() { document.getElementById('startSearchBtn').click(); });
+        document.getElementById('startSearchBtn').addEventListener('click', function() { alert('Fetching jobs...'); });
+        document.getElementById('fetchJobsBtn').addEventListener('click', function() { alert('Fetching from selected sources...'); });
+        document.getElementById('logoutBtn').addEventListener('click', function() { if(confirm('Logout?')) window.location.href = '/logout'; });
+        document.getElementById('sortBtn').addEventListener('click', function() { alert('Sort options coming soon!'); });
+    </script>
 </body>
 </html>
