@@ -279,19 +279,22 @@
 
                 // Get all source items
                 const sourceItems = document.querySelectorAll('.source-item');
+                let disabledCount = 0;
 
                 sourceItems.forEach(item => {
                     const label = item.querySelector('label');
                     if (!label) return;
 
-                    const sourceName = label.textContent.trim().toLowerCase();
-                    const mappedName = Object.entries(nameMapping).find(
-                        ([ui, api]) => ui.toLowerCase() === label.textContent.trim()
-                    )?.[1];
+                    // Get the displayed text (without the badge)
+                    const displayText = label.textContent.split('\n')[0].trim();
+
+                    // Find the mapped API name for this UI label
+                    const mappedName = nameMapping[displayText];
 
                     if (mappedName && data.status[mappedName] && !data.status[mappedName].working) {
                         item.classList.add('disabled');
                         item.querySelector('input').disabled = true;
+                        disabledCount++;
 
                         // Add "Unavailable" badge if not already there
                         if (!label.querySelector('.unavailable-badge')) {
@@ -303,7 +306,7 @@
                     }
                 });
 
-                console.log(`✅ Auto-disabled ${data.broken_count} non-working sources`);
+                console.log(`✅ Auto-disabled ${disabledCount} non-working sources`);
             } catch (error) {
                 console.error('Error checking source status:', error);
             }
