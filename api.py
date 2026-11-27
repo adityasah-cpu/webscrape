@@ -2599,11 +2599,13 @@ def evaluate_ats_score(filename: str, raw_bytes: bytes) -> Dict[str, Any]:
 
     # Send resume text to Qwen API
     try:
+        logger.info(f"Calling Qwen ATS API for '{filename}'...")
         response = requests.post(
             ATS_API_URL,
             data={"resume_text": resume_text},
             timeout=ATS_API_TIMEOUT,
         )
+        logger.info(f"Qwen API responded with status {response.status_code} in {response.elapsed.total_seconds():.2f}s")
     except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, requests.exceptions.RequestException) as e:
         logger.warning(f"Qwen API request failed: {str(e)[:100]}, using fallback ATS scorer")
         return _fallback_ats_score(resume_text)
@@ -2673,6 +2675,7 @@ def evaluate_ats_score(filename: str, raw_bytes: bytes) -> Dict[str, Any]:
     elif feedback is not None and not isinstance(feedback, str):
         feedback = str(feedback)
 
+    logger.info(f"Qwen API returned ATS score {score} for '{filename}'")
     return {"score": score, "feedback": feedback or "No improvement suggestions provided."}
 
 def extract_resume_keywords(resume_text: str) -> List[str]:
