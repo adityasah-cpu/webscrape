@@ -182,6 +182,17 @@
                     </div>
                 </div>
 
+                <!-- ATS Scoring Option -->
+                <div style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(249,115,22,0.1), rgba(217,119,6,0.05)); padding: 16px; border-radius: 10px; border: 1px solid rgba(217,119,6,0.15);">
+                    <label style="display: flex; align-items: center; cursor: pointer; gap: 12px;">
+                        <input type="checkbox" id="wantAtsScore" style="width: 20px; height: 20px; cursor: pointer; accent-color: #d97706;">
+                        <div>
+                            <div style="font-weight: 600; color: #2d2520; font-size: 14px;">🤖 Get ATS Score?</div>
+                            <div style="font-size: 12px; color: #9b8b7e; margin-top: 4px;">Get AI-powered resume analysis (⏱️ Takes 5-10 minutes)</div>
+                        </div>
+                    </label>
+                </div>
+
                 <!-- Loading State -->
                 <div id="uploadLoading" style="display: none; text-align: center; margin-bottom: 20px;">
                     <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #fed7aa; border-top-color: #d97706; border-radius: 50%; animation: spin 1s linear infinite;"></div>
@@ -226,21 +237,21 @@
             <!-- Category Breakdown -->
             <div style="margin-bottom: 28px;">
                 <h3 style="margin: 0 0 18px 0; color: #2d2520; font-weight: 700; font-size: 16px;">📊 Category Scores</h3>
-                <div id="categoryScores" style="display: flex; flex-direction: column; gap: 14px; background: rgba(217,119,6,0.02); padding: 20px; border-radius: 12px; border: 1px solid rgba(217,119,6,0.1);">
+                <div id="categoryScores" style="display: flex; flex-direction: column; gap: 14px; background: rgba(217,119,6,0.02); padding: 20px; border-radius: 12px; border: 1px solid rgba(217,119,6,0.1); word-wrap: break-word; overflow: hidden;">
                     <p style="color: #9b8b7e; font-size: 13px;">Loading categories...</p>
                 </div>
             </div>
 
             <!-- Improvement Suggestions -->
-            <div style="background: linear-gradient(135deg, rgba(217,119,6,0.08), rgba(249,115,22,0.05)); border-left: 4px solid #d97706; padding: 20px; border-radius: 12px; margin-bottom: 28px;">
+            <div style="background: linear-gradient(135deg, rgba(217,119,6,0.08), rgba(249,115,22,0.05)); border-left: 4px solid #d97706; padding: 20px; border-radius: 12px; margin-bottom: 28px; word-wrap: break-word; overflow: hidden;">
                 <h3 style="margin: 0 0 14px 0; color: #2d2520; font-weight: 700; font-size: 16px;">💡 Improvement Suggestions</h3>
-                <p id="feedbackText" style="color: #6b6158; margin: 0; font-size: 14px; line-height: 1.8; max-height: 150px; overflow-y: auto;">Loading...</p>
+                <p id="feedbackText" style="color: #6b6158; margin: 0; font-size: 14px; line-height: 1.8; max-height: 150px; overflow-y: auto; word-wrap: break-word;">Loading...</p>
             </div>
 
             <!-- Matched Jobs -->
             <div style="margin-bottom: 28px;">
                 <h3 style="margin: 0 0 18px 0; color: #2d2520; font-weight: 700; font-size: 16px;">🎯 Top Matched Jobs (<span id="matchCount">0</span>)</h3>
-                <div id="matchedJobs" style="display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; background: rgba(217,119,6,0.02); padding: 16px; border-radius: 12px;">
+                <div id="matchedJobs" style="display: flex; flex-direction: column; gap: 12px; max-height: 500px; overflow-y: auto; background: rgba(217,119,6,0.02); padding: 16px; border-radius: 12px; word-wrap: break-word; word-break: break-word;">
                     <p style="color: #9b8b7e; font-size: 13px; padding: 20px; text-align: center;">Loading matches...</p>
                 </div>
             </div>
@@ -484,10 +495,19 @@
 
             const fileInput = document.getElementById('resumeFile');
             const experienceLevel = document.querySelector('input[name="experience_level"]:checked').value;
+            const wantAtsScore = document.getElementById('wantAtsScore').checked;
 
             if (!fileInput.files.length) {
                 alert('Please select a resume file');
                 return;
+            }
+
+            if (wantAtsScore) {
+                const confirmed = confirm('⏱️ ATS Scoring takes 5-10 minutes to complete.\n\n✅ Click OK to proceed\n❌ Click Cancel to skip ATS scoring');
+                if (!confirmed) {
+                    document.getElementById('wantAtsScore').checked = false;
+                    return;
+                }
             }
 
             const formData = new FormData();
@@ -497,6 +517,10 @@
             // Show loading state
             document.getElementById('uploadLoading').style.display = 'block';
             document.getElementById('uploadBtn').disabled = true;
+            const originalLoadingText = document.getElementById('uploadLoading').querySelector('p');
+            if (wantAtsScore) {
+                originalLoadingText.textContent = '⏳ Analyzing your resume with AI... (5-10 minutes)';
+            }
 
             try {
                 const response = await fetch(`${API}/match-resume?experience_level=${experienceLevel}`, {
@@ -517,14 +541,29 @@
                 // Store detected domains for pre-fetch
                 detectedDomains = data.resume_domains || [];
 
-                // Hide resume modal and show ATS score modal
+                // Hide resume modal
                 resumeModal.style.display = 'none';
                 document.getElementById('uploadLoading').style.display = 'none';
                 document.getElementById('uploadBtn').disabled = false;
 
-                // Display ATS score results
-                displayAtsScores(data);
-                atsScoreModal.style.display = 'flex';
+                // Display results based on user preference
+                if (wantAtsScore) {
+                    // Show ATS score modal
+                    displayAtsScores(data);
+                    atsScoreModal.style.display = 'flex';
+                } else {
+                    // Skip to jobs without ATS scoring
+                    alert(`✅ Resume analyzed! Found ${data.resume_domains?.length || 0} domain(s).\n\nPre-fetching relevant jobs...`);
+
+                    // Auto pre-fetch jobs based on domains
+                    if (data.resume_domains && data.resume_domains.length > 0) {
+                        setTimeout(() => {
+                            selectSourcesAndFetch(data.resume_domains);
+                        }, 500);
+                    } else {
+                        alert('No specific domains detected. Please manually select job sources and fetch jobs.');
+                    }
+                }
 
             } catch (error) {
                 console.error('Resume upload error:', error);
@@ -563,13 +602,13 @@
                     else if (percentage < 75) color = '#f59e0b';
 
                     return `
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(217,119,6,0.1);">
-                            <span style="color: #6b6158; font-weight: 500; font-size: 14px; min-width: 100px;">${cat}</span>
-                            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                                <div style="width: 180px; height: 6px; background: #e5e7eb; border-radius: 10px; overflow: hidden;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(217,119,6,0.1); gap: 10px; flex-wrap: wrap;">
+                            <span style="color: #6b6158; font-weight: 500; font-size: 14px; min-width: 80px; word-wrap: break-word;">${cat}</span>
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 150px;">
+                                <div style="width: 150px; height: 6px; background: #e5e7eb; border-radius: 10px; overflow: hidden; flex-shrink: 0;">
                                     <div style="width: ${percentage}%; height: 100%; background: ${color}; border-radius: 10px;"></div>
                                 </div>
-                                <span style="font-weight: 700; color: ${color}; min-width: 50px; text-align: right;">${percentage}%</span>
+                                <span style="font-weight: 700; color: ${color}; min-width: 50px; text-align: right; white-space: nowrap;">${percentage}%</span>
                             </div>
                         </div>
                     `;
@@ -594,22 +633,61 @@
                     if (matchPercent < 30) matchColor = '#ef4444';
 
                     return `
-                    <div style="padding: 14px 16px; background: white; border-radius: 10px; border: 1px solid rgba(217,119,6,0.1); border-left: 4px solid ${matchColor};">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                            <div style="flex: 1;">
-                                <p style="margin: 0; font-weight: 700; color: #2d2520; font-size: 15px;">${job.title || 'Untitled'}</p>
-                                <p style="margin: 4px 0 0 0; color: #d97706; font-weight: 600; font-size: 13px;">${job.company || 'Unknown'}</p>
+                    <div style="padding: 14px 16px; background: white; border-radius: 10px; border: 1px solid rgba(217,119,6,0.1); border-left: 4px solid ${matchColor}; word-wrap: break-word; overflow: hidden;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px;">
+                            <div style="flex: 1; min-width: 0; word-wrap: break-word;">
+                                <p style="margin: 0; font-weight: 700; color: #2d2520; font-size: 15px; word-wrap: break-word;">${job.title || 'Untitled'}</p>
+                                <p style="margin: 4px 0 0 0; color: #d97706; font-weight: 600; font-size: 13px; word-wrap: break-word;">${job.company || 'Unknown'}</p>
                             </div>
-                            <span style="font-weight: 700; color: ${matchColor}; font-size: 16px; margin-left: 12px;">${matchPercent}%</span>
+                            <span style="font-weight: 700; color: ${matchColor}; font-size: 16px; white-space: nowrap;">${matchPercent}%</span>
                         </div>
-                        <div style="display: flex; gap: 12px; font-size: 12px; color: #9b8b7e;">
+                        <div style="display: flex; gap: 12px; font-size: 12px; color: #9b8b7e; margin-bottom: 10px; flex-wrap: wrap;">
                             <span>📍 ${job.location || 'N/A'}</span>
                             <span>💼 ${job.work_type || 'N/A'}</span>
                         </div>
+                        <a href="${job.url}" target="_blank" style="display: inline-block; padding: 6px 12px; background: #d97706; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 12px; cursor: pointer;">Apply Now</a>
                     </div>
                 `}).join('');
                 document.getElementById('matchedJobs').innerHTML = matchesHtml;
             }
+        }
+
+        // Helper function to select sources and fetch jobs
+        async function selectSourcesAndFetch(domains) {
+            const sourceMap = {
+                'web development': ['Remotive', 'RemoteOK', 'Dev.to'],
+                'data science': ['Remotive', 'RemoteOK', 'Greenhouse'],
+                'machine learning': ['Remotive', 'Dev.to'],
+                'cloud': ['Remotive', 'WeWorkRemotely'],
+                'ai': ['Remotive', 'Dev.to'],
+                'software': ['Remotive', 'RemoteOK', 'Greenhouse'],
+                'fullstack': ['Remotive', 'Dev.to'],
+                'backend': ['Remotive', 'WeWorkRemotely'],
+                'frontend': ['RemoteOK', 'Dev.to']
+            };
+
+            let sourcesToSelect = new Set();
+            domains.forEach(domain => {
+                const lowerDomain = domain.toLowerCase();
+                Object.entries(sourceMap).forEach(([key, sources]) => {
+                    if (lowerDomain.includes(key)) {
+                        sources.forEach(s => sourcesToSelect.add(s));
+                    }
+                });
+            });
+
+            if (sourcesToSelect.size === 0) {
+                sourcesToSelect = new Set(['Remotive', 'RemoteOK', 'Himalayas', 'Jobicy', 'WeWorkRemotely', 'Arbeitnow', 'Dev.to', 'Greenhouse', 'Ashby']);
+            }
+
+            document.querySelectorAll('.source-item:not(.disabled) input[type="checkbox"]').forEach(checkbox => {
+                const label = checkbox.nextElementSibling.textContent.trim();
+                checkbox.checked = sourcesToSelect.has(label);
+            });
+
+            setTimeout(() => {
+                fetchJobsFromSources();
+            }, 300);
         }
 
         document.getElementById('preFetchJobsBtn').addEventListener('click', async function() {
