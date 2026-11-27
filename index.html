@@ -76,8 +76,8 @@
             <a href="#" class="brand" onclick="window.scrollTo({top:0, behavior:'smooth'}); return false;"><div class="brand-icon">🚀</div><span>Novagig</span></a>
         </div>
         <div class="header-right">
-            <div class="user-menu"><div class="avatar" id="userAvatar">?</div><span id="userName" style="font-size: 13px; font-weight: 600; color: var(--text);">Loading...</span></div>
-            <button class="btn btn-outline" id="logoutBtn">Logout</button>
+            <div class="user-menu" id="userMenu" style="display: none;"><div class="avatar" id="userAvatar">?</div><span id="userName" style="font-size: 13px; font-weight: 600; color: var(--text);">Loading...</span></div>
+            <button class="btn btn-outline" id="logoutBtn" style="display: none;">Logout</button>
         </div>
     </header>
 
@@ -277,6 +277,10 @@
                     const userName = user.name || 'User';
                     const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase() || '?';
 
+                    // Show user menu and logout button for logged-in users
+                    document.getElementById('userMenu').style.display = 'flex';
+                    document.getElementById('logoutBtn').style.display = 'block';
+
                     // Update user menu with actual logged-in user data
                     document.getElementById('userName').textContent = userName;
                     document.getElementById('userAvatar').textContent = initials;
@@ -289,13 +293,11 @@
                         window.location.href = '/admin';
                         return;
                     }
-                } else {
-                    // User not logged in, hide user menu
-                    document.querySelector('.user-menu').style.display = 'none';
                 }
+                // If user not logged in, menu stays hidden (display: none set in HTML)
             } catch (error) {
                 console.error('Error loading user info:', error);
-                document.querySelector('.user-menu').style.display = 'none';
+                // Keep menu hidden on error
             }
         }
 
