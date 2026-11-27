@@ -4880,6 +4880,53 @@ def get_my_groups():
         logger.error(f"Failed to get user's groups: {e}")
         return jsonify({"success": False, "error": "Failed to load groups"}), 500
 
+
+# ==================== CSV TEMPLATES ====================
+
+@app.route("/templates/students.csv", methods=["GET"])
+def download_students_template():
+    """Download students CSV template"""
+    try:
+        return send_file(
+            "students_template.csv",
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name="students_template.csv"
+        )
+    except Exception as e:
+        logger.error(f"Error serving students template: {e}")
+        return jsonify({"error": "Template not found"}), 404
+
+
+@app.route("/templates/projects.csv", methods=["GET"])
+def download_projects_template():
+    """Download projects CSV template"""
+    try:
+        return send_file(
+            "projects_template.csv",
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name="projects_template.csv"
+        )
+    except Exception as e:
+        logger.error(f"Error serving projects template: {e}")
+        return jsonify({"error": "Template not found"}), 404
+
+
+@app.route("/templates/groups.csv", methods=["GET"])
+def download_groups_template():
+    """Download groups CSV template"""
+    try:
+        return send_file(
+            "groups_template.csv",
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name="groups_template.csv"
+        )
+    except Exception as e:
+        logger.error(f"Error serving groups template: {e}")
+        return jsonify({"error": "Template not found"}), 404
+
 if __name__ == "__main__":
     # Initialize database
     if not init_db():
