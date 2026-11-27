@@ -81,8 +81,8 @@
         </div>
     </header>
 
-    <!-- 3-Step Onboarding Modal -->
-    <div id="onboardingModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center;">
+    <!-- Onboarding Modal (Disabled - using existing resume upload instead) -->
+    <div id="onboardingModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center; visibility: hidden;">
         <div style="background: white; border-radius: 20px; padding: 40px; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
             <!-- Step 1: Resume Upload -->
             <div id="step1" style="text-align: center;">
@@ -337,15 +337,12 @@
                         return;
                     }
 
-                    // Check if this is a new user (check if they just signed in)
+                    // Clean up URL parameter from sign-in
                     const urlParams = new URLSearchParams(window.location.search);
-                    if (urlParams.has('from_signin') && !sessionStorage.getItem('onboardingShown')) {
-                        isNewUser = true;
-                        sessionStorage.setItem('onboardingShown', 'true');
-                        showOnboardingModal();
-
-                        // Remove from_signin from URL to prevent showing on refresh
+                    if (urlParams.has('from_signin')) {
+                        // Remove from_signin from URL to prevent issues on refresh
                         window.history.replaceState({}, document.title, window.location.pathname);
+                        // Note: Using existing resume upload modal instead of onboarding modal
                     }
                 }
                 // If user not logged in, menu stays hidden (display: none set in HTML)
@@ -741,6 +738,9 @@
         // Resume upload and ATS scoring
         let detectedDomains = [];
 
+        // Store resume data for processing
+        let pendingResumeData = null;
+
         document.getElementById('resumeForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
@@ -752,18 +752,82 @@
                 return;
             }
 
+            // Store file and experience level for later processing
+            pendingResumeData = {
+                file: fileInput.files[0],
+                experienceLevel: experienceLevel
+            };
+
+            // Hide resume modal
+            resumeModal.style.display = 'none';
+
+            // Show ATS confirmation dialog
+            showAtsConfirmation();
+        });
+
+        // Show confirmation dialog for ATS analysis
+        function showAtsConfirmation() {
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 40px;
+                border-radius: 20px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                z-index: 3000;
+                max-width: 400px;
+                text-align: center;
+            `;
+            dialog.innerHTML = `
+                <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+                <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #2d2520;">Get ATS Score</h2>
+                <p style="color: #6b6158; margin-bottom: 20px;">Want us to analyze your resume for ATS compatibility?</p>
+                <p style="color: #9b8b7e; font-size: 13px; margin-bottom: 32px;">⏱️ This may take 5-10 minutes to complete</p>
+                <div style="display: flex; gap: 12px;">
+                    <button onclick="analyzeResume()" class="btn btn-primary" style="flex: 1;">✨ Analyze Resume</button>
+                    <button onclick="skipAtsAnalysis()" class="btn btn-secondary" style="flex: 1;">⏭️ Skip</button>
+                </div>
+            `;
+
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 2999;
+            `;
+            overlay.id = 'atsConfirmOverlay';
+
+            document.body.appendChild(overlay);
+            document.body.appendChild(dialog);
+            dialog.id = 'atsConfirmDialog';
+        }
+
+        // Analyze resume with ATS
+        async function analyzeResume() {
+            if (!pendingResumeData) return;
+
             const formData = new FormData();
-            formData.append('resume', fileInput.files[0]);
-            formData.append('experience_level', experienceLevel);
+            formData.append('resume', pendingResumeData.file);
+            formData.append('experience_level', pendingResumeData.experienceLevel);
+
+            // Hide confirmation dialog
+            document.getElementById('atsConfirmDialog')?.remove();
+            document.getElementById('atsConfirmOverlay')?.remove();
 
             // Show loading state
             document.getElementById('uploadLoading').style.display = 'block';
-            document.getElementById('uploadBtn').disabled = true;
             const originalLoadingText = document.getElementById('uploadLoading').querySelector('p');
             originalLoadingText.textContent = '⏳ Analyzing your resume with AI...';
 
             try {
-                const response = await fetch(`${API}/match-resume?experience_level=${experienceLevel}`, {
+                const response = await fetch(`${API}/match-resume?experience_level=${pendingResumeData.experienceLevel}`, {
                     method: 'POST',
                     body: formData,
                     credentials: 'include'
@@ -774,19 +838,16 @@
                 if (!data.success) {
                     alert(`❌ Error: ${data.error}`);
                     document.getElementById('uploadLoading').style.display = 'none';
-                    document.getElementById('uploadBtn').disabled = false;
                     return;
                 }
 
                 // Store detected domains for pre-fetch
                 detectedDomains = data.resume_domains || [];
 
-                // Hide resume modal
-                resumeModal.style.display = 'none';
+                // Hide loading
                 document.getElementById('uploadLoading').style.display = 'none';
-                document.getElementById('uploadBtn').disabled = false;
 
-                // Always show ATS score modal
+                // Show ATS score modal
                 displayAtsScores(data);
                 atsScoreModal.style.display = 'flex';
 
@@ -794,9 +855,21 @@
                 console.error('Resume upload error:', error);
                 alert(`❌ Upload failed: ${error.message}`);
                 document.getElementById('uploadLoading').style.display = 'none';
-                document.getElementById('uploadBtn').disabled = false;
             }
-        });
+        }
+
+        // Skip ATS analysis
+        function skipAtsAnalysis() {
+            // Hide confirmation dialog
+            document.getElementById('atsConfirmDialog')?.remove();
+            document.getElementById('atsConfirmOverlay')?.remove();
+
+            // Clear pending data
+            pendingResumeData = null;
+
+            // Load jobs without ATS analysis
+            loadJobs();
+        }
 
         function displayAtsScores(data) {
             // Overall score
