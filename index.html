@@ -437,10 +437,91 @@
         // Load user info on page load
         loadUserInfo();
 
+        // Show loading skeleton
+        function showLoadingSkeletons() {
+            const jobsContainer = document.querySelector('.jobs-container');
+            const skeletons = Array(5).fill(0).map(() => `
+                <div style="padding: 20px; border: 1px solid rgba(217,119,6,0.1); border-radius: 12px; background: white; animation: pulse 1.5s infinite;">
+                    <div style="height: 20px; background: rgba(217,119,6,0.2); border-radius: 4px; margin-bottom: 12px; width: 70%;"></div>
+                    <div style="height: 16px; background: rgba(217,119,6,0.15); border-radius: 4px; margin-bottom: 20px; width: 40%;"></div>
+                    <div style="display: grid; grid-template-columns: auto auto auto auto; gap: 16px; margin: 12px 0;">
+                        <div style="height: 14px; background: rgba(217,119,6,0.15); border-radius: 4px; width: 80px;"></div>
+                        <div style="height: 14px; background: rgba(217,119,6,0.15); border-radius: 4px; width: 90px;"></div>
+                        <div style="height: 14px; background: rgba(217,119,6,0.15); border-radius: 4px; width: 70px;"></div>
+                        <div style="height: 14px; background: rgba(217,119,6,0.15); border-radius: 4px; width: 85px;"></div>
+                    </div>
+                </div>
+            `).join('');
+            jobsContainer.innerHTML = skeletons;
+        }
+
+        // Show loading notification
+        function showLoadingNotification() {
+            let notif = document.getElementById('loadingNotif');
+            if (!notif) {
+                notif = document.createElement('div');
+                notif.id = 'loadingNotif';
+                notif.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: linear-gradient(135deg, #d97706, #f97316);
+                    color: white;
+                    padding: 16px 24px;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 30px rgba(217,119,6,0.3);
+                    z-index: 999;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    font-weight: 600;
+                    animation: slideIn 0.3s ease;
+                `;
+                notif.innerHTML = `<div style="animation: spin 1s linear infinite; display: inline-block;">⏳</div> Fetching jobs...`;
+                document.body.appendChild(notif);
+            }
+            notif.style.display = 'flex';
+        }
+
+        // Hide loading notification
+        function hideLoadingNotification() {
+            const notif = document.getElementById('loadingNotif');
+            if (notif) {
+                notif.style.display = 'none';
+            }
+        }
+
+        // Add animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.6; }
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            @keyframes slideIn {
+                from { transform: translateX(400px); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+
         async function loadJobs() {
             try {
+                // Show loading skeleton
+                showLoadingSkeletons();
+
+                // Show loading notification
+                showLoadingNotification();
+
                 const response = await fetch(`${API}/jobs?limit=50`, { credentials: 'include' });
                 const data = await response.json();
+
+                // Hide loading notification
+                hideLoadingNotification();
 
                 const jobsContainer = document.querySelector('.jobs-container');
 
@@ -472,6 +553,9 @@
                 }
             } catch (error) {
                 console.error('Error loading jobs:', error);
+                hideLoadingNotification();
+                const jobsContainer = document.querySelector('.jobs-container');
+                jobsContainer.innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div><div class="empty-title">Error Loading Jobs</div><div class="empty-text">Failed to load jobs. Please try again.</div></div>`;
             }
         }
 
