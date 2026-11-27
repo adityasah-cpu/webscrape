@@ -2814,16 +2814,19 @@ def check_sources_status() -> Any:
         sources = {s.__name__.replace("scrape_", ""): s for s in rjs.SCRAPERS}
         status = {}
 
-        # List of sources that are known to not work
+        # List of sources that are known to not work (tested and confirmed)
         non_working = {
-            'internshala',    # JS-rendered
-            'unstop',         # JS-rendered
-            'firstnaukri',    # JS-rendered
-            'hackerrank',     # Login-gated
-            'geeksforgeeks',  # Login-gated
-            'naipunyam',      # Government portal, JS-rendered
-            'upwork',         # Bot detection
-            'toptal',         # API endpoint blocked
+            'adzuna',         # Missing API keys
+            'angellist',      # JS-rendered, returns 0 jobs
+            'firstnaukri',    # JS-rendered, returns 0 jobs
+            'geeksforgeeks',  # Login-gated, returns 0 jobs
+            'hackerrank',     # Login-gated, returns 0 jobs
+            'internshala',    # JS-rendered, returns 0 jobs
+            'lever',          # API returns 404, returns 0 jobs
+            'naipunyam',      # Government portal, JS-rendered, returns 0 jobs
+            'toptal',         # API blocked, returns 0 jobs
+            'unstop',         # JS-rendered, returns 0 jobs
+            'upwork',         # Bot detection, returns 0 jobs
         }
 
         for name, scraper in sources.items():
