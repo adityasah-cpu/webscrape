@@ -633,14 +633,6 @@
     <script>
         const API_URL = '/api/admin';
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            await loadLocations();
-            await loadDashboard();
-            await loadStudents();
-            await loadProjects();
-            await loadGroups();
-        });
-
         async function logout() {
             try {
                 await fetch('/api/auth/logout', { method: 'POST' });
@@ -1421,8 +1413,14 @@ Errors: ' + result.errors.join(', ');
         });
 
         // Initialize on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            loadGroups();
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Load locations first
+            await loadLocations();
+
+            // Load all data
+            await loadGroups();
+            await loadStudents();
+            await loadProjects();
 
             // Setup tab click handlers
             const studentsTab = document.getElementById('studentsTab');
@@ -1434,12 +1432,6 @@ Errors: ' + result.errors.join(', ');
             if (projectsTab) {
                 projectsTab.addEventListener('click', loadProjects);
             }
-
-            // Load initial data
-            setTimeout(() => {
-                loadStudents();
-                loadProjects();
-            }, 100);
         });
     </script>
 </body>
