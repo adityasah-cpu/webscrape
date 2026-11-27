@@ -805,10 +805,11 @@ def manage_projects() -> Any:
 
         elif request.method == "POST":
             data = request.get_json()
-            # Insert into admin_projects table
+            # Insert into admin_projects table with optional id
+            project_id = data.get("id") or None
             cursor.execute(
-                "INSERT INTO admin_projects (title, description, comments_details, category, rating, mentor1, mentor2, mentor3, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (data.get("title"), data.get("description"), data.get("comments_details"), data.get("category"),
+                "INSERT INTO admin_projects (id, title, description, comments_details, category, rating, mentor1, mentor2, mentor3, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (project_id, data.get("title"), data.get("description"), data.get("comments_details"), data.get("category"),
                  data.get("rating"), data.get("mentor1"), data.get("mentor2"), data.get("mentor3"), datetime.now())
             )
             conn.commit()

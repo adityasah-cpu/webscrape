@@ -536,15 +536,17 @@
                     <h2><span>➕</span>Add New Project</h2>
                     <div style="padding: 24px;">
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                            <input type="text" id="projectTitle" placeholder="Project Title" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="number" id="projectID" placeholder="ID (optional)" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <input type="text" id="projectTitle" placeholder="Title (required)" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
                             <input type="text" id="projectCategory" placeholder="Category" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
                             <input type="text" id="projectRating" placeholder="Rating (A-F or numeric)" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
                             <input type="text" id="projectMentor1" placeholder="Mentor 1" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
                             <input type="text" id="projectMentor2" placeholder="Mentor 2" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
                             <input type="text" id="projectMentor3" placeholder="Mentor 3" style="padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm);">
+                            <div></div>
                         </div>
-                        <textarea id="projectDesc" placeholder="Description" style="width: 100%; padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm); min-height: 60px; margin-bottom: 10px; font-family: inherit;"></textarea>
-                        <textarea id="projectComment" placeholder="Comments" style="width: 100%; padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm); min-height: 60px; margin-bottom: 16px; font-family: inherit;"></textarea>
+                        <textarea id="projectDesc" placeholder="Description" style="width: 100%; padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm); min-height: 50px; margin-bottom: 10px; font-family: inherit;"></textarea>
+                        <textarea id="projectComment" placeholder="Comment" style="width: 100%; padding: 10px; border: 1px solid var(--color-border-default); border-radius: var(--radius-sm); min-height: 50px; margin-bottom: 16px; font-family: inherit;"></textarea>
                         <button class="btn-load" id="projectSubmitBtn" onclick="addProject()" style="background: #0d9488; margin-right: 8px;">Add Project</button>
                         <button class="btn-load" onclick="clearProjectForm()" style="background: #6b7280;">Clear</button>
                     </div>
@@ -558,7 +560,7 @@
                             <p style="color: var(--color-text-secondary); margin-bottom: 12px;">Drag & drop CSV/Excel file or click to upload</p>
                             <input type="file" id="projectBulkFile" accept=".csv,.xlsx,.xls" style="display: none;">
                         </div>
-                        <p style="color: var(--color-text-secondary); font-size: 12px; margin-top: 12px;">✓ Format: ID, Title, Description, Comment, Category, Rating, Mentor 1, Mentor 2, Mentor 3</p>
+                        <p style="color: var(--color-text-secondary); font-size: 12px; margin-top: 12px; font-weight: 600;">✓ Required CSV Columns (in order): ID, Title, Description, Comment, Category, Rating, Mentor 1, Mentor 2, Mentor 3</p>
                         <button class="btn-load" onclick="bulkDeleteProjects()" style="background: #dc2626; margin-top: 16px;">Delete Selected</button>
                     </div>
                 </div>
@@ -1141,14 +1143,15 @@
         }
 
         async function addProject() {
+            const project_id = document.getElementById('projectID').value.trim();
             const title = document.getElementById('projectTitle').value.trim();
+            const description = document.getElementById('projectDesc').value.trim();
+            const comments_details = document.getElementById('projectComment').value.trim();
             const category = document.getElementById('projectCategory').value.trim();
             const rating = document.getElementById('projectRating').value.trim();
             const mentor1 = document.getElementById('projectMentor1').value.trim();
             const mentor2 = document.getElementById('projectMentor2').value.trim();
             const mentor3 = document.getElementById('projectMentor3').value.trim();
-            const description = document.getElementById('projectDesc').value.trim();
-            const comments_details = document.getElementById('projectComment').value.trim();
 
             if (!title) {
                 alert('Project title is required');
@@ -1157,7 +1160,8 @@
 
             try {
                 let response, url, method;
-                const projectData = { title, category, rating, mentor1, mentor2, mentor3, description, comments_details };
+                const projectData = { title, description, comments_details, category, rating, mentor1, mentor2, mentor3 };
+                if (project_id) projectData.id = project_id;
 
                 console.log('Submitting project:', { editingProjectId, ...projectData });
 
@@ -1215,14 +1219,15 @@
             const project = allProjects.find(p => p.id === id);
             if (project) {
                 editingProjectId = id;
+                document.getElementById('projectID').value = project.id || '';
                 document.getElementById('projectTitle').value = project.title || '';
+                document.getElementById('projectDesc').value = project.description || '';
+                document.getElementById('projectComment').value = project.comments_details || '';
                 document.getElementById('projectCategory').value = project.category || '';
                 document.getElementById('projectRating').value = project.rating || '';
                 document.getElementById('projectMentor1').value = project.mentor1 || '';
                 document.getElementById('projectMentor2').value = project.mentor2 || '';
                 document.getElementById('projectMentor3').value = project.mentor3 || '';
-                document.getElementById('projectDesc').value = project.description || '';
-                document.getElementById('projectComment').value = project.comments_details || '';
 
                 // Change button to Update mode
                 const submitBtn = document.getElementById('projectSubmitBtn');
@@ -1238,14 +1243,15 @@
 
         function clearProjectForm() {
             editingProjectId = null;
+            document.getElementById('projectID').value = '';
             document.getElementById('projectTitle').value = '';
+            document.getElementById('projectDesc').value = '';
+            document.getElementById('projectComment').value = '';
             document.getElementById('projectCategory').value = '';
             document.getElementById('projectRating').value = '';
             document.getElementById('projectMentor1').value = '';
             document.getElementById('projectMentor2').value = '';
             document.getElementById('projectMentor3').value = '';
-            document.getElementById('projectDesc').value = '';
-            document.getElementById('projectComment').value = '';
 
             // Reset button to Add mode
             const submitBtn = document.getElementById('projectSubmitBtn');
