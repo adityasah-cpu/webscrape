@@ -772,25 +772,35 @@ def bulk_upload_students() -> Any:
         csv_data = csv.DictReader(stream)
 
         # Validate required columns for student CSV
-        required_columns = ['Campus', 'School', 'Program', 'Year', 'Reg. No.', 'Name', 'CGPA', 'Backlogs', 'Domain', 'Domain Project']
+        base_required_columns = ['Campus', 'School', 'Program', 'Year', 'Reg. No.', 'Name', 'CGPA', 'Backlogs', 'Domain']
+        acceptable_domain_project_columns = ['Domain Project', 'Domain Project (OPTIONAL)']
 
         if not csv_data.fieldnames:
             return jsonify({"success": False, "error": "❌ CSV file is empty or invalid format"}), 400
 
-        # Check for missing columns
-        missing_columns = [col for col in required_columns if col not in csv_data.fieldnames]
-        if missing_columns:
+        # Check if either "Domain Project" or "Domain Project (OPTIONAL)" exists
+        has_domain_project_column = any(col in csv_data.fieldnames for col in acceptable_domain_project_columns)
+
+        # Determine which domain project column name to use
+        domain_project_column = 'Domain Project' if 'Domain Project' in csv_data.fieldnames else ('Domain Project (OPTIONAL)' if 'Domain Project (OPTIONAL)' in csv_data.fieldnames else None)
+
+        # Check for missing required columns
+        missing_columns = [col for col in base_required_columns if col not in csv_data.fieldnames]
+        if missing_columns or not has_domain_project_column:
+            if not has_domain_project_column:
+                missing_columns.append('Domain Project (or Domain Project (OPTIONAL))')
             return jsonify({
                 "success": False,
-                "error": f"❌ Missing required columns: {', '.join(missing_columns)}\n\nExpected columns (in order): {', '.join(required_columns)}\n\nFound columns: {', '.join(csv_data.fieldnames)}"
+                "error": f"❌ Missing required columns: {', '.join(missing_columns)}\n\nExpected columns (in order): Campus, School, Program, Year, Reg. No., Name, CGPA, Backlogs, Domain, Domain Project\n\nFound columns: {', '.join(csv_data.fieldnames)}"
             }), 400
 
         # Check for extra unknown columns
-        extra_columns = [col for col in csv_data.fieldnames if col not in required_columns]
+        allowed_columns = set(base_required_columns) | set(acceptable_domain_project_columns)
+        extra_columns = [col for col in csv_data.fieldnames if col not in allowed_columns]
         if extra_columns:
             return jsonify({
                 "success": False,
-                "error": f"❌ Unknown columns found: {', '.join(extra_columns)}\n\nPlease remove these columns and try again.\n\nExpected columns: {', '.join(required_columns)}"
+                "error": f"❌ Unknown columns found: {', '.join(extra_columns)}\n\nPlease remove these columns and try again.\n\nExpected columns: Campus, School, Program, Year, Reg. No., Name, CGPA, Backlogs, Domain, Domain Project"
             }), 400
 
         inserted = 0
@@ -818,7 +828,7 @@ def bulk_upload_students() -> Any:
                 cgpa = float(row.get('CGPA', 0)) if row.get('CGPA') else 0
                 backlogs = int(row.get('Backlogs', 0)) if row.get('Backlogs') else 0
                 domain = row.get('Domain', '').strip()
-                domain_project = row.get('Domain Project', '').strip()
+                domain_project = row.get(domain_project_column, '').strip()
 
                 if not name or not reg_no:
                     errors.append(f"⚠️ Row {row_num}: Skipped - Name and Reg. No. are required")
