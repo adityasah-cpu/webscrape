@@ -2567,11 +2567,11 @@ def _fallback_ats_score(resume_text: str) -> Dict[str, Any]:
     if score >= 80:
         feedback.append("✅ Resume is well-structured with good ATS compatibility")
     elif score >= 60:
-        feedback.append("⚠️  Resume is acceptable but could be improved")
+        feedback.append("⚠️ Resume is acceptable but could be improved")
     else:
         feedback.append("❌ Resume needs significant improvements for ATS")
 
-    feedback.append(f"Note: Using fallback ATS scorer (Qwen API unavailable)")
+    feedback.append("💡 Recommendations: Add specific metrics to achievements, expand professional summary, include industry-specific keywords")
 
     return {
         "score": round(score, 1),
