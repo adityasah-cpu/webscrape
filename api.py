@@ -656,12 +656,12 @@ def manage_students() -> Any:
             data = request.get_json()
             reg_no = data.get("reg_no")
             # Use first allowed domain for student email, default to cutm.ac.in
-            domain = ALLOWED_DOMAINS[0] if ALLOWED_DOMAINS else "cutm.ac.in"
-            email = f"{reg_no.lower()}@{domain}" if reg_no else f"student@{domain}"
+            domain_email = ALLOWED_DOMAINS[0] if ALLOWED_DOMAINS else "cutm.ac.in"
+            email = f"{reg_no.lower()}@{domain_email}" if reg_no else f"student@{domain_email}"
             cursor.execute(
-                "INSERT INTO admin_students (campus, school, program, reg_no, name, email, cgpa, backlogs, domain, rating) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (data.get("campus"), data.get("school"), data.get("program"), reg_no,
-                 data.get("name"), email, data.get("cgpa"), data.get("backlogs"), data.get("domain"), data.get("rating"))
+                "INSERT INTO admin_students (campus, school, program, year, reg_no, name, email, cgpa, backlogs, domain, domain_project) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (data.get("campus"), data.get("school"), data.get("program"), data.get("year"), reg_no,
+                 data.get("name"), email, data.get("cgpa"), data.get("backlogs"), data.get("domain"), data.get("domain_project"))
             )
             conn.commit()
             return jsonify({"success": True, "message": "Student added"})
@@ -688,9 +688,9 @@ def delete_or_update_student(reg_no: str) -> Any:
         elif request.method == "PUT":
             data = request.get_json()
             cursor.execute(
-                "UPDATE admin_students SET campus=%s, school=%s, program=%s, name=%s, cgpa=%s, backlogs=%s, domain=%s, rating=%s WHERE reg_no=%s",
-                (data.get("campus"), data.get("school"), data.get("program"), data.get("name"),
-                 data.get("cgpa"), data.get("backlogs"), data.get("domain"), data.get("rating"), reg_no)
+                "UPDATE admin_students SET campus=%s, school=%s, program=%s, year=%s, name=%s, cgpa=%s, backlogs=%s, domain=%s, domain_project=%s WHERE reg_no=%s",
+                (data.get("campus"), data.get("school"), data.get("program"), data.get("year"), data.get("name"),
+                 data.get("cgpa"), data.get("backlogs"), data.get("domain"), data.get("domain_project"), reg_no)
             )
             conn.commit()
             return jsonify({"success": True, "message": "Student updated"})
