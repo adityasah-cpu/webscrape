@@ -1127,25 +1127,45 @@ def bulk_upload_projects() -> Any:
 @app.route("/api/admin/groups", methods=["GET"])
 @require_admin
 def admin_get_groups() -> Any:
-    """Get all groups for admin view with lead student details"""
+    """Get all groups for admin view with student registration numbers"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
     try:
+        # Get group information with lead student details
         cursor.execute("""
             SELECT sg.group_id, sg.id, sg.project_id, sg.lead_name,
                    COALESCE(ast.email, 'Unknown') as lead_email,
                    COALESCE(ast.department, 'Unknown') as lead_department,
-                   COUNT(gm.id) as member_count,
+                   COALESCE(ast.reg_no, 'Unknown') as lead_reg_no,
                    sg.created_at
             FROM student_groups sg
             LEFT JOIN admin_students ast ON sg.lead_name = ast.name
-            LEFT JOIN group_members gm ON sg.id = gm.group_id
-            GROUP BY sg.id, sg.group_id, sg.project_id, sg.lead_name, ast.email, ast.department, sg.created_at
             ORDER BY sg.created_at DESC
         """)
         groups = cursor.fetchall()
-        return jsonify({"success": True, "groups": groups})
+
+        # For each group, get all member registration numbers
+        formatted_groups = []
+        for group in groups:
+            # Get all members including the lead
+            cursor.execute("""
+                SELECT DISTINCT ast.reg_no
+                FROM group_members gm
+                JOIN admin_students ast ON gm.student_name = ast.name
+                WHERE gm.group_id = %s
+                UNION
+                SELECT ast.reg_no FROM admin_students ast WHERE ast.name = %s
+                ORDER BY reg_no
+            """, (group['id'], group['lead_name']))
+            members = cursor.fetchall()
+            member_reg_nos = [m['reg_no'] for m in members] if members else []
+
+            group['member_count'] = len(member_reg_nos)
+            group['member_reg_nos'] = member_reg_nos
+            formatted_groups.append(group)
+
+        return jsonify({"success": True, "groups": formatted_groups})
     except Exception as e:
         logger.error(f"Error getting groups: {e}")
         return jsonify({"success": False, "error": str(e)}), 400

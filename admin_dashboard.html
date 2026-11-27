@@ -612,11 +612,11 @@
                                 <tr>
                                     <th><input type="checkbox" id="selectAllGroups" onchange="toggleAllGroups()"></th>
                                     <th>Group ID</th>
+                                    <th>Lead Student (Reg. No.)</th>
                                     <th>Lead Name</th>
-                                    <th>Lead Email</th>
                                     <th>Department</th>
                                     <th>Project ID</th>
-                                    <th>Members</th>
+                                    <th>All Members (Reg. No.)</th>
                                     <th>Created</th>
                                     <th>Actions</th>
                                 </tr>
@@ -1379,11 +1379,11 @@
                 <tr>
                     <td><input type="checkbox" class="group-checkbox" value="${g.id}"></td>
                     <td><strong>${g.group_id || 'N/A'}</strong></td>
-                    <td><strong>${g.lead_name || 'N/A'}</strong></td>
-                    <td>${g.lead_email || 'N/A'}</td>
+                    <td><strong>${g.lead_reg_no || 'N/A'}</strong></td>
+                    <td>${g.lead_name || 'N/A'}</td>
                     <td>${g.lead_department || 'N/A'}</td>
                     <td>${g.project_id || 'N/A'}</td>
-                    <td><span style="background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">${g.member_count || 0}</span></td>
+                    <td><span style="background: #f3e8ff; color: #6d28d9; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">${(g.member_reg_nos || []).join(', ') || 'None'}</span></td>
                     <td>${formatDate(g.created_at)}</td>
                     <td>
                         <button class="btn-load" onclick="deleteGroup('${g.id}')" style="padding: 6px 12px; font-size: 12px; background: #dc2626;">Delete</button>
