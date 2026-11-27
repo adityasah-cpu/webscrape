@@ -1400,16 +1400,22 @@ def init_db() -> bool:
         """)
         conn.commit()
 
-        # Migrate admin_projects table: add rating column if it doesn't exist
+        # Migrate admin_projects table: add/update rating column to store text grades
         cursor.execute(
-            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+            "SELECT COLUMN_NAME, COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS "
             "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'admin_projects'",
             (MYSQL_CONFIG['database'],)
         )
-        existing_columns = {row[0] for row in cursor.fetchall()}
-        if 'rating' not in existing_columns:
+        columns_info = {row[0]: row[1] for row in cursor.fetchall()}
+
+        if 'rating' not in columns_info:
             logger.warning("Migrating schema: adding missing column 'rating' to admin_projects table")
             cursor.execute("ALTER TABLE admin_projects ADD COLUMN rating VARCHAR(50)")
+            conn.commit()
+        elif 'float' in columns_info['rating'].lower():
+            # Rating column exists but is FLOAT - need to convert to VARCHAR
+            logger.warning("Migrating schema: changing rating column type from FLOAT to VARCHAR(50)")
+            cursor.execute("ALTER TABLE admin_projects MODIFY COLUMN rating VARCHAR(50)")
             conn.commit()
 
         cursor.close()
