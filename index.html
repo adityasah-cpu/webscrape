@@ -597,21 +597,14 @@
                     if (matchPercent < 30) matchColor = '#ef4444';
 
                     return `
-                    <div style="padding: 16px; background: white; border-radius: 10px; border: 1px solid rgba(217,119,6,0.1); border-left: 4px solid ${matchColor}; word-wrap: break-word; overflow: hidden;">
-                        <div style="display: grid; grid-template-columns: 1fr auto; gap: 16px; margin-bottom: 10px;">
-                            <div style="min-width: 0;">
-                                <p style="margin: 0; font-weight: 700; color: #2d2520; font-size: 14px; word-wrap: break-word; word-break: break-word;">${job.title || 'Untitled'}</p>
-                                <p style="margin: 4px 0 0 0; color: #d97706; font-weight: 600; font-size: 12px; word-wrap: break-word;">${job.company || 'Unknown'}</p>
-                            </div>
-                            <div style="text-align: right; white-space: nowrap;">
-                                <p style="margin: 0; font-weight: 700; color: ${matchColor}; font-size: 18px;">${matchPercent}%</p>
-                            </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(217,119,6,0.1); gap: 16px;">
+                        <div style="flex: 1; min-width: 0;">
+                            <p style="margin: 0; font-weight: 600; color: #2d2520; font-size: 14px; word-wrap: break-word; word-break: break-word;">${job.title || 'Untitled'}</p>
                         </div>
-                        <div style="display: flex; gap: 12px; font-size: 12px; color: #9b8b7e; margin-bottom: 12px; flex-wrap: wrap;">
-                            <span>📍 ${job.location || 'N/A'}</span>
-                            <span>💼 ${job.work_type || 'N/A'}</span>
+                        <div style="display: flex; align-items: center; gap: 12px; white-space: nowrap;">
+                            <span style="font-weight: 700; color: ${matchColor}; font-size: 16px;">${matchPercent}%</span>
+                            <a href="${job.url}" target="_blank" style="padding: 6px 12px; background: #d97706; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 11px; cursor: pointer; border: none; white-space: nowrap;">Apply</a>
                         </div>
-                        <a href="${job.url}" target="_blank" style="display: inline-block; padding: 8px 14px; background: #d97706; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 12px; cursor: pointer; border: none;">Apply Now →</a>
                     </div>
                 `}).join('');
                 document.getElementById('matchedJobs').innerHTML = matchesHtml;
