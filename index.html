@@ -76,7 +76,7 @@
             <a href="#" class="brand" onclick="window.scrollTo({top:0, behavior:'smooth'}); return false;"><div class="brand-icon">🚀</div><span>Novagig</span></a>
         </div>
         <div class="header-right">
-            <div class="user-menu"><div class="avatar">AS</div><span style="font-size: 13px; font-weight: 600; color: var(--text);">Aditya Sah</span></div>
+            <div class="user-menu"><div class="avatar" id="userAvatar">?</div><span id="userName" style="font-size: 13px; font-weight: 600; color: var(--text);">Loading...</span></div>
             <button class="btn btn-outline" id="logoutBtn">Logout</button>
         </div>
     </header>
@@ -266,13 +266,21 @@
     <script>
         const API = '/api';
 
-        // Auto-redirect admin users to admin dashboard
-        async function checkAndRedirectAdmin() {
+        // Load and display current user info
+        async function loadUserInfo() {
             try {
                 const response = await fetch(`${API}/auth/me`, { credentials: 'include' });
                 const data = await response.json();
 
                 if (data.user) {
+                    const user = data.user;
+                    const userName = user.name || 'User';
+                    const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase() || '?';
+
+                    // Update user menu with actual logged-in user data
+                    document.getElementById('userName').textContent = userName;
+                    document.getElementById('userAvatar').textContent = initials;
+
                     // Check if user is admin
                     const adminCheckResponse = await fetch(`${API}/check-admin`, { credentials: 'include' });
                     const adminData = await adminCheckResponse.json();
@@ -281,14 +289,18 @@
                         window.location.href = '/admin';
                         return;
                     }
+                } else {
+                    // User not logged in, hide user menu
+                    document.querySelector('.user-menu').style.display = 'none';
                 }
             } catch (error) {
-                console.error('Error checking admin status:', error);
+                console.error('Error loading user info:', error);
+                document.querySelector('.user-menu').style.display = 'none';
             }
         }
 
-        // Check on page load
-        checkAndRedirectAdmin();
+        // Load user info on page load
+        loadUserInfo();
 
         async function loadJobs() {
             try {
