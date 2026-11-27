@@ -1132,40 +1132,27 @@ def admin_get_groups() -> Any:
     cursor = conn.cursor(dictionary=True)
 
     try:
-        # Get group information with lead student details
+        # Get group information with all 4 students (matching CSV format)
         cursor.execute("""
-            SELECT sg.group_id, sg.id, sg.project_id, sg.lead_name,
-                   COALESCE(ast.email, 'Unknown') as lead_email,
-                   COALESCE(ast.department, 'Unknown') as lead_department,
-                   COALESCE(ast.reg_no, 'Unknown') as lead_reg_no,
+            SELECT sg.group_id, sg.id, sg.project_id,
+                   COALESCE(lead_student.reg_no, '') as lead_student_reg_no,
+                   COALESCE(student2.reg_no, '') as student2_reg_no,
+                   COALESCE(student3.reg_no, '') as student3_reg_no,
+                   COALESCE(student4.reg_no, '') as student4_reg_no,
                    sg.created_at
             FROM student_groups sg
-            LEFT JOIN admin_students ast ON sg.lead_name = ast.name
+            LEFT JOIN admin_students lead_student ON sg.lead_name = lead_student.name
+            LEFT JOIN group_members gm2 ON sg.id = gm2.group_id AND gm2.position = 2
+            LEFT JOIN admin_students student2 ON gm2.student_name = student2.name
+            LEFT JOIN group_members gm3 ON sg.id = gm3.group_id AND gm3.position = 3
+            LEFT JOIN admin_students student3 ON gm3.student_name = student3.name
+            LEFT JOIN group_members gm4 ON sg.id = gm4.group_id AND gm4.position = 4
+            LEFT JOIN admin_students student4 ON gm4.student_name = student4.name
             ORDER BY sg.created_at DESC
         """)
         groups = cursor.fetchall()
 
-        # For each group, get all member registration numbers
-        formatted_groups = []
-        for group in groups:
-            # Get all members including the lead
-            cursor.execute("""
-                SELECT DISTINCT ast.reg_no
-                FROM group_members gm
-                JOIN admin_students ast ON gm.student_name = ast.name
-                WHERE gm.group_id = %s
-                UNION
-                SELECT ast.reg_no FROM admin_students ast WHERE ast.name = %s
-                ORDER BY reg_no
-            """, (group['id'], group['lead_name']))
-            members = cursor.fetchall()
-            member_reg_nos = [m['reg_no'] for m in members] if members else []
-
-            group['member_count'] = len(member_reg_nos)
-            group['member_reg_nos'] = member_reg_nos
-            formatted_groups.append(group)
-
-        return jsonify({"success": True, "groups": formatted_groups})
+        return jsonify({"success": True, "groups": groups})
     except Exception as e:
         logger.error(f"Error getting groups: {e}")
         return jsonify({"success": False, "error": str(e)}), 400

@@ -612,12 +612,11 @@
                                 <tr>
                                     <th><input type="checkbox" id="selectAllGroups" onchange="toggleAllGroups()"></th>
                                     <th>Group ID</th>
-                                    <th>Lead Student (Reg. No.)</th>
-                                    <th>Lead Name</th>
-                                    <th>Department</th>
-                                    <th>Project ID</th>
-                                    <th>All Members (Reg. No.)</th>
-                                    <th>Created</th>
+                                    <th>Lead Student (Regn. No.)</th>
+                                    <th>Student2 (Regn. No.)</th>
+                                    <th>Student3 (Regn. No.)</th>
+                                    <th>Student4 (Regn. No.)</th>
+                                    <th>Domain Project ID</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -1371,7 +1370,7 @@
         function displayGroups(groups) {
             const tbody = document.getElementById('groupsTable');
             if (groups.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 32px;">No groups yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 32px;">No groups yet</td></tr>';
                 return;
             }
 
@@ -1379,12 +1378,11 @@
                 <tr>
                     <td><input type="checkbox" class="group-checkbox" value="${g.id}"></td>
                     <td><strong>${g.group_id || 'N/A'}</strong></td>
-                    <td><strong>${g.lead_reg_no || 'N/A'}</strong></td>
-                    <td>${g.lead_name || 'N/A'}</td>
-                    <td>${g.lead_department || 'N/A'}</td>
-                    <td>${g.project_id || 'N/A'}</td>
-                    <td><span style="background: #f3e8ff; color: #6d28d9; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">${(g.member_reg_nos || []).join(', ') || 'None'}</span></td>
-                    <td>${formatDate(g.created_at)}</td>
+                    <td><strong>${g.lead_student_reg_no || ''}</strong></td>
+                    <td>${g.student2_reg_no || ''}</td>
+                    <td>${g.student3_reg_no || ''}</td>
+                    <td>${g.student4_reg_no || ''}</td>
+                    <td><strong>${g.project_id || 'N/A'}</strong></td>
                     <td>
                         <button class="btn-load" onclick="deleteGroup('${g.id}')" style="padding: 6px 12px; font-size: 12px; background: #dc2626;">Delete</button>
                     </td>
