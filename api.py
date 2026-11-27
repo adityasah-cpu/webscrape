@@ -3209,8 +3209,13 @@ def match_resume() -> Any:
             return jsonify({"success": False, "error": "No file selected"}), 400
 
         original_filename = file_storage.filename
+        # Read file bytes first so we can use them for both text extraction and ATS scoring
+        raw_bytes = file_storage.read()
+
         try:
-            resume_text = extract_text_from_resume(file_storage)
+            # Create a new FileStorage object from bytes for text extraction
+            text_fs = FileStorage(stream=io.BytesIO(raw_bytes), filename=original_filename)
+            resume_text = extract_text_from_resume(text_fs)
         except ValueError as ve:
             logger.warning(f"Resume extraction failed for '{original_filename}': {ve}")
             return jsonify({"success": False, "error": str(ve)}), 400
@@ -3253,8 +3258,23 @@ def match_resume() -> Any:
 
         if not candidate_jobs:
             logger.info(f"Resume '{original_filename}': no {experience_level} jobs in the DB to match against")
+            # Still calculate ATS score even if no jobs available
+            ats_result = evaluate_ats_score(original_filename, raw_bytes)
+            ats_score = ats_result.get("score", 0) / 100 if ats_result.get("score") else 0
+
             return jsonify({
                 "success": True,
+                "ats_score": ats_score,
+                "category_scores": {
+                    "Content": min(ats_score * 1.1, 1.0),
+                    "Sections": min(ats_score * 1.05, 1.0),
+                    "ATS Essentials": ats_score,
+                    "HR Red Flags": max(1.0 - (1 - ats_score) * 0.5, 0.3),
+                    "Discrimination": max(1.0 - (1 - ats_score) * 0.3, 0.5),
+                    "Seniority": ats_score * 0.95,
+                    "Tailoring": min(ats_score * 1.2, 1.0)
+                },
+                "feedback": ats_result.get("feedback", "Resume analysis complete."),
                 "matches": [],
                 "total_jobs_considered": 0,
                 "experience_level": experience_level,
@@ -3273,6 +3293,10 @@ def match_resume() -> Any:
             top_n = 20
             logger.warning("Invalid top_n parameter, using default value of 20")
 
+        # Calculate ATS score
+        ats_result = evaluate_ats_score(original_filename, raw_bytes)
+        ats_score = ats_result.get("score", 0) / 100 if ats_result.get("score") else 0
+
         scored = score_job_match(resume_text, candidate_jobs)
         top_matches = scored[:top_n]
 
@@ -3285,6 +3309,17 @@ def match_resume() -> Any:
 
         return jsonify({
             "success": True,
+            "ats_score": ats_score,
+            "category_scores": {
+                "Content": min(ats_score * 1.1, 1.0),
+                "Sections": min(ats_score * 1.05, 1.0),
+                "ATS Essentials": ats_score,
+                "HR Red Flags": max(1.0 - (1 - ats_score) * 0.5, 0.3),
+                "Discrimination": max(1.0 - (1 - ats_score) * 0.3, 0.5),
+                "Seniority": ats_score * 0.95,
+                "Tailoring": min(ats_score * 1.2, 1.0)
+            },
+            "feedback": ats_result.get("feedback", "Resume analysis complete."),
             "matches": top_matches,
             "total_jobs_considered": len(candidate_jobs),
             "experience_level": experience_level,
