@@ -211,7 +211,21 @@
         document.getElementById('uploadResume2').addEventListener('click', function() { alert('Resume upload coming soon!'); });
         document.getElementById('browseJobsBtn').addEventListener('click', function() { document.getElementById('startSearchBtn').click(); });
         document.getElementById('startSearchBtn').addEventListener('click', function() { alert('Select sources and click Fetch Jobs button!'); });
-        document.getElementById('logoutBtn').addEventListener('click', function() { if(confirm('Logout?')) window.location.href = '/logout'; });
+        document.getElementById('logoutBtn').addEventListener('click', async function() {
+            if(!confirm('Logout?')) return;
+            try {
+                const response = await fetch(`${API}/auth/logout`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                if(response.ok) {
+                    window.location.href = '/login.html';
+                }
+            } catch(e) {
+                console.error('Logout failed:', e);
+                window.location.href = '/login.html';
+            }
+        });
         document.getElementById('sortBtn').addEventListener('click', function() { alert('Sort options coming soon!'); });
     </script>
 </body>
