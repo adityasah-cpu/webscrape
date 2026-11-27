@@ -153,6 +153,115 @@
         </div>
     </main>
 
+    <!-- Resume Upload Modal -->
+    <div id="resumeModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+        <div style="background: white; border-radius: 20px; padding: 40px; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+            <h2 style="margin: 0 0 20px 0; font-size: 28px; font-weight: 700; color: #2d2520;">📄 Upload Your Resume</h2>
+            <p style="color: #6b6158; margin-bottom: 24px; font-size: 14px;">Upload your resume to get ATS scoring and job recommendations matched to your profile.</p>
+
+            <form id="resumeForm">
+                <!-- File Input -->
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d2520;">Select Resume File</label>
+                    <input type="file" id="resumeFile" accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg" required style="width: 100%; padding: 12px; border: 2px dashed #d97706; border-radius: 10px; cursor: pointer; font-size: 14px;">
+                    <p style="font-size: 12px; color: #9b8b7e; margin-top: 8px;">Supported: PDF, DOCX, TXT, PNG, JPG</p>
+                </div>
+
+                <!-- Experience Level -->
+                <div style="margin-bottom: 24px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d2520;">Your Experience Level</label>
+                    <div style="display: flex; gap: 12px;">
+                        <label style="flex: 1; cursor: pointer;">
+                            <input type="radio" name="experience_level" value="fresher" checked style="margin-right: 8px;">
+                            <span>🎓 Fresher</span>
+                        </label>
+                        <label style="flex: 1; cursor: pointer;">
+                            <input type="radio" name="experience_level" value="experienced" style="margin-right: 8px;">
+                            <span>💼 Experienced</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="uploadLoading" style="display: none; text-align: center; margin-bottom: 20px;">
+                    <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #fed7aa; border-top-color: #d97706; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                    <p style="color: #6b6158; margin-top: 12px;">Analyzing your resume...</p>
+                </div>
+
+                <!-- Buttons -->
+                <div style="display: flex; gap: 12px;">
+                    <button type="submit" class="btn btn-primary" id="uploadBtn" style="flex: 1;">Upload & Analyze</button>
+                    <button type="button" class="btn btn-outline" id="closeModal" style="flex: 1;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ATS Score Modal -->
+    <div id="atsScoreModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; overflow-y: auto; padding: 40px 20px;">
+        <div style="background: white; border-radius: 20px; padding: 40px; max-width: 700px; width: 100%; margin: 0 auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 30px;">
+                <div>
+                    <h2 style="margin: 0; font-size: 28px; font-weight: 700; color: #2d2520;">🎯 ATS Score Report</h2>
+                    <p style="color: #6b6158; margin-top: 8px;">Your resume analysis and job recommendations</p>
+                </div>
+                <button id="closeAtsModal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #9b8b7e;">✕</button>
+            </div>
+
+            <!-- Overall Score -->
+            <div style="background: linear-gradient(135deg, rgba(217,119,6,0.1), rgba(249,115,22,0.1)); border-radius: 15px; padding: 24px; margin-bottom: 24px; text-align: center; border: 2px solid rgba(217,119,6,0.2);">
+                <div style="font-size: 48px; font-weight: 700; background: linear-gradient(135deg, #d97706, #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;" id="overallScore">0%</div>
+                <p style="color: #6b6158; margin: 0; font-weight: 600;">Overall ATS Score</p>
+                <p style="color: #9b8b7e; margin-top: 4px; font-size: 13px;" id="scoreInterpretation">Calculating...</p>
+            </div>
+
+            <!-- Detected Domains -->
+            <div style="margin-bottom: 24px;">
+                <h3 style="margin: 0 0 12px 0; color: #2d2520; font-weight: 600;">📌 Your Detected Domains</h3>
+                <div id="detectedDomains" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    <span style="background: rgba(217,119,6,0.1); color: #d97706; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 500;">Loading...</span>
+                </div>
+            </div>
+
+            <!-- Category Breakdown -->
+            <div style="margin-bottom: 24px;">
+                <h3 style="margin: 0 0 16px 0; color: #2d2520; font-weight: 600;">📊 Category Scores</h3>
+                <div id="categoryScores" style="display: flex; flex-direction: column; gap: 12px;">
+                    <p style="color: #9b8b7e; font-size: 13px;">Loading categories...</p>
+                </div>
+            </div>
+
+            <!-- Improvement Suggestions -->
+            <div style="background: rgba(217,119,6,0.05); border-left: 4px solid #d97706; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+                <h3 style="margin: 0 0 12px 0; color: #2d2520; font-weight: 600;">💡 Improvement Suggestions</h3>
+                <p id="feedbackText" style="color: #6b6158; margin: 0; font-size: 14px; line-height: 1.6;">Loading...</p>
+            </div>
+
+            <!-- Matched Jobs -->
+            <div style="margin-bottom: 24px;">
+                <h3 style="margin: 0 0 12px 0; color: #2d2520; font-weight: 600;">🎯 Top Matched Jobs (<span id="matchCount">0</span>)</h3>
+                <div id="matchedJobs" style="display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto;">
+                    <p style="color: #9b8b7e; font-size: 13px;">Loading matches...</p>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 12px; border-top: 1px solid rgba(217,119,6,0.1); padding-top: 20px;">
+                <button class="btn btn-primary" id="preFetchJobsBtn" style="flex: 1;">📌 Pre-Fetch Jobs for My Domains</button>
+                <button class="btn btn-outline" id="closeScoringBtn" style="flex: 1;">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        #resumeModal[style*="display: flex"] {
+            display: flex !important;
+        }
+    </style>
+
     <script>
         const API = '/api';
 
@@ -259,8 +368,41 @@
         }
 
         document.getElementById('fetchJobsBtn').addEventListener('click', fetchJobsFromSources);
-        document.getElementById('uploadResumeBtn').addEventListener('click', function() { alert('Resume upload coming soon!'); });
-        document.getElementById('uploadResume2').addEventListener('click', function() { alert('Resume upload coming soon!'); });
+
+        // Resume upload modal handlers
+        const resumeModal = document.getElementById('resumeModal');
+        const atsScoreModal = document.getElementById('atsScoreModal');
+
+        document.getElementById('uploadResumeBtn').addEventListener('click', () => {
+            resumeModal.style.display = 'flex';
+        });
+
+        document.getElementById('uploadResume2').addEventListener('click', () => {
+            resumeModal.style.display = 'flex';
+        });
+
+        document.getElementById('closeModal').addEventListener('click', () => {
+            resumeModal.style.display = 'none';
+            document.getElementById('resumeForm').reset();
+        });
+
+        document.getElementById('closeAtsModal').addEventListener('click', () => {
+            atsScoreModal.style.display = 'none';
+        });
+
+        document.getElementById('closeScoringBtn').addEventListener('click', () => {
+            atsScoreModal.style.display = 'none';
+        });
+
+        // Close modals on background click
+        resumeModal.addEventListener('click', (e) => {
+            if (e.target === resumeModal) resumeModal.style.display = 'none';
+        });
+
+        atsScoreModal.addEventListener('click', (e) => {
+            if (e.target === atsScoreModal) atsScoreModal.style.display = 'none';
+        });
+
         document.getElementById('browseJobsBtn').addEventListener('click', function() { document.querySelector('.sidebar').scrollIntoView({ behavior: 'smooth' }); });
 
         // Event delegation for dynamically created startSearchBtn
@@ -333,6 +475,177 @@
             }
         });
         document.getElementById('sortBtn').addEventListener('click', function() { alert('Sort options coming soon!'); });
+
+        // Resume upload and ATS scoring
+        let detectedDomains = [];
+
+        document.getElementById('resumeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('resumeFile');
+            const experienceLevel = document.querySelector('input[name="experience_level"]:checked').value;
+
+            if (!fileInput.files.length) {
+                alert('Please select a resume file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('resume', fileInput.files[0]);
+            formData.append('experience_level', experienceLevel);
+
+            // Show loading state
+            document.getElementById('uploadLoading').style.display = 'block';
+            document.getElementById('uploadBtn').disabled = true;
+
+            try {
+                const response = await fetch(`${API}/match-resume?experience_level=${experienceLevel}`, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    alert(`❌ Error: ${data.error}`);
+                    document.getElementById('uploadLoading').style.display = 'none';
+                    document.getElementById('uploadBtn').disabled = false;
+                    return;
+                }
+
+                // Store detected domains for pre-fetch
+                detectedDomains = data.resume_domains || [];
+
+                // Hide resume modal and show ATS score modal
+                resumeModal.style.display = 'none';
+                document.getElementById('uploadLoading').style.display = 'none';
+                document.getElementById('uploadBtn').disabled = false;
+
+                // Display ATS score results
+                displayAtsScores(data);
+                atsScoreModal.style.display = 'flex';
+
+            } catch (error) {
+                console.error('Resume upload error:', error);
+                alert(`❌ Upload failed: ${error.message}`);
+                document.getElementById('uploadLoading').style.display = 'none';
+                document.getElementById('uploadBtn').disabled = false;
+            }
+        });
+
+        function displayAtsScores(data) {
+            // Overall score
+            const score = Math.round((data.ats_score || 0) * 100);
+            document.getElementById('overallScore').textContent = score + '%';
+
+            // Score interpretation
+            let interpretation = '';
+            if (score >= 80) interpretation = '✅ Excellent - Ready to apply';
+            else if (score >= 60) interpretation = '👍 Good - Room for improvement';
+            else if (score >= 40) interpretation = '⚠️ Fair - Consider revisions';
+            else interpretation = '❌ Needs work - Major updates needed';
+            document.getElementById('scoreInterpretation').textContent = interpretation;
+
+            // Detected domains
+            const domainsHtml = (data.resume_domains || []).map(d =>
+                `<span style="background: rgba(217,119,6,0.1); color: #d97706; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 500;">${d}</span>`
+            ).join('');
+            document.getElementById('detectedDomains').innerHTML = domainsHtml || '<span style="color: #9b8b7e; font-size: 13px;">No specific domains detected</span>';
+
+            // Category scores
+            if (data.category_scores) {
+                const categories = data.category_scores;
+                const categoryHtml = Object.entries(categories).map(([cat, score]) => {
+                    const percentage = Math.round(score * 100);
+                    const color = percentage >= 70 ? '#10b981' : percentage >= 50 ? '#f59e0b' : '#ef4444';
+                    return `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #6b6158; font-weight: 500;">${cat}</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 150px; height: 8px; background: #e5e7eb; border-radius: 10px; overflow: hidden;">
+                                    <div style="width: ${percentage}%; height: 100%; background: ${color};"></div>
+                                </div>
+                                <span style="font-weight: 600; color: ${color}; min-width: 40px;">${percentage}%</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                document.getElementById('categoryScores').innerHTML = categoryHtml;
+            }
+
+            // Feedback
+            document.getElementById('feedbackText').textContent = data.feedback || 'No specific feedback available.';
+
+            // Matched jobs
+            const matches = data.matches || [];
+            document.getElementById('matchCount').textContent = matches.length;
+
+            if (matches.length === 0) {
+                document.getElementById('matchedJobs').innerHTML = '<p style="color: #9b8b7e; font-size: 13px;">No matching jobs found. Try fetching more jobs!</p>';
+            } else {
+                const matchesHtml = matches.slice(0, 10).map((job, idx) => `
+                    <div style="padding: 12px; background: rgba(217,119,6,0.05); border-radius: 10px; border-left: 3px solid #d97706;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <p style="margin: 0; font-weight: 600; color: #2d2520; font-size: 14px;">${job.title || 'Untitled'}</p>
+                                <p style="margin: 2px 0 0 0; color: #d97706; font-size: 12px;">${job.company || 'Unknown'}</p>
+                            </div>
+                            <span style="background: linear-gradient(135deg, #d97706, #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 700; font-size: 13px;">${Math.round((job.match_score || 0) * 100)}%</span>
+                        </div>
+                    </div>
+                `).join('');
+                document.getElementById('matchedJobs').innerHTML = matchesHtml;
+            }
+        }
+
+        document.getElementById('preFetchJobsBtn').addEventListener('click', async function() {
+            if (detectedDomains.length === 0) {
+                alert('No specific domains detected in your resume. Please manually select job sources.');
+                return;
+            }
+
+            // Auto-select job sources based on detected domains
+            const sourceMap = {
+                'web development': ['Remotive', 'RemoteOK', 'Dev.to'],
+                'data science': ['Remotive', 'RemoteOK', 'Greenhouse'],
+                'machine learning': ['Remotive', 'Dev.to'],
+                'cloud': ['Remotive', 'WeWorkRemotely'],
+                'ai': ['Remotive', 'Dev.to'],
+                'software': ['Remotive', 'RemoteOK', 'Greenhouse'],
+                'fullstack': ['Remotive', 'Dev.to'],
+                'backend': ['Remotive', 'WeWorkRemotely'],
+                'frontend': ['RemoteOK', 'Dev.to']
+            };
+
+            let sourcesToSelect = new Set();
+            detectedDomains.forEach(domain => {
+                const lowerDomain = domain.toLowerCase();
+                Object.entries(sourceMap).forEach(([key, sources]) => {
+                    if (lowerDomain.includes(key)) {
+                        sources.forEach(s => sourcesToSelect.add(s));
+                    }
+                });
+            });
+
+            // If no specific sources found, select all working ones
+            if (sourcesToSelect.size === 0) {
+                sourcesToSelect = new Set(['Remotive', 'RemoteOK', 'Himalayas', 'Jobicy', 'WeWorkRemotely', 'Arbeitnow', 'Dev.to', 'Greenhouse', 'Ashby']);
+            }
+
+            // Check all selected sources
+            document.querySelectorAll('.source-item:not(.disabled) input[type="checkbox"]').forEach(checkbox => {
+                const label = checkbox.nextElementSibling.textContent.trim();
+                checkbox.checked = sourcesToSelect.has(label);
+            });
+
+            atsScoreModal.style.display = 'none';
+
+            // Auto-fetch jobs
+            setTimeout(() => {
+                fetchJobsFromSources();
+            }, 300);
+        });
     </script>
 </body>
 </html>
