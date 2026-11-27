@@ -33,7 +33,7 @@ from pdfminer.high_level import extract_text as pdf_extract_text
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_auth_requests
 import mammoth
-import fitz  # PyMuPDF - rasterizes PDF pages to images for OCR fallback
+import pymupdf as fitz  # PyMuPDF - rasterizes PDF pages to images for OCR fallback
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
