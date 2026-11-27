@@ -1224,7 +1224,8 @@
         }
 
         function editProject(id) {
-            const project = allProjects.find(p => p.id === id);
+            const projectId = parseInt(id) || id;
+            const project = allProjects.find(p => p.id == projectId);
             if (project) {
                 editingProjectId = id;
                 document.getElementById('projectID').value = project.id || '';
