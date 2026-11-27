@@ -4400,77 +4400,10 @@ def get_opportunity(opp_id):
         return jsonify({"success": False, "error": "Failed to load opportunity"}), 500
 
 # ============ DOMAIN PROJECTS ============
-DOMAIN_PROJECTS = [
-    {
-        "id": 1,
-        "title": "AI Chatbot Development",
-        "domain": "Machine Learning",
-        "description": "Build an AI-powered chatbot using NLP techniques. Implement intent recognition and response generation.",
-        "difficulty": "Intermediate",
-        "duration": "8 weeks",
-        "deadline": "2026-12-31",
-        "skills_required": ["Python", "NLP", "Machine Learning", "Flask"]
-    },
-    {
-        "id": 2,
-        "title": "E-Commerce Web Application",
-        "domain": "Web Development",
-        "description": "Create a full-stack e-commerce platform with payment integration, product management, and user authentication.",
-        "difficulty": "Intermediate",
-        "duration": "10 weeks",
-        "deadline": "2027-01-15",
-        "skills_required": ["React", "Node.js", "MongoDB", "Payment APIs"]
-    },
-    {
-        "id": 3,
-        "title": "Data Analysis Dashboard",
-        "domain": "Data Science",
-        "description": "Build an interactive dashboard for real-time data visualization and analysis using large datasets.",
-        "difficulty": "Intermediate",
-        "duration": "6 weeks",
-        "deadline": "2026-12-15",
-        "skills_required": ["Python", "Pandas", "Tableau/PowerBI", "SQL"]
-    },
-    {
-        "id": 4,
-        "title": "Mobile Weather App",
-        "domain": "Mobile Development",
-        "description": "Develop a cross-platform weather application with real-time updates, location services, and weather forecasting.",
-        "difficulty": "Beginner",
-        "duration": "4 weeks",
-        "deadline": "2026-12-01",
-        "skills_required": ["React Native", "APIs", "Location Services"]
-    },
-    {
-        "id": 5,
-        "title": "Cloud Infrastructure Setup",
-        "domain": "Cloud Computing",
-        "description": "Design and deploy scalable cloud infrastructure on AWS/GCP with Docker, Kubernetes, and CI/CD pipelines.",
-        "difficulty": "Advanced",
-        "duration": "12 weeks",
-        "deadline": "2027-02-28",
-        "skills_required": ["AWS/GCP", "Docker", "Kubernetes", "DevOps"]
-    },
-    {
-        "id": 6,
-        "title": "Network Security Analyzer",
-        "domain": "Cybersecurity",
-        "description": "Create tools for network traffic analysis, vulnerability scanning, and security threat detection.",
-        "difficulty": "Advanced",
-        "duration": "10 weeks",
-        "deadline": "2027-01-20",
-        "skills_required": ["Python", "Network Protocols", "Security Tools", "Linux"]
-    }
-]
+DOMAIN_PROJECTS = []  # Empty - projects now come from database via the admin endpoint
 
-@app.route("/api/projects", methods=["GET"])
-def get_projects():
-    """Get all domain projects"""
-    try:
-        return jsonify({"success": True, "projects": DOMAIN_PROJECTS, "total": len(DOMAIN_PROJECTS)})
-    except Exception as e:
-        logger.error(f"Failed to get projects: {e}")
-        return jsonify({"success": False, "error": "Failed to load projects"}), 500
+# NOTE: The /api/projects endpoint is defined earlier in the file (line ~792)
+# This was removed to prevent overriding the database-driven endpoint
 
 @app.route("/api/groups/create", methods=["POST"])
 def create_group():
