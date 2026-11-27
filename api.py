@@ -43,7 +43,7 @@ from flask_limiter.util import get_remote_address
 from typing import Any, Dict, List, Optional
 
 # Load environment variables from .env file
-load_dotenv(override=True)
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -542,12 +542,16 @@ def invalidate_jobs_cache(owner_email: Optional[str] = None) -> None:
         else:
             _jobs_cache.pop(owner_email, None)
 
-def current_user_email() -> Optional[str]:
+def current_user_email() -> str:
     """The signed-in user's email, used as the ownership key for every
     per-user table. None only when called outside the login gate (the gate
     itself guarantees a session exists for every protected route)."""
     user = session.get("user")
-    return user.get("email") if user else None
+    # The API is public, so anonymous callers share one "" bucket. Returning
+    # None made every query `owner_email = NULL`, which never matches in
+    # MySQL: fetched jobs were stored but never shown, and the UNIQUE
+    # (owner_email, url) key let every re-fetch insert duplicates.
+    return (user.get("email") if user else None) or ""
 
 def get_db_connection() -> Optional[MySQLConnectionAbstract]:
     """Get MySQL connection"""

@@ -89,8 +89,8 @@
                 <div style="font-size: 48px; margin-bottom: 20px;">📄</div>
                 <h2 style="font-size: 28px; font-weight: 700; margin-bottom: 12px; color: var(--text);">Upload Your Resume</h2>
                 <p style="color: var(--gray); margin-bottom: 32px;">Help us find the best opportunities for you</p>
-                <input type="file" id="resumeFile" accept=".pdf,.doc,.docx" style="display: none;">
-                <button class="btn btn-primary" onclick="document.getElementById('resumeFile').click()" style="width: 100%;">📤 Choose Resume</button>
+                <input type="file" id="sidebarResumeFile" accept=".pdf,.doc,.docx" style="display: none;">
+                <button class="btn btn-primary" onclick="document.getElementById('sidebarResumeFile').click()" style="width: 100%;">📤 Choose Resume</button>
                 <p id="resumeFileName" style="margin-top: 16px; color: var(--muted); font-size: 13px;">No file selected</p>
                 <button class="btn btn-secondary" onclick="skipResume()" style="width: 100%; margin-top: 16px;">Skip for Now</button>
             </div>
@@ -360,7 +360,7 @@
         let selectedResumeFile = null;
 
         // Handle resume file selection
-        document.getElementById('resumeFile').addEventListener('change', function(e) {
+        document.getElementById('sidebarResumeFile').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
                 selectedResumeFile = file;
@@ -509,6 +509,14 @@
         `;
         document.head.appendChild(style);
 
+        function esc(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+        function safeUrl(u) {
+            try { const x = new URL(u); return (x.protocol === 'http:' || x.protocol === 'https:') ? esc(x.href) : '#'; }
+            catch { return '#'; }
+        }
+
         async function loadJobs() {
             try {
                 // Show loading skeleton
@@ -518,6 +526,7 @@
                 showLoadingNotification();
 
                 const response = await fetch(`${API}/jobs?limit=50`, { credentials: 'include' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
 
                 // Hide loading notification
@@ -536,18 +545,18 @@
                         <div style="padding: 20px; border: 1px solid rgba(217,119,6,0.2); border-radius: 12px; background: white; hover-shadow: 0 4px 12px rgba(0,0,0,0.1);">
                             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                                 <div>
-                                    <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #2d2520;">${job.title || 'Untitled'}</h3>
-                                    <p style="margin: 4px 0 0 0; color: #d97706; font-weight: 600;">${job.company || 'Unknown Company'}</p>
+                                    <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #2d2520;">${esc(job.title || 'Untitled')}</h3>
+                                    <p style="margin: 4px 0 0 0; color: #d97706; font-weight: 600;">${esc(job.company || 'Unknown Company')}</p>
                                 </div>
-                                <a href="${job.url}" target="_blank" style="padding: 8px 16px; background: #d97706; color: white; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px;">Apply</a>
+                                <a href="${safeUrl(job.url)}" target="_blank" rel="noopener noreferrer" style="padding: 8px 16px; background: #d97706; color: white; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px;">Apply</a>
                             </div>
                             <div style="display: grid; grid-template-columns: auto auto auto auto; gap: 16px; margin: 12px 0; font-size: 13px;">
-                                <div><span style="color: #9b8b7e;">📍</span> ${job.location || 'N/A'}</div>
-                                <div><span style="color: #9b8b7e;">💼</span> ${job.work_type || 'N/A'}</div>
-                                <div><span style="color: #9b8b7e;">🏷️</span> ${job.job_type || 'N/A'}</div>
-                                <div><span style="color: #9b8b7e;">🌐</span> ${job.source || 'N/A'}</div>
+                                <div><span style="color: #9b8b7e;">📍</span> ${esc(job.location || 'N/A')}</div>
+                                <div><span style="color: #9b8b7e;">💼</span> ${esc(job.work_type || 'N/A')}</div>
+                                <div><span style="color: #9b8b7e;">🏷️</span> ${esc(job.job_type || 'N/A')}</div>
+                                <div><span style="color: #9b8b7e;">🌐</span> ${esc(job.source || 'N/A')}</div>
                             </div>
-                            ${job.salary ? `<p style="color: #6b6158; margin: 8px 0 0 0; font-weight: 500;">💰 ${job.salary}</p>` : ''}
+                            ${job.salary ? `<p style="color: #6b6158; margin: 8px 0 0 0; font-weight: 500;">💰 ${esc(job.salary)}</p>` : ''}
                         </div>
                     `).join('');
                 }
@@ -585,7 +594,7 @@
         async function fetchJobsFromSources() {
             const checkboxes = document.querySelectorAll('.source-item:not(.disabled) input[type="checkbox"]:checked');
             const sources = Array.from(checkboxes).map(cb => {
-                const label = cb.nextElementSibling.textContent.trim();
+                const label = cb.nextElementSibling.firstChild.textContent.trim();
                 return nameMapping[label] || label.toLowerCase();
             });
 
@@ -606,7 +615,7 @@
                     body: JSON.stringify({ sources })
                 });
 
-                const data = await response.json();
+                const data = await response.json().catch(() => ({ success: false, error: `HTTP ${response.status}` }));
                 btn.disabled = false;
                 btn.textContent = 'Fetch Jobs';
 
@@ -933,11 +942,11 @@
                     return `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(217,119,6,0.1); gap: 16px;">
                         <div style="flex: 1; min-width: 0;">
-                            <p style="margin: 0; font-weight: 600; color: #2d2520; font-size: 14px; word-wrap: break-word; word-break: break-word;">${job.title || 'Untitled'}</p>
+                            <p style="margin: 0; font-weight: 600; color: #2d2520; font-size: 14px; word-wrap: break-word; word-break: break-word;">${esc(job.title || 'Untitled')}</p>
                         </div>
                         <div style="display: flex; align-items: center; gap: 12px; white-space: nowrap;">
                             <span style="font-weight: 700; color: ${matchColor}; font-size: 16px;">${matchPercent}%</span>
-                            <a href="${job.url}" target="_blank" style="padding: 6px 12px; background: #d97706; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 11px; cursor: pointer; border: none; white-space: nowrap;">Apply</a>
+                            <a href="${safeUrl(job.url)}" target="_blank" rel="noopener noreferrer" style="padding: 6px 12px; background: #d97706; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 11px; cursor: pointer; border: none; white-space: nowrap;">Apply</a>
                         </div>
                     </div>
                 `}).join('');
