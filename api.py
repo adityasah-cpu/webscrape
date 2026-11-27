@@ -806,6 +806,14 @@ def bulk_upload_students() -> Any:
                 program = row.get('Program', '').strip()
                 year = row.get('Year', '').strip()
                 reg_no = row.get('Reg. No.', '').strip()
+
+                # Handle scientific notation in reg_no (Excel formatting issue)
+                if 'E' in reg_no.upper():
+                    try:
+                        reg_no = str(int(float(reg_no)))
+                    except:
+                        pass
+
                 name = row.get('Name', '').strip()
                 cgpa = float(row.get('CGPA', 0)) if row.get('CGPA') else 0
                 backlogs = int(row.get('Backlogs', 0)) if row.get('Backlogs') else 0
@@ -1033,6 +1041,14 @@ def bulk_upload_projects() -> Any:
             try:
                 # Map CSV columns to database columns (comment_column handles both "Comment" and "Comments")
                 project_id = row.get('ID', '').strip()
+
+                # Handle scientific notation in project_id (Excel formatting issue)
+                if project_id and 'E' in project_id.upper():
+                    try:
+                        project_id = str(int(float(project_id)))
+                    except:
+                        pass
+
                 title = row.get('Title', '').strip()
                 description = row.get('Description', '').strip()
                 comment = row.get(comment_column, '').strip()
@@ -1150,15 +1166,24 @@ def bulk_upload_groups() -> Any:
         errors = []
         row_num = 1
 
+        def convert_scientific_notation(value):
+            """Convert scientific notation string to regular number string"""
+            if value and 'E' in value.upper():
+                try:
+                    return str(int(float(value)))
+                except:
+                    return value
+            return value
+
         for row in csv_data:
             row_num += 1
             try:
                 # Get student registration numbers
-                lead_reg_no = row.get('Lead Student (Regn. No.)', '').strip()
-                student2_reg_no = row.get('Student2 (Regn. No.)', '').strip()
-                student3_reg_no = row.get('Student3 (Regn. No.)', '').strip()
-                student4_reg_no = row.get('Student4 (Regn. No.)', '').strip()
-                project_id = row.get('Domain Project ID', '').strip()
+                lead_reg_no = convert_scientific_notation(row.get('Lead Student (Regn. No.)', '').strip())
+                student2_reg_no = convert_scientific_notation(row.get('Student2 (Regn. No.)', '').strip())
+                student3_reg_no = convert_scientific_notation(row.get('Student3 (Regn. No.)', '').strip())
+                student4_reg_no = convert_scientific_notation(row.get('Student4 (Regn. No.)', '').strip())
+                project_id = convert_scientific_notation(row.get('Domain Project ID', '').strip())
 
                 # Validate required fields
                 if not lead_reg_no or not project_id:
