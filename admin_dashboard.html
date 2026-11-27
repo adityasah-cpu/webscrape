@@ -407,16 +407,6 @@
     </div>
 
     <div class="container">
-        <div class="selector-card">
-            <div class="selector-group">
-                <label for="locationSelect">📍 Location:</label>
-                <select id="locationSelect">
-                    <option value="">-- All Locations --</option>
-                </select>
-            </div>
-            <button class="btn-load" onclick="loadDashboard()">Load Dashboard</button>
-        </div>
-
         <div class="error-message" id="errorMessage"></div>
 
         <div id="statsContainer" style="display: none;">
@@ -634,7 +624,6 @@
         const API_URL = '/api/admin';
 
         document.addEventListener('DOMContentLoaded', async () => {
-            await loadLocations();
             await loadDashboard();
             await loadStudents();
             await loadProjects();
@@ -697,14 +686,13 @@
         }
 
         async function loadDashboard() {
-            const location = document.getElementById('locationSelect').value;
             hideError();
             document.getElementById('statsContainer').style.display = 'block';
 
             try {
                 const [usersRes, updatesRes] = await Promise.all([
-                    fetch(`${API_URL}/users${location ? '?location=' + location : ''}`, { credentials: 'include' }),
-                    fetch(`${API_URL}/user-updates${location ? '?location=' + location : ''}`, { credentials: 'include' })
+                    fetch(`${API_URL}/users`, { credentials: 'include' }),
+                    fetch(`${API_URL}/user-updates`, { credentials: 'include' })
                 ]);
 
                 if (!usersRes.ok || !updatesRes.ok) {
