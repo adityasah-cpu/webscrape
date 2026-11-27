@@ -2807,6 +2807,45 @@ def get_sources() -> Any:
     return jsonify(sources)
 
 
+@app.route("/api/sources/status", methods=["GET"])
+def check_sources_status() -> Any:
+    """Check which job sources are currently working"""
+    try:
+        sources = {s.__name__.replace("scrape_", ""): s for s in rjs.SCRAPERS}
+        status = {}
+
+        # List of sources that are known to not work
+        non_working = {
+            'internshala',    # JS-rendered
+            'unstop',         # JS-rendered
+            'firstnaukri',    # JS-rendered
+            'hackerrank',     # Login-gated
+            'geeksforgeeks',  # Login-gated
+            'naipunyam',      # Government portal, JS-rendered
+            'upwork',         # Bot detection
+            'toptal',         # API endpoint blocked
+        }
+
+        for name, scraper in sources.items():
+            status[name] = {
+                'name': name,
+                'working': name not in non_working,
+                'reason': 'API blocked' if name in non_working else 'Working'
+            }
+
+        logger.info(f"Source status check: {sum(1 for s in status.values() if s['working'])} working, {sum(1 for s in status.values() if not s['working'])} not working")
+
+        return jsonify({
+            "success": True,
+            "status": status,
+            "working_count": sum(1 for s in status.values() if s['working']),
+            "broken_count": sum(1 for s in status.values() if not s['working'])
+        })
+    except Exception as e:
+        logger.error(f"Failed to check sources status: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route("/api/fetch", methods=["POST"])
 @limiter.limit("5 per minute")
 def fetch_jobs() -> Any:

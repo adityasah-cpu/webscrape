@@ -270,7 +270,49 @@
             }
         });
 
-        document.addEventListener('DOMContentLoaded', loadJobs);
+        async function disableNonWorkingSources() {
+            try {
+                const response = await fetch(`${API}/sources/status`, { credentials: 'include' });
+                const data = await response.json();
+
+                if (!data.success || !data.status) return;
+
+                // Get all source items
+                const sourceItems = document.querySelectorAll('.source-item');
+
+                sourceItems.forEach(item => {
+                    const label = item.querySelector('label');
+                    if (!label) return;
+
+                    const sourceName = label.textContent.trim().toLowerCase();
+                    const mappedName = Object.entries(nameMapping).find(
+                        ([ui, api]) => ui.toLowerCase() === label.textContent.trim()
+                    )?.[1];
+
+                    if (mappedName && data.status[mappedName] && !data.status[mappedName].working) {
+                        item.classList.add('disabled');
+                        item.querySelector('input').disabled = true;
+
+                        // Add "Unavailable" badge if not already there
+                        if (!label.querySelector('.unavailable-badge')) {
+                            const badge = document.createElement('div');
+                            badge.className = 'unavailable-badge';
+                            badge.textContent = 'N/A';
+                            label.appendChild(badge);
+                        }
+                    }
+                });
+
+                console.log(`✅ Auto-disabled ${data.broken_count} non-working sources`);
+            } catch (error) {
+                console.error('Error checking source status:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await disableNonWorkingSources();
+            loadJobs();
+        });
 
         document.getElementById('logoutBtn').addEventListener('click', async function() {
             if(!confirm('Logout?')) return;
