@@ -150,6 +150,45 @@
     <script>
         const API = '/api';
 
+        async function loadJobs() {
+            try {
+                const response = await fetch(`${API}/jobs?limit=50`, { credentials: 'include' });
+                const data = await response.json();
+
+                const jobsContainer = document.querySelector('.jobs-container');
+                if (!data.jobs || data.jobs.length === 0) {
+                    jobsContainer.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No jobs found yet</div><div class="empty-text">Select job sources and click Fetch Jobs</div><button class="btn btn-primary" id="startSearchBtn">Start Searching</button></div>`;
+                    return;
+                }
+
+                jobsContainer.innerHTML = data.jobs.map(job => `
+                    <div style="padding: 20px; border: 1px solid rgba(217,119,6,0.2); border-radius: 12px; background: white; hover-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #2d2520;">${job.title || 'Untitled'}</h3>
+                                <p style="margin: 4px 0 0 0; color: #d97706; font-weight: 600;">${job.company || 'Unknown Company'}</p>
+                            </div>
+                            <a href="${job.url}" target="_blank" style="padding: 8px 16px; background: #d97706; color: white; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px;">Apply</a>
+                        </div>
+                        <div style="display: grid; grid-template-columns: auto auto auto auto; gap: 16px; margin: 12px 0; font-size: 13px;">
+                            <div><span style="color: #9b8b7e;">📍</span> ${job.location || 'N/A'}</div>
+                            <div><span style="color: #9b8b7e;">💼</span> ${job.work_type || 'N/A'}</div>
+                            <div><span style="color: #9b8b7e;">🏷️</span> ${job.job_type || 'N/A'}</div>
+                            <div><span style="color: #9b8b7e;">🌐</span> ${job.source || 'N/A'}</div>
+                        </div>
+                        ${job.salary ? `<p style="color: #6b6158; margin: 8px 0 0 0; font-weight: 500;">💰 ${job.salary}</p>` : ''}
+                    </div>
+                `).join('');
+
+                // Update stats
+                const statsResponse = await fetch(`${API}/stats`, { credentials: 'include' });
+                const stats = await statsResponse.json();
+                document.querySelectorAll('.stat-value')[0].textContent = data.total;
+            } catch (error) {
+                console.error('Error loading jobs:', error);
+            }
+        }
+
         const nameMapping = {
             'Remotive': 'remotive',
             'RemoteOK': 'remoteok',
@@ -211,6 +250,8 @@
         document.getElementById('uploadResume2').addEventListener('click', function() { alert('Resume upload coming soon!'); });
         document.getElementById('browseJobsBtn').addEventListener('click', function() { document.getElementById('startSearchBtn').click(); });
         document.getElementById('startSearchBtn').addEventListener('click', function() { alert('Select sources and click Fetch Jobs button!'); });
+        document.addEventListener('DOMContentLoaded', loadJobs);
+
         document.getElementById('logoutBtn').addEventListener('click', async function() {
             if(!confirm('Logout?')) return;
             try {
