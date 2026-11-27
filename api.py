@@ -530,6 +530,7 @@ if not re.match(r'^[A-Za-z0-9_]+$', MYSQL_CONFIG['database']):
 # user's jobs into another user's response for up to JOBS_CACHE_TTL_SECONDS.
 JOBS_CACHE_TTL_SECONDS = int(os.getenv('JOBS_CACHE_TTL_SECONDS', 3600))  # 1 hour cache
 MAX_JOBS_FETCH = int(os.getenv('MAX_JOBS_FETCH', 1000))  # Reduced from 5000 for faster loading
+FETCH_TIME_BUDGET_SECONDS = int(os.getenv('FETCH_TIME_BUDGET_SECONDS', 25))  # stay under gunicorn's 30s default
 _jobs_cache: Dict[str, Dict[str, Any]] = {}
 _jobs_cache_lock = threading.Lock()
 
@@ -3187,17 +3188,31 @@ def fetch_jobs() -> Any:
 
         logger.info(f"Fetching jobs from {len(enabled)} sources: {[s.__name__ for s in enabled]}...")
 
-        for scraper in enabled:
-            name = scraper.__name__.replace("scrape_", "")
-            try:
-                logger.info(f"Scraping {name}...")
-                results = scraper()
-                all_jobs.extend(results)
-                status[name] = {"success": True, "count": len(results)}
-                logger.info(f"  {name}: {len(results)} jobs fetched")
-            except Exception as e:
-                status[name] = {"success": False, "error": str(e)[:50]}
-                logger.error(f"  {name}: Failed - {str(e)[:40]}")
+        # Run scrapers in parallel with an overall time budget. Sequentially,
+        # several sources took minutes, exceeding gunicorn/nginx timeouts so
+        # the browser's "Fetching..." never finished. Slow sources are
+        # reported as timed out; their threads finish in the background.
+        import concurrent.futures as _cf
+        pool = _cf.ThreadPoolExecutor(max_workers=max(len(enabled), 1))
+        futures = {pool.submit(s): s.__name__.replace("scrape_", "") for s in enabled}
+        try:
+            for fut in _cf.as_completed(futures, timeout=FETCH_TIME_BUDGET_SECONDS):
+                name = futures[fut]
+                try:
+                    results = fut.result()
+                    all_jobs.extend(results)
+                    status[name] = {"success": True, "count": len(results)}
+                    logger.info(f"  {name}: {len(results)} jobs fetched")
+                except Exception as e:
+                    status[name] = {"success": False, "error": str(e)[:50]}
+                    logger.error(f"  {name}: Failed - {str(e)[:40]}")
+        except _cf.TimeoutError:
+            for fut, name in futures.items():
+                if name not in status:
+                    status[name] = {"success": False, "error": "timed out"}
+                    logger.warning(f"  {name}: timed out after {FETCH_TIME_BUDGET_SECONDS}s")
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
 
         jobs = rjs.dedupe(all_jobs)
         logger.info(f"Total unique jobs after deduplication: {len(jobs)}")

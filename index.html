@@ -609,6 +609,7 @@
 
             try {
                 const response = await fetch(`${API}/fetch`, {
+                    signal: AbortSignal.timeout(90000),
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -628,7 +629,9 @@
             } catch (error) {
                 btn.disabled = false;
                 btn.textContent = 'Fetch Jobs';
-                alert(`❌ Error: ${error.message}`);
+                alert(error.name === 'TimeoutError'
+                    ? '⏱️ Fetching is taking too long. Try fewer sources at a time.'
+                    : `❌ Error: ${error.message}`);
             }
         }
 
