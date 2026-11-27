@@ -81,6 +81,46 @@
         </div>
     </header>
 
+    <!-- 3-Step Onboarding Modal -->
+    <div id="onboardingModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center;">
+        <div style="background: white; border-radius: 20px; padding: 40px; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+            <!-- Step 1: Resume Upload -->
+            <div id="step1" style="text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 20px;">📄</div>
+                <h2 style="font-size: 28px; font-weight: 700; margin-bottom: 12px; color: var(--text);">Upload Your Resume</h2>
+                <p style="color: var(--gray); margin-bottom: 32px;">Help us find the best opportunities for you</p>
+                <input type="file" id="resumeFile" accept=".pdf,.doc,.docx" style="display: none;">
+                <button class="btn btn-primary" onclick="document.getElementById('resumeFile').click()" style="width: 100%;">📤 Choose Resume</button>
+                <p id="resumeFileName" style="margin-top: 16px; color: var(--muted); font-size: 13px;">No file selected</p>
+                <button class="btn btn-secondary" onclick="skipResume()" style="width: 100%; margin-top: 16px;">Skip for Now</button>
+            </div>
+
+            <!-- Step 2: ATS Score Option (Hidden initially) -->
+            <div id="step2" style="text-align: center; display: none;">
+                <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+                <h2 style="font-size: 28px; font-weight: 700; margin-bottom: 12px; color: var(--text);">Get ATS Score</h2>
+                <p style="color: var(--gray); margin-bottom: 20px;">Want us to analyze your resume for ATS compatibility?</p>
+                <p style="color: var(--muted); font-size: 13px; margin-bottom: 32px;">⏱️ This may take 5-10 minutes to complete</p>
+                <button class="btn btn-primary" onclick="calculateATS()" style="width: 100%;">✨ Analyze Resume</button>
+                <button class="btn btn-secondary" onclick="skipATS()" style="width: 100%; margin-top: 16px;">Skip Analysis</button>
+            </div>
+
+            <!-- Step 3: Processing (Hidden initially) -->
+            <div id="step3" style="text-align: center; display: none;">
+                <div style="font-size: 48px; margin-bottom: 20px; animation: pulse 2s infinite;">⏳</div>
+                <h2 style="font-size: 28px; font-weight: 700; margin-bottom: 12px; color: var(--text);">Analyzing Resume</h2>
+                <p style="color: var(--gray); margin-bottom: 32px;">Please wait while we analyze your resume...</p>
+                <div style="background: rgba(217,119,6,0.1); border-radius: 10px; padding: 16px;">
+                    <div style="color: var(--primary); font-weight: 600;">This may take 5-10 minutes</div>
+                </div>
+            </div>
+
+            <style>
+                @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+            </style>
+        </div>
+    </div>
+
     <main class="main">
         <section class="hero">
             <h1>Your Career Starts Here ✨</h1>
@@ -266,6 +306,9 @@
     <script>
         const API = '/api';
 
+        let currentUser = null;
+        let isNewUser = false;
+
         // Load and display current user info
         async function loadUserInfo() {
             try {
@@ -273,8 +316,8 @@
                 const data = await response.json();
 
                 if (data.user) {
-                    const user = data.user;
-                    const userName = user.name || 'User';
+                    currentUser = data.user;
+                    const userName = currentUser.name || 'User';
                     const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase() || '?';
 
                     // Show user menu and logout button for logged-in users
@@ -293,12 +336,100 @@
                         window.location.href = '/admin';
                         return;
                     }
+
+                    // Check if this is a new user (check if they just signed in)
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.has('from_signin') || sessionStorage.getItem('justSignedIn')) {
+                        isNewUser = true;
+                        sessionStorage.removeItem('justSignedIn');
+                        showOnboardingModal();
+                    }
                 }
                 // If user not logged in, menu stays hidden (display: none set in HTML)
             } catch (error) {
                 console.error('Error loading user info:', error);
-                // Keep menu hidden on error
             }
+        }
+
+        // Show the onboarding modal
+        function showOnboardingModal() {
+            const modal = document.getElementById('onboardingModal');
+            modal.style.display = 'flex';
+        }
+
+        // Handle resume file selection
+        document.getElementById('resumeFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('resumeFileName').textContent = `✅ ${file.name}`;
+                document.getElementById('resumeFileName').style.color = 'var(--primary)';
+                // After 2 seconds, move to ATS score step
+                setTimeout(() => {
+                    document.getElementById('step1').style.display = 'none';
+                    document.getElementById('step2').style.display = 'block';
+                }, 1000);
+            }
+        });
+
+        // Skip resume upload
+        function skipResume() {
+            document.getElementById('onboardingModal').style.display = 'none';
+            loadJobs();
+        }
+
+        // Calculate ATS score
+        async function calculateATS() {
+            const resumeFile = document.getElementById('resumeFile').files[0];
+            if (!resumeFile) {
+                alert('Please select a resume first');
+                return;
+            }
+
+            // Show processing step
+            document.getElementById('step2').style.display = 'none';
+            document.getElementById('step3').style.display = 'block';
+
+            try {
+                const formData = new FormData();
+                formData.append('resume', resumeFile);
+
+                const response = await fetch(`${API}/ats-score`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // After ATS is calculated, close modal and load page with pre-fetched jobs
+                    setTimeout(() => {
+                        document.getElementById('onboardingModal').style.display = 'none';
+                        loadJobsBasedOnResume(data.ats_score);
+                    }, 2000);
+                } else {
+                    alert('Error calculating ATS score. Please try again.');
+                    document.getElementById('step3').style.display = 'none';
+                    document.getElementById('step2').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error uploading resume:', error);
+                alert('Error uploading resume. Please try again.');
+                document.getElementById('step3').style.display = 'none';
+                document.getElementById('step2').style.display = 'block';
+            }
+        }
+
+        // Skip ATS score
+        function skipATS() {
+            document.getElementById('onboardingModal').style.display = 'none';
+            loadJobs();
+        }
+
+        // Load jobs based on resume analysis
+        function loadJobsBasedOnResume(atsScore) {
+            // Load jobs with ATS score preference
+            loadJobs(atsScore);
         }
 
         // Load user info on page load

@@ -204,8 +204,14 @@
                     console.log('✅ Login successful:', data.user);
                     console.log('Admin:', data.is_admin, 'Redirect to:', data.redirect_url);
                     // Redirect to home page or admin page based on user role
+                    // Add from_signin parameter so onboarding modal shows up for regular users
                     setTimeout(() => {
-                        window.location.href = data.redirect_url || '/';
+                        const redirectUrl = data.redirect_url || '/';
+                        if (redirectUrl === '/') {
+                            window.location.href = '/?from_signin=true';
+                        } else {
+                            window.location.href = redirectUrl;
+                        }
                     }, 500);
                 } else {
                     throw new Error(data.error || 'Login failed');

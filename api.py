@@ -873,9 +873,14 @@ def bulk_upload_students() -> Any:
         cursor.close()
         conn.close()
 
+        # Build detailed response message
+        response_msg = f"✅ Uploaded {inserted} students"
+        if inserted == 0 and errors:
+            response_msg = f"⚠️ No students uploaded - All rows skipped:\n" + "\n".join(errors[:10])
+
         return jsonify({
             "success": True,
-            "message": f"✅ Uploaded {inserted} students" if inserted > 0 else "⚠️ No students were uploaded",
+            "message": response_msg,
             "inserted": inserted,
             "errors": errors if errors else None
         }), 200
