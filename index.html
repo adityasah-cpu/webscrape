@@ -357,17 +357,20 @@
             modal.style.display = 'flex';
         }
 
+        let selectedResumeFile = null;
+
         // Handle resume file selection
         document.getElementById('resumeFile').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
+                selectedResumeFile = file;
                 document.getElementById('resumeFileName').textContent = `✅ ${file.name}`;
                 document.getElementById('resumeFileName').style.color = 'var(--primary)';
-                // After 2 seconds, move to ATS score step
+                // After file is selected, ask if they want ATS score
                 setTimeout(() => {
                     document.getElementById('step1').style.display = 'none';
                     document.getElementById('step2').style.display = 'block';
-                }, 1000);
+                }, 800);
             }
         });
 
@@ -379,9 +382,8 @@
 
         // Calculate ATS score
         async function calculateATS() {
-            const resumeFile = document.getElementById('resumeFile').files[0];
-            if (!resumeFile) {
-                alert('Please select a resume first');
+            if (!selectedResumeFile) {
+                alert('No resume selected. Please go back and select a resume.');
                 return;
             }
 
@@ -391,7 +393,7 @@
 
             try {
                 const formData = new FormData();
-                formData.append('resume', resumeFile);
+                formData.append('resume', selectedResumeFile);
 
                 const response = await fetch(`${API}/ats-score`, {
                     method: 'POST',
