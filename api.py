@@ -528,8 +528,8 @@ if not re.match(r'^[A-Za-z0-9_]+$', MYSQL_CONFIG['database']):
 # hitting within the same few seconds). Invalidated on any write (save/clear).
 # Keyed per-user (by owner_email) - a single shared cache would leak one
 # user's jobs into another user's response for up to JOBS_CACHE_TTL_SECONDS.
-JOBS_CACHE_TTL_SECONDS = int(os.getenv('JOBS_CACHE_TTL_SECONDS', 15))
-MAX_JOBS_FETCH = int(os.getenv('MAX_JOBS_FETCH', 5000))  # Safety cap on rows loaded per query
+JOBS_CACHE_TTL_SECONDS = int(os.getenv('JOBS_CACHE_TTL_SECONDS', 3600))  # 1 hour cache
+MAX_JOBS_FETCH = int(os.getenv('MAX_JOBS_FETCH', 1000))  # Reduced from 5000 for faster loading
 _jobs_cache: Dict[str, Dict[str, Any]] = {}
 _jobs_cache_lock = threading.Lock()
 
@@ -1496,6 +1496,7 @@ def init_db() -> bool:
             "idx_owner_email": "ALTER TABLE jobs ADD INDEX idx_owner_email (owner_email)",
             "idx_category": "ALTER TABLE jobs ADD INDEX idx_category (category(100))",
             "idx_owner_category": "ALTER TABLE jobs ADD INDEX idx_owner_category (owner_email, category(100))",
+            "idx_owner_added": "ALTER TABLE jobs ADD INDEX idx_owner_added (owner_email, added_at DESC)",  # Speed up owner + sorted queries
         }
         for index_name, alter_sql in expected_indexes.items():
             if index_name not in existing_indexes:
@@ -1740,13 +1741,12 @@ def load_jobs_from_db(owner_email: str, use_cache: bool = True) -> List[Dict[str
         )
         jobs = cursor.fetchall()
 
-        # Parse JSON fields
+        # Parse JSON fields (optimized)
         for job in jobs:
             if job.get('domains'):
                 try:
-                    job['domains'] = json.loads(job['domains'])
-                except (json.JSONDecodeError, TypeError, ValueError) as e:
-                    logger.warning(f"Failed to parse domains for job {job.get('url')}: {e}")
+                    job['domains'] = json.loads(job['domains']) if isinstance(job['domains'], str) else job['domains']
+                except (json.JSONDecodeError, TypeError, ValueError):
                     job['domains'] = ['General']
 
         cursor.close()
@@ -3470,9 +3470,9 @@ def get_jobs() -> Any:
         # unrelated jobs instead of an empty page or an error.
         try:
             page = max(int(request.args.get("page", 1)), 1)
-            limit = min(max(int(request.args.get("limit", 20)), 1), 1000)
+            limit = min(max(int(request.args.get("limit", 50)), 1), 100)  # Default 50, max 100
         except (ValueError, TypeError):
-            page, limit = 1, 20
+            page, limit = 1, 50
 
         all_jobs = load_jobs_from_db(current_user_email())
 
