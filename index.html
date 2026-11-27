@@ -339,10 +339,13 @@
 
                     // Check if this is a new user (check if they just signed in)
                     const urlParams = new URLSearchParams(window.location.search);
-                    if (urlParams.has('from_signin') || sessionStorage.getItem('justSignedIn')) {
+                    if (urlParams.has('from_signin') && !sessionStorage.getItem('onboardingShown')) {
                         isNewUser = true;
-                        sessionStorage.removeItem('justSignedIn');
+                        sessionStorage.setItem('onboardingShown', 'true');
                         showOnboardingModal();
+
+                        // Remove from_signin from URL to prevent showing on refresh
+                        window.history.replaceState({}, document.title, window.location.pathname);
                     }
                 }
                 // If user not logged in, menu stays hidden (display: none set in HTML)
@@ -718,6 +721,9 @@
         document.getElementById('logoutBtn').addEventListener('click', async function() {
             if(!confirm('Logout?')) return;
             try {
+                // Clear onboarding flag so it shows again on next login
+                sessionStorage.removeItem('onboardingShown');
+
                 const response = await fetch(`${API}/auth/logout`, {
                     method: 'POST',
                     credentials: 'include'
