@@ -1016,25 +1016,59 @@ def bulk_upload_groups() -> Any:
         import random
 
         conn = mysql.connector.connect(**MYSQL_CONFIG)
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)
 
         stream = io.StringIO(file.stream.read().decode("UTF-8"), newline=None)
         csv_data = csv.DictReader(stream)
 
+        # Validate required columns for group CSV
+        required_columns = ['Lead Student (Regn. No.)', 'Student2 (Regn. No.)', 'Student3 (Regn. No.)', 'Student4 (Regn. No.)', 'Domain Project ID']
+
+        if not csv_data.fieldnames:
+            return jsonify({"success": False, "error": "❌ CSV file is empty or invalid format"}), 400
+
+        # Check for missing columns
+        missing_columns = [col for col in required_columns if col not in csv_data.fieldnames]
+        if missing_columns:
+            return jsonify({
+                "success": False,
+                "error": f"❌ Missing required columns: {', '.join(missing_columns)}\n\nExpected columns (in order): {', '.join(required_columns)}\n\nFound columns: {', '.join(csv_data.fieldnames)}"
+            }), 400
+
+        # Check for extra unknown columns
+        extra_columns = [col for col in csv_data.fieldnames if col not in required_columns]
+        if extra_columns:
+            return jsonify({
+                "success": False,
+                "error": f"❌ Unknown columns found: {', '.join(extra_columns)}\n\nPlease remove these columns and try again.\n\nExpected columns: {', '.join(required_columns)}"
+            }), 400
+
         inserted = 0
         errors = []
+        row_num = 1
 
         for row in csv_data:
+            row_num += 1
             try:
-                group_id = row.get('Group ID', '').strip()
-                project_id = int(row.get('Domain Project ID', 0)) if row.get('Domain Project ID') else 0
+                # Get student registration numbers
                 lead_reg_no = row.get('Lead Student (Regn. No.)', '').strip()
+                student2_reg_no = row.get('Student2 (Regn. No.)', '').strip()
+                student3_reg_no = row.get('Student3 (Regn. No.)', '').strip()
+                student4_reg_no = row.get('Student4 (Regn. No.)', '').strip()
+                project_id = row.get('Domain Project ID', '').strip()
 
-                if not group_id or not lead_reg_no or not project_id:
-                    errors.append("Row skipped: Group ID, Lead Student (Regn. No.), and Domain Project ID are required")
+                # Validate required fields
+                if not lead_reg_no or not project_id:
+                    errors.append(f"⚠️ Row {row_num}: Lead Student (Regn. No.) and Domain Project ID are required")
                     continue
 
-                # Fetch lead student details from admin_students table
+                try:
+                    project_id = int(project_id)
+                except ValueError:
+                    errors.append(f"⚠️ Row {row_num}: Domain Project ID must be a number")
+                    continue
+
+                # Fetch lead student details
                 cursor.execute(
                     "SELECT name, email FROM admin_students WHERE reg_no = %s",
                     (lead_reg_no,)
@@ -1042,10 +1076,13 @@ def bulk_upload_groups() -> Any:
                 lead_data = cursor.fetchone()
 
                 if not lead_data:
-                    errors.append(f"Row skipped: Student with Reg. No. {lead_reg_no} not found")
+                    errors.append(f"⚠️ Row {row_num}: Lead Student with Reg. No. '{lead_reg_no}' not found in database")
                     continue
 
-                lead_name, lead_email = lead_data
+                lead_name, lead_email = lead_data['name'], lead_data['email']
+
+                # Generate unique group ID
+                group_id = f"GRP_{lead_reg_no}_{project_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
                 # Create group
                 cursor.execute(
@@ -1053,7 +1090,7 @@ def bulk_upload_groups() -> Any:
                     (group_id, lead_name, lead_email, project_id, datetime.now())
                 )
 
-                # Get the inserted group ID
+                # Get the inserted group internal ID
                 group_internal_id = cursor.lastrowid
 
                 # Add lead as member
@@ -1062,9 +1099,29 @@ def bulk_upload_groups() -> Any:
                     (group_internal_id, lead_name, lead_email, datetime.now())
                 )
 
+                # Add other students if provided
+                student_reg_nos = [student2_reg_no, student3_reg_no, student4_reg_no]
+                for student_reg_no in student_reg_nos:
+                    if student_reg_no:  # Only add if not empty
+                        # Fetch student details
+                        cursor.execute(
+                            "SELECT name, email FROM admin_students WHERE reg_no = %s",
+                            (student_reg_no,)
+                        )
+                        student_data = cursor.fetchone()
+
+                        if student_data:
+                            student_name, student_email = student_data['name'], student_data['email']
+                            cursor.execute(
+                                "INSERT INTO group_members (group_id, member_name, member_email, joined_at) VALUES (%s, %s, %s, %s)",
+                                (group_internal_id, student_name, student_email, datetime.now())
+                            )
+                        else:
+                            errors.append(f"⚠️ Row {row_num}: Student with Reg. No. '{student_reg_no}' not found (skipped)")
+
                 inserted += 1
             except Exception as e:
-                errors.append(f"Row error: {str(e)}")
+                errors.append(f"⚠️ Row {row_num}: {str(e)}")
                 continue
 
         conn.commit()
@@ -1073,14 +1130,14 @@ def bulk_upload_groups() -> Any:
 
         return jsonify({
             "success": True,
-            "message": f"{inserted} groups uploaded successfully",
+            "message": f"✅ Uploaded {inserted} groups" if inserted > 0 else "⚠️ No groups were uploaded",
             "inserted": inserted,
-            "errors": errors
-        })
+            "errors": errors if errors else None
+        }), 200
 
     except Exception as e:
         logger.error(f"Error uploading groups: {e}")
-        return jsonify({"success": False, "error": str(e)}), 400
+        return jsonify({"success": False, "error": f"❌ Error: {str(e)}"}), 400
 
 @app.route("/api/health", methods=["GET"])
 def health() -> Any:
