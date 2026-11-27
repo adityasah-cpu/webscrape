@@ -874,6 +874,7 @@ def bulk_upload_projects() -> Any:
                 description = row.get('Description', '').strip()
                 comments = row.get('Comments', '').strip()
                 category = row.get('Category', '').strip()
+                rating = row.get('Rating', '').strip() or None
                 mentor1 = row.get('Mentor 1', '').strip() or None
                 mentor2 = row.get('Mentor 2', '').strip() or None
                 mentor3 = row.get('Mentor 3', '').strip() or None
@@ -884,8 +885,8 @@ def bulk_upload_projects() -> Any:
 
                 # Insert into admin_projects table
                 cursor.execute(
-                    "INSERT INTO admin_projects (title, description, comments_details, category, mentor1, mentor2, mentor3, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                    (title, description, comments, category, mentor1, mentor2, mentor3, datetime.now())
+                    "INSERT INTO admin_projects (title, description, comments_details, category, rating, mentor1, mentor2, mentor3, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (title, description, comments, category, rating, mentor1, mentor2, mentor3, datetime.now())
                 )
                 inserted += 1
             except Exception as e:
@@ -1380,6 +1381,7 @@ def init_db() -> bool:
             description TEXT,
             comments_details TEXT,
             category VARCHAR(100),
+            rating VARCHAR(50),
             mentor1 VARCHAR(255),
             mentor2 VARCHAR(255),
             mentor3 VARCHAR(255),
@@ -1388,6 +1390,18 @@ def init_db() -> bool:
         )
         """)
         conn.commit()
+
+        # Migrate admin_projects table: add rating column if it doesn't exist
+        cursor.execute(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+            "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'admin_projects'",
+            (MYSQL_CONFIG['database'],)
+        )
+        existing_columns = {row[0] for row in cursor.fetchall()}
+        if 'rating' not in existing_columns:
+            logger.warning("Migrating schema: adding missing column 'rating' to admin_projects table")
+            cursor.execute("ALTER TABLE admin_projects ADD COLUMN rating VARCHAR(50)")
+            conn.commit()
 
         cursor.close()
         conn.close()
