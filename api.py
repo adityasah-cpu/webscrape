@@ -725,10 +725,34 @@ def bulk_upload_students() -> Any:
         stream = io.StringIO(file.stream.read().decode("UTF-8"), newline=None)
         csv_data = csv.DictReader(stream)
 
+        # Validate required columns for student CSV
+        required_columns = ['Campus', 'School', 'Program', 'Year', 'Reg. No.', 'Name', 'CGPA', 'Backlogs', 'Domain', 'Domain Project']
+
+        if not csv_data.fieldnames:
+            return jsonify({"success": False, "error": "❌ CSV file is empty or invalid format"}), 400
+
+        # Check for missing columns
+        missing_columns = [col for col in required_columns if col not in csv_data.fieldnames]
+        if missing_columns:
+            return jsonify({
+                "success": False,
+                "error": f"❌ Missing required columns: {', '.join(missing_columns)}\n\nExpected columns (in order): {', '.join(required_columns)}\n\nFound columns: {', '.join(csv_data.fieldnames)}"
+            }), 400
+
+        # Check for extra unknown columns
+        extra_columns = [col for col in csv_data.fieldnames if col not in required_columns]
+        if extra_columns:
+            return jsonify({
+                "success": False,
+                "error": f"❌ Unknown columns found: {', '.join(extra_columns)}\n\nPlease remove these columns and try again.\n\nExpected columns: {', '.join(required_columns)}"
+            }), 400
+
         inserted = 0
         errors = []
+        row_num = 1
 
         for row in csv_data:
+            row_num += 1
             try:
                 # Map CSV columns to database columns
                 campus = row.get('Campus', '').strip()
@@ -743,7 +767,7 @@ def bulk_upload_students() -> Any:
                 domain_project = row.get('Domain Project', '').strip()
 
                 if not name or not reg_no:
-                    errors.append(f"Row skipped: Name and Reg. No. are required")
+                    errors.append(f"⚠️ Row {row_num}: Skipped - Name and Reg. No. are required")
                     continue
 
                 # Use first allowed domain for student email
@@ -755,7 +779,7 @@ def bulk_upload_students() -> Any:
                 )
                 inserted += 1
             except Exception as e:
-                errors.append(f"Row error: {str(e)}")
+                errors.append(f"⚠️ Row {row_num}: {str(e)}")
                 continue
 
         conn.commit()
@@ -764,14 +788,14 @@ def bulk_upload_students() -> Any:
 
         return jsonify({
             "success": True,
-            "message": f"Uploaded {inserted} students",
+            "message": f"✅ Uploaded {inserted} students" if inserted > 0 else "⚠️ No students were uploaded",
             "inserted": inserted,
             "errors": errors if errors else None
         }), 200
 
     except Exception as e:
         logger.error(f"Error bulk uploading students: {e}")
-        return jsonify({"success": False, "error": str(e)}), 400
+        return jsonify({"success": False, "error": f"❌ Error: {str(e)}"}), 400
 
 @app.route("/api/domain-projects", methods=["GET"])
 def get_domain_projects_public() -> Any:
@@ -875,10 +899,34 @@ def bulk_upload_projects() -> Any:
         stream = io.StringIO(file.stream.read().decode("UTF-8"), newline=None)
         csv_data = csv.DictReader(stream)
 
+        # Validate required columns for project CSV
+        required_columns = ['ID', 'Title', 'Description', 'Comment', 'Category', 'Rating', 'Mentor 1', 'Mentor 2', 'Mentor 3']
+
+        if not csv_data.fieldnames:
+            return jsonify({"success": False, "error": "❌ CSV file is empty or invalid format"}), 400
+
+        # Check for missing columns
+        missing_columns = [col for col in required_columns if col not in csv_data.fieldnames]
+        if missing_columns:
+            return jsonify({
+                "success": False,
+                "error": f"❌ Missing required columns: {', '.join(missing_columns)}\n\nExpected columns (in order): {', '.join(required_columns)}\n\nFound columns: {', '.join(csv_data.fieldnames)}"
+            }), 400
+
+        # Check for extra unknown columns
+        extra_columns = [col for col in csv_data.fieldnames if col not in required_columns]
+        if extra_columns:
+            return jsonify({
+                "success": False,
+                "error": f"❌ Unknown columns found: {', '.join(extra_columns)}\n\nPlease remove these columns and try again.\n\nExpected columns: {', '.join(required_columns)}"
+            }), 400
+
         inserted = 0
         errors = []
+        row_num = 1
 
         for row in csv_data:
+            row_num += 1
             try:
                 # Map CSV columns to database columns
                 project_id = row.get('ID', '').strip()
@@ -892,7 +940,7 @@ def bulk_upload_projects() -> Any:
                 mentor3 = row.get('Mentor 3', '').strip() or None
 
                 if not title:
-                    errors.append("Row skipped: Title is required")
+                    errors.append(f"⚠️ Row {row_num}: Skipped - Title is required")
                     continue
 
                 # Insert into admin_projects table
@@ -902,7 +950,7 @@ def bulk_upload_projects() -> Any:
                 )
                 inserted += 1
             except Exception as e:
-                errors.append(f"Row error: {str(e)}")
+                errors.append(f"⚠️ Row {row_num}: {str(e)}")
                 continue
 
         conn.commit()
@@ -911,14 +959,14 @@ def bulk_upload_projects() -> Any:
 
         return jsonify({
             "success": True,
-            "message": f"Uploaded {inserted} projects",
+            "message": f"✅ Uploaded {inserted} projects" if inserted > 0 else "⚠️ No projects were uploaded",
             "inserted": inserted,
             "errors": errors if errors else None
         }), 200
 
     except Exception as e:
         logger.error(f"Error bulk uploading projects: {e}")
-        return jsonify({"success": False, "error": str(e)}), 400
+        return jsonify({"success": False, "error": f"❌ Error: {str(e)}"}), 400
 
 @app.route("/api/admin/groups", methods=["GET"])
 def admin_get_groups() -> Any:
