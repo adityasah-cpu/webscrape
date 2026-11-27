@@ -219,11 +219,11 @@
                     credentials: 'include'
                 });
                 if(response.ok) {
-                    window.location.href = '/login.html';
+                    window.location.href = '/login';
                 }
             } catch(e) {
                 console.error('Logout failed:', e);
-                window.location.href = '/login.html';
+                window.location.href = '/login';
             }
         });
         document.getElementById('sortBtn').addEventListener('click', function() { alert('Sort options coming soon!'); });
