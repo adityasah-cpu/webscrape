@@ -899,7 +899,9 @@
                 return;
             }
 
-            tbody.innerHTML = students.map((s, idx) => `
+            tbody.innerHTML = students.map((s, idx) => {
+                const escapedRegNo = (s.reg_no || '').replace(/'/g, "\\'");
+                return `
                 <tr>
                     <td><input type="checkbox" class="student-checkbox" value="${s.reg_no}"></td>
                     <td>${s.campus || 'N/A'}</td>
@@ -914,11 +916,12 @@
                     <td>${s.domain_project || 'N/A'}</td>
                     <td>${formatDate(s.created_at)}</td>
                     <td>
-                        <button class="btn-load" onclick="editStudent('${s.reg_no}')" style="padding: 6px 12px; font-size: 12px; background: #2563eb; margin-right: 4px;">Edit</button>
-                        <button class="btn-load" onclick="deleteStudent('${s.reg_no}')" style="padding: 6px 12px; font-size: 12px; background: #dc2626;">Delete</button>
+                        <button class="btn-load" onclick="editStudent('${escapedRegNo}')" style="padding: 6px 12px; font-size: 12px; background: #2563eb; margin-right: 4px;">Edit</button>
+                        <button class="btn-load" onclick="deleteStudent('${escapedRegNo}')" style="padding: 6px 12px; font-size: 12px; background: #dc2626;">Delete</button>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
 
         async function addStudent() {
@@ -1134,7 +1137,9 @@
                 return;
             }
 
-            tbody.innerHTML = projects.map(p => `
+            tbody.innerHTML = projects.map(p => {
+                const escapedId = (p.id || '').toString().replace(/'/g, "\\'");
+                return `
                 <tr>
                     <td><input type="checkbox" class="project-checkbox" value="${p.id}"></td>
                     <td><strong>${p.title || 'N/A'}</strong></td>
@@ -1146,11 +1151,12 @@
                     <td>${(p.description || 'N/A').substring(0, 30)}${(p.description || '').length > 30 ? '...' : ''}</td>
                     <td>${formatDate(p.created_at)}</td>
                     <td>
-                        <button class="btn-load" onclick="editProject(${p.id})" style="padding: 6px 12px; font-size: 12px; background: #2563eb; margin-right: 4px;">Edit</button>
-                        <button class="btn-load" onclick="deleteProject(${p.id})" style="padding: 6px 12px; font-size: 12px; background: #dc2626;">Delete</button>
+                        <button class="btn-load" onclick="editProject('${escapedId}')" style="padding: 6px 12px; font-size: 12px; background: #2563eb; margin-right: 4px;">Edit</button>
+                        <button class="btn-load" onclick="deleteProject('${escapedId}')" style="padding: 6px 12px; font-size: 12px; background: #dc2626;">Delete</button>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
 
         async function addProject() {
