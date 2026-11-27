@@ -182,13 +182,6 @@
                     </div>
                 </div>
 
-                <!-- ATS Scoring Option -->
-                <div style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(249,115,22,0.1), rgba(217,119,6,0.05)); padding: 16px; border-radius: 10px; border: 1px solid rgba(217,119,6,0.15);">
-                    <label style="display: flex; align-items: center; cursor: pointer; gap: 12px;">
-                        <input type="checkbox" id="wantAtsScore" style="width: 20px; height: 20px; cursor: pointer; accent-color: #d97706;">
-                        <span style="font-weight: 600; color: #2d2520; font-size: 14px;">🤖 Get ATS Score?</span>
-                    </label>
-                </div>
 
                 <!-- Loading State -->
                 <div id="uploadLoading" style="display: none; text-align: center; margin-bottom: 20px;">
@@ -492,19 +485,10 @@
 
             const fileInput = document.getElementById('resumeFile');
             const experienceLevel = document.querySelector('input[name="experience_level"]:checked').value;
-            const wantAtsScore = document.getElementById('wantAtsScore').checked;
 
             if (!fileInput.files.length) {
                 alert('Please select a resume file');
                 return;
-            }
-
-            if (wantAtsScore) {
-                const confirmed = confirm('⏱️ ATS Scoring takes 5-10 minutes to complete.\n\n✅ Click OK to proceed\n❌ Click Cancel to skip ATS scoring');
-                if (!confirmed) {
-                    document.getElementById('wantAtsScore').checked = false;
-                    return;
-                }
             }
 
             const formData = new FormData();
@@ -515,9 +499,7 @@
             document.getElementById('uploadLoading').style.display = 'block';
             document.getElementById('uploadBtn').disabled = true;
             const originalLoadingText = document.getElementById('uploadLoading').querySelector('p');
-            if (wantAtsScore) {
-                originalLoadingText.textContent = '⏳ Analyzing your resume with AI...';
-            }
+            originalLoadingText.textContent = '⏳ Analyzing your resume with AI...';
 
             try {
                 const response = await fetch(`${API}/match-resume?experience_level=${experienceLevel}`, {
@@ -543,24 +525,9 @@
                 document.getElementById('uploadLoading').style.display = 'none';
                 document.getElementById('uploadBtn').disabled = false;
 
-                // Display results based on user preference
-                if (wantAtsScore) {
-                    // Show ATS score modal
-                    displayAtsScores(data);
-                    atsScoreModal.style.display = 'flex';
-                } else {
-                    // Skip to jobs without ATS scoring
-                    alert(`✅ Resume analyzed! Found ${data.resume_domains?.length || 0} domain(s).\n\nPre-fetching relevant jobs...`);
-
-                    // Auto pre-fetch jobs based on domains
-                    if (data.resume_domains && data.resume_domains.length > 0) {
-                        setTimeout(() => {
-                            selectSourcesAndFetch(data.resume_domains);
-                        }, 500);
-                    } else {
-                        alert('No specific domains detected. Please manually select job sources and fetch jobs.');
-                    }
-                }
+                // Always show ATS score modal
+                displayAtsScores(data);
+                atsScoreModal.style.display = 'flex';
 
             } catch (error) {
                 console.error('Resume upload error:', error);
