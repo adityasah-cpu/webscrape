@@ -1035,15 +1035,42 @@
         async function bulkDeleteStudents() {
             const selected = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
             if (selected.length === 0) {
-                alert('Select students to delete');
+                alert('❌ Select students to delete');
                 return;
             }
-            if (!confirm(`Delete ${selected.length} students?`)) return;
+            if (!confirm(`Delete ${selected.length} students? This cannot be undone.`)) return;
+
+            let deleted = 0;
+            let failed = 0;
+            const errors = [];
 
             for (const reg_no of selected) {
-                await fetch(`/api/students/${reg_no}`, { method: 'DELETE' });
+                try {
+                    const response = await fetch(`/api/students/${reg_no}`, { method: 'DELETE' });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        deleted++;
+                    } else {
+                        failed++;
+                        errors.push(`${reg_no}: ${data.error}`);
+                    }
+                } catch (error) {
+                    failed++;
+                    errors.push(`${reg_no}: ${error.message}`);
+                }
+                // Small delay to avoid rate limiting
+                await new Promise(r => setTimeout(r, 100));
             }
-            alert(`Deleted ${selected.length} students`);
+
+            let message = `✅ Deleted ${deleted}/${selected.length} students`;
+            if (failed > 0) {
+                message += `\n⚠️ Failed to delete ${failed} students`;
+                if (errors.length > 0 && errors.length <= 5) {
+                    message += `\n\nErrors:\n${errors.join('\n')}`;
+                }
+            }
+            alert(message);
             loadStudents();
         }
 
@@ -1267,15 +1294,42 @@
         async function bulkDeleteProjects() {
             const selected = Array.from(document.querySelectorAll('.project-checkbox:checked')).map(cb => parseInt(cb.value));
             if (selected.length === 0) {
-                alert('Select projects to delete');
+                alert('❌ Select projects to delete');
                 return;
             }
-            if (!confirm(`Delete ${selected.length} projects?`)) return;
+            if (!confirm(`Delete ${selected.length} projects? This cannot be undone.`)) return;
+
+            let deleted = 0;
+            let failed = 0;
+            const errors = [];
 
             for (const id of selected) {
-                await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+                try {
+                    const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        deleted++;
+                    } else {
+                        failed++;
+                        errors.push(`Project ${id}: ${data.error}`);
+                    }
+                } catch (error) {
+                    failed++;
+                    errors.push(`Project ${id}: ${error.message}`);
+                }
+                // Small delay to avoid rate limiting
+                await new Promise(r => setTimeout(r, 100));
             }
-            alert(`Deleted ${selected.length} projects`);
+
+            let message = `✅ Deleted ${deleted}/${selected.length} projects`;
+            if (failed > 0) {
+                message += `\n⚠️ Failed to delete ${failed} projects`;
+                if (errors.length > 0 && errors.length <= 5) {
+                    message += `\n\nErrors:\n${errors.join('\n')}`;
+                }
+            }
+            alert(message);
             loadProjects();
         }
 
