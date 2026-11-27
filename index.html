@@ -744,7 +744,7 @@
         document.getElementById('resumeForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            const fileInput = document.getElementById('resumeFile');
+            const fileInput = this.querySelector('input[type="file"]');
             const experienceLevel = document.querySelector('input[name="experience_level"]:checked').value;
 
             if (!fileInput.files.length) {
