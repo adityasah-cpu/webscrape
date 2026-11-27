@@ -188,7 +188,7 @@
                         <input type="checkbox" id="wantAtsScore" style="width: 20px; height: 20px; cursor: pointer; accent-color: #d97706;">
                         <div>
                             <div style="font-weight: 600; color: #2d2520; font-size: 14px;">🤖 Get ATS Score?</div>
-                            <div style="font-size: 12px; color: #9b8b7e; margin-top: 4px;">Get AI-powered resume analysis (⏱️ Takes 5-10 minutes)</div>
+                            <div style="font-size: 12px; color: #9b8b7e; margin-top: 4px;">Get AI-powered resume analysis</div>
                         </div>
                     </label>
                 </div>
@@ -519,7 +519,7 @@
             document.getElementById('uploadBtn').disabled = true;
             const originalLoadingText = document.getElementById('uploadLoading').querySelector('p');
             if (wantAtsScore) {
-                originalLoadingText.textContent = '⏳ Analyzing your resume with AI... (5-10 minutes)';
+                originalLoadingText.textContent = '⏳ Analyzing your resume with AI...';
             }
 
             try {
