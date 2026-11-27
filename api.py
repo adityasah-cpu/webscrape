@@ -701,6 +701,52 @@ def delete_or_update_student(reg_no: str) -> Any:
         cursor.close()
         conn.close()
 
+@app.route("/api/students/bulk-delete", methods=["POST"])
+def bulk_delete_students() -> Any:
+    """Bulk delete multiple students at once"""
+    try:
+        data = request.get_json()
+        reg_nos = data.get("reg_nos", [])
+
+        if not reg_nos or not isinstance(reg_nos, list):
+            return jsonify({"success": False, "error": "Invalid request. Provide reg_nos array."}), 400
+
+        conn = mysql.connector.connect(**MYSQL_CONFIG)
+        cursor = conn.cursor()
+
+        deleted = 0
+        failed = 0
+        errors = []
+
+        for reg_no in reg_nos:
+            try:
+                cursor.execute("DELETE FROM admin_students WHERE reg_no = %s", (reg_no,))
+                if cursor.rowcount > 0:
+                    deleted += 1
+                else:
+                    failed += 1
+                    errors.append(f"Student {reg_no} not found")
+            except Exception as e:
+                failed += 1
+                errors.append(f"Student {reg_no}: {str(e)}")
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "deleted": deleted,
+            "failed": failed,
+            "total": len(reg_nos),
+            "errors": errors if errors else None,
+            "message": f"Deleted {deleted}/{len(reg_nos)} students"
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error bulk deleting students: {e}")
+        return jsonify({"success": False, "error": f"❌ Error: {str(e)}"}), 400
+
 @app.route("/api/students/bulk-upload", methods=["POST"])
 def bulk_upload_students() -> Any:
     """Bulk upload students from CSV file"""
@@ -874,6 +920,52 @@ def delete_or_update_project(project_id: int) -> Any:
     finally:
         cursor.close()
         conn.close()
+
+@app.route("/api/projects/bulk-delete", methods=["POST"])
+def bulk_delete_projects() -> Any:
+    """Bulk delete multiple projects at once"""
+    try:
+        data = request.get_json()
+        project_ids = data.get("project_ids", [])
+
+        if not project_ids or not isinstance(project_ids, list):
+            return jsonify({"success": False, "error": "Invalid request. Provide project_ids array."}), 400
+
+        conn = mysql.connector.connect(**MYSQL_CONFIG)
+        cursor = conn.cursor()
+
+        deleted = 0
+        failed = 0
+        errors = []
+
+        for project_id in project_ids:
+            try:
+                cursor.execute("DELETE FROM admin_projects WHERE id = %s", (project_id,))
+                if cursor.rowcount > 0:
+                    deleted += 1
+                else:
+                    failed += 1
+                    errors.append(f"Project {project_id} not found")
+            except Exception as e:
+                failed += 1
+                errors.append(f"Project {project_id}: {str(e)}")
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "deleted": deleted,
+            "failed": failed,
+            "total": len(project_ids),
+            "errors": errors if errors else None,
+            "message": f"Deleted {deleted}/{len(project_ids)} projects"
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error bulk deleting projects: {e}")
+        return jsonify({"success": False, "error": f"❌ Error: {str(e)}"}), 400
 
 @app.route("/api/projects/bulk-upload", methods=["POST"])
 def bulk_upload_projects() -> Any:

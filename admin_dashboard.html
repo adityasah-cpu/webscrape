@@ -1071,7 +1071,10 @@
                 }
             }
             alert(message);
-            loadStudents();
+                loadStudents();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
         }
 
         function setupStudentUpload() {
