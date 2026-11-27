@@ -320,8 +320,17 @@ def google_sign_in() -> Any:
 
         session["user"] = user
         session.permanent = True
-        logger.info(f"Signed in: {user['email']}")
-        return jsonify({"success": True, "user": user})
+
+        # Check if user is admin
+        is_admin = is_admin_user(user_email)
+
+        logger.info(f"Signed in: {user['email']} (Admin: {is_admin})")
+        return jsonify({
+            "success": True,
+            "user": user,
+            "is_admin": is_admin,
+            "redirect_url": "/admin" if is_admin else "/"
+        })
 
     except Exception as e:
         logger.error(f"Google Sign-In failed: {e}")
@@ -3403,14 +3412,20 @@ def check_admin() -> Any:
 
 @app.route("/admin", methods=["GET"])
 def admin_dashboard_page() -> Any:
-    """Serve admin dashboard UI"""
-    if not session.get("user"):
+    """Serve admin dashboard UI - admin users only"""
+    user = session.get("user")
+    if not user:
         return redirect("/login")
+
+    user_email = user.get("email")
+    if not is_admin_user(user_email):
+        logger.warning(f"Non-admin user {user_email} attempted to access /admin")
+        return redirect("/")
 
     try:
         with open("admin_dashboard.html", encoding="utf-8") as f:
             content = f.read()
-        logger.info("Admin dashboard accessed")
+        logger.info(f"Admin dashboard accessed by {user_email}")
         return content, 200, {"Content-Type": "text/html", "Cache-Control": "no-cache, no-store, must-revalidate"}
     except FileNotFoundError:
         logger.error("admin_dashboard.html not found")

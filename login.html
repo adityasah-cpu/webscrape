@@ -202,9 +202,10 @@
             .then(data => {
                 if (data.success) {
                     console.log('✅ Login successful:', data.user);
-                    // Redirect to home page after short delay
+                    console.log('Admin:', data.is_admin, 'Redirect to:', data.redirect_url);
+                    // Redirect to home page or admin page based on user role
                     setTimeout(() => {
-                        window.location.href = '/';
+                        window.location.href = data.redirect_url || '/';
                     }, 500);
                 } else {
                     throw new Error(data.error || 'Login failed');
