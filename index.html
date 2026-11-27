@@ -2380,10 +2380,49 @@
             `).join("");
         }
 
+        // List of scrapers that are known to not work (require JS rendering, blocked, or missing API)
+        const NON_WORKING_SCRAPERS = [
+            'lever',           // 404 for hardcoded companies
+            'internshala',     // JS-rendered
+            'unstop',          // JS-rendered
+            'firstnaukri',     // JS-rendered
+            'angellist',       // JS-rendered
+            'upwork',          // 403 Forbidden
+            'toptal',          // 404 Not Found
+            'hackerrank',      // JS-rendered, login-gated
+            'geeksforgeeks',   // JS-rendered, login-gated
+            'naipunyam'        // JS-rendered
+        ];
+
+        function disableNonWorkingScrapers() {
+            NON_WORKING_SCRAPERS.forEach(scraperId => {
+                const checkbox = document.getElementById(scraperId);
+                if (checkbox) {
+                    checkbox.disabled = true;
+                    checkbox.checked = false;
+
+                    // Find parent and add visual indicator
+                    const parent = checkbox.closest('.source-item');
+                    if (parent) {
+                        parent.style.opacity = '0.5';
+                        parent.style.pointerEvents = 'none';
+
+                        // Add "disabled" label
+                        const label = parent.querySelector('span');
+                        if (label && !label.textContent.includes('(Unavailable)')) {
+                            label.textContent += ' (Unavailable)';
+                            label.style.fontSize = '12px';
+                        }
+                    }
+                }
+            });
+        }
+
         async function loadSources() {
             try {
                 await apiFetch("/sources");
                 console.log("Sources loaded successfully");
+                disableNonWorkingScrapers();
             } catch (e) {
                 console.error("Failed to load sources:", e);
             }
@@ -3221,6 +3260,10 @@
         function revealDashboard(user) {
             document.getElementById("onboardingOverlay").style.display = "none";
             document.getElementById("appContainer").style.display = "flex";
+
+            // Auto-disable non-working scrapers
+            disableNonWorkingScrapers();
+
             if (user) {
                 document.getElementById("userName").textContent = user.name || user.email || "Signed in";
                 if (user.picture) {
@@ -3308,7 +3351,91 @@
             if (!file) return;
             onbResumeFile = file;
             document.getElementById("onbFileName").textContent = file.name;
-            onbRunAtsAndMatch(file);
+            showAtsConfirmationModal(file);
+        }
+
+        function showAtsConfirmationModal(file) {
+            const modal = document.createElement("div");
+            modal.id = "atsConfirmModal";
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 12px;
+                    padding: 32px;
+                    max-width: 400px;
+                    text-align: center;
+                    box-shadow: 0 20px 25px rgba(0,0,0,0.15);
+                ">
+                    <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+                    <h2 style="font-size: 20px; margin-bottom: 12px; color: var(--text-primary);">Calculate ATS Score?</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 24px; font-size: 14px;">
+                        Your resume will be analyzed and matched with jobs based on your skills and experience.
+                    </p>
+                    <div style="display: flex; gap: 12px; margin-top: 24px;">
+                        <button onclick="onbConfirmAts(true)" style="
+                            flex: 1;
+                            background: var(--color-cta);
+                            color: white;
+                            border: none;
+                            padding: 12px 16px;
+                            border-radius: 8px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: background 200ms;
+                        " onmouseover="this.style.background='var(--color-cta-hover)'" onmouseout="this.style.background='var(--color-cta)'">
+                            ✓ Yes, Calculate
+                        </button>
+                        <button onclick="onbConfirmAts(false)" style="
+                            flex: 1;
+                            background: var(--bg-secondary);
+                            color: var(--text-primary);
+                            border: 1px solid var(--border-color);
+                            padding: 12px 16px;
+                            border-radius: 8px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 200ms;
+                        " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='var(--bg-secondary)'">
+                            Skip for Now
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+        }
+
+        function onbConfirmAts(wantAts) {
+            const modal = document.getElementById("atsConfirmModal");
+            if (modal) modal.remove();
+
+            if (wantAts) {
+                onbRunAtsAndMatch(onbResumeFile);
+            } else {
+                onbSkipAtsAndGoDirect();
+            }
+        }
+
+        function onbSkipAtsAndGoDirect() {
+            sessionStorage.setItem("onboardingDone", "true");
+            onbApplySelectionsToSidebar();
+            revealDashboard(currentAuthUser);
+            if (onbSelections.hackathon) {
+                fetchHackathons();
+            }
         }
 
         async function onbRunAtsAndMatch(file) {
