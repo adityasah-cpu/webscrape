@@ -1727,18 +1727,34 @@ def load_jobs_from_db(owner_email: str, use_cache: bool = True) -> List[Dict[str
     requests. Capped at MAX_JOBS_FETCH rows as a safety limit. Every caller
     must pass the signed-in user's email - there is no "load everyone's
     jobs" path, by design, now that jobs are per-user."""
-    if use_cache:
-        with _jobs_cache_lock:
-            entry = _jobs_cache.get(owner_email)
-            if entry is not None and (time.time() - entry["timestamp"]) < JOBS_CACHE_TTL_SECONDS:
-                return entry["data"]
-
     try:
         conn = get_db_connection()
         if not conn:
             raise DatabaseUnavailableError("Could not connect to the database")
 
         cursor = conn.cursor(dictionary=True)
+
+        # The cache is per-process, and gunicorn runs several workers. A fetch
+        # only invalidates the worker that handled it, so other workers kept
+        # serving the pre-fetch list for up to JOBS_CACHE_TTL_SECONDS. Validate
+        # every cache hit against a cheap DB fingerprint so all workers see
+        # new jobs immediately.
+        cursor.execute(
+            "SELECT COUNT(*) AS n, MAX(added_at) AS latest FROM jobs WHERE owner_email = %s",
+            (owner_email,)
+        )
+        fp_row = cursor.fetchone() or {}
+        fingerprint = (fp_row.get("n"), str(fp_row.get("latest")))
+
+        if use_cache:
+            with _jobs_cache_lock:
+                entry = _jobs_cache.get(owner_email)
+                if (entry is not None
+                        and entry.get("fingerprint") == fingerprint
+                        and (time.time() - entry["timestamp"]) < JOBS_CACHE_TTL_SECONDS):
+                    cursor.close()
+                    conn.close()
+                    return entry["data"]
         cursor.execute(
             "SELECT * FROM jobs WHERE owner_email = %s ORDER BY added_at DESC LIMIT %s",
             (owner_email, MAX_JOBS_FETCH)
@@ -1757,7 +1773,7 @@ def load_jobs_from_db(owner_email: str, use_cache: bool = True) -> List[Dict[str
         conn.close()
 
         with _jobs_cache_lock:
-            _jobs_cache[owner_email] = {"data": jobs, "timestamp": time.time()}
+            _jobs_cache[owner_email] = {"data": jobs, "timestamp": time.time(), "fingerprint": fingerprint}
 
         return jobs
     except DatabaseUnavailableError:
