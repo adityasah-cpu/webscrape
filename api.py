@@ -134,6 +134,25 @@ def is_admin_user(email: str) -> bool:
 
     return email in allowed_emails
 
+
+# Admin decorator - check if user is admin
+def require_admin(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = session.get("user")
+        if not user:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        user_email = user.get("email")
+
+        # Check if user is admin (from allowed domains and emails)
+        if not is_admin_user(user_email):
+            logger.warning(f"require_admin: User {user_email} not in admin list")
+            return jsonify({"error": "Forbidden - Admin access required"}), 403
+
+        return f(*args, **kwargs)
+    return decorated_function
+
 # Add security headers
 @app.after_request
 def set_security_headers(response: Response) -> Response:
@@ -641,6 +660,7 @@ def favicon() -> Any:
 # ========== ADMIN API ENDPOINTS ==========
 
 @app.route("/api/students", methods=["GET", "POST"])
+@require_admin
 def manage_students() -> Any:
     """Get all students or add a new student"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
@@ -674,6 +694,7 @@ def manage_students() -> Any:
         conn.close()
 
 @app.route("/api/students/<reg_no>", methods=["DELETE", "PUT"])
+@require_admin
 def delete_or_update_student(reg_no: str) -> Any:
     """Delete or update a student"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
@@ -702,6 +723,7 @@ def delete_or_update_student(reg_no: str) -> Any:
         conn.close()
 
 @app.route("/api/students/bulk-delete", methods=["POST"])
+@require_admin
 def bulk_delete_students() -> Any:
     """Bulk delete multiple students at once"""
     try:
@@ -748,6 +770,7 @@ def bulk_delete_students() -> Any:
         return jsonify({"success": False, "error": f"❌ Error: {str(e)}"}), 400
 
 @app.route("/api/students/bulk-upload", methods=["POST"])
+@require_admin
 def bulk_upload_students() -> Any:
     """Bulk upload students from CSV file"""
     try:
@@ -879,6 +902,7 @@ def get_domain_projects_public() -> Any:
         conn.close()
 
 @app.route("/api/projects", methods=["GET", "POST"])
+@require_admin
 def manage_projects() -> Any:
     """Get all projects or add a new project - Uses admin_projects for admin"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
@@ -911,6 +935,7 @@ def manage_projects() -> Any:
         conn.close()
 
 @app.route("/api/projects/<int:project_id>", methods=["DELETE", "PUT"])
+@require_admin
 def delete_or_update_project(project_id: int) -> Any:
     """Delete or update a project in admin_projects table"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
@@ -940,6 +965,7 @@ def delete_or_update_project(project_id: int) -> Any:
         conn.close()
 
 @app.route("/api/projects/bulk-delete", methods=["POST"])
+@require_admin
 def bulk_delete_projects() -> Any:
     """Bulk delete multiple projects at once"""
     try:
@@ -986,6 +1012,7 @@ def bulk_delete_projects() -> Any:
         return jsonify({"success": False, "error": f"❌ Error: {str(e)}"}), 400
 
 @app.route("/api/projects/bulk-upload", methods=["POST"])
+@require_admin
 def bulk_upload_projects() -> Any:
     """Bulk upload projects from CSV file"""
     try:
@@ -1098,6 +1125,7 @@ def bulk_upload_projects() -> Any:
         return jsonify({"success": False, "error": f"❌ Error: {str(e)}"}), 400
 
 @app.route("/api/admin/groups", methods=["GET"])
+@require_admin
 def admin_get_groups() -> Any:
     """Get all groups for admin view with lead student details"""
     conn = mysql.connector.connect(**MYSQL_CONFIG)
@@ -1126,6 +1154,7 @@ def admin_get_groups() -> Any:
         conn.close()
 
 @app.route("/api/groups/bulk-upload", methods=["POST"])
+@require_admin
 def bulk_upload_groups() -> Any:
     """Bulk upload groups from CSV file"""
     try:
@@ -3769,25 +3798,6 @@ def admin_dashboard_page() -> Any:
 
 # ==================== ADMIN DASHBOARD & LOCATION TRACKING ====================
 
-# Admin decorator - check if user is admin
-def require_admin(f):
-    from functools import wraps
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        user = session.get("user")
-        if not user:
-            return jsonify({"error": "Unauthorized"}), 401
-
-        user_email = user.get("email")
-
-        # Check if user is admin (from allowed domains and emails)
-        if not is_admin_user(user_email):
-            logger.warning(f"require_admin: User {user_email} not in admin list")
-            return jsonify({"error": "Forbidden - Admin access required"}), 403
-
-        return f(*args, **kwargs)
-    return decorated_function
-
 
 def log_user_event(event_type: str, job_id: Optional[str] = None, job_title: Optional[str] = None):
     """Log user events: 'job_viewed', 'job_clicked', 'job_applied'
@@ -3935,6 +3945,7 @@ def validate_location(location: str) -> bool:
 
 
 @app.route("/api/admin/locations", methods=["GET"])
+@require_admin
 @limiter.limit("60 per minute")
 def get_all_locations() -> Any:
     """Get list of available locations"""
@@ -3946,6 +3957,7 @@ def get_all_locations() -> Any:
 
 
 @app.route("/api/admin/location-stats/<location>", methods=["GET"])
+@require_admin
 @limiter.limit("60 per minute")
 def get_location_stats(location: str) -> Any:
     """Get comprehensive stats for a specific location"""
@@ -4055,6 +4067,7 @@ def get_location_stats(location: str) -> Any:
 
 
 @app.route("/api/admin/location-users/<location>", methods=["GET"])
+@require_admin
 @limiter.limit("60 per minute")
 def get_location_users(location: str) -> Any:
     """Get detailed user list for a location with engagement metrics"""
@@ -4143,6 +4156,7 @@ def get_location_users(location: str) -> Any:
 
 
 @app.route("/api/admin/location-engagement/<location>", methods=["GET"])
+@require_admin
 @limiter.limit("60 per minute")
 def get_location_engagement(location: str) -> Any:
     """Get engagement funnel data for location"""
@@ -4206,6 +4220,7 @@ def get_location_engagement(location: str) -> Any:
 # ==================== ADMIN USER MANAGEMENT ====================
 
 @app.route("/api/admin/users", methods=["GET"])
+@require_admin
 @limiter.limit("60 per minute")
 def get_admin_users() -> Any:
     """Get all users with engagement metrics for admin dashboard"""
@@ -4276,6 +4291,7 @@ def get_admin_users() -> Any:
 
 
 @app.route("/api/admin/user-updates", methods=["GET"])
+@require_admin
 @limiter.limit("60 per minute")
 def get_user_updates() -> Any:
     """Get daily, weekly, and monthly user updates"""
@@ -4364,6 +4380,7 @@ def get_user_updates() -> Any:
 
 
 @app.route("/api/admin/promote/<email>", methods=["POST"])
+@require_admin
 @limiter.limit("30 per minute")
 def promote_admin(email: str) -> Any:
     """Promote a user to admin"""
@@ -4396,6 +4413,7 @@ def promote_admin(email: str) -> Any:
 
 
 @app.route("/api/admin/demote/<email>", methods=["POST"])
+@require_admin
 @limiter.limit("30 per minute")
 def demote_admin(email: str) -> Any:
     """Demote an admin user (prevent self-demotion)"""
