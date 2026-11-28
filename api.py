@@ -3087,32 +3087,13 @@ def get_sources() -> Any:
         ],
         "all_jobs": [
             {"id": "arbeitnow", "name": "Arbeitnow", "status": "✅"},
-            {"id": "adzuna", "name": "Adzuna (India)", "status": "✅",
-             "note": "Requires free ADZUNA_APP_ID/ADZUNA_APP_KEY in .env"},
-        ],
-        "freshers": [
-            {"id": "internshala", "name": "Internshala", "status": "✅"},
-            {"id": "unstop", "name": "Unstop", "status": "✅"},
-            {"id": "firstnaukri", "name": "FirstNaukri", "status": "✅"},
-            {"id": "angellist", "name": "AngelList/Wellfound", "status": "✅"},
         ],
         "developer_jobs": [
             {"id": "devto", "name": "Dev.to", "status": "✅"},
-            {"id": "upwork", "name": "Upwork", "status": "✅"},
-            {"id": "toptal", "name": "Toptal", "status": "✅"},
         ],
         "career_pages": [
             {"id": "greenhouse", "name": "Greenhouse", "status": "✅"},
-            {"id": "lever", "name": "Lever", "status": "✅"},
             {"id": "ashby", "name": "Ashby", "status": "✅"},
-        ],
-        "no_public_api": [
-            {"id": "hackerrank", "name": "HackerRank", "status": "⚠️",
-             "note": "No public job-listing API - login-gated, client-rendered. Selecting this returns 0 jobs."},
-            {"id": "geeksforgeeks", "name": "GeeksforGeeks", "status": "⚠️",
-             "note": "No public job-listing API - login-gated, JS-rendered. Selecting this returns 0 jobs."},
-            {"id": "naipunyam", "name": "Naipunyam (AP Govt)", "status": "⚠️",
-             "note": "No public job-listing API found - JS-rendered with no visible server data. Selecting this returns 0 jobs."},
         ],
     }
     return jsonify(sources)
@@ -3541,6 +3522,37 @@ def get_jobs() -> Any:
     except Exception as e:
         logger.error(f"Failed to get jobs: {e}")
         return jsonify({"jobs": [], "total": 0, "page": 1, "pages": 0, "error": "Failed to load jobs. Please try again."}), 500
+
+
+@app.route("/api/jobs/domain-search/<domain>", methods=["GET"])
+def get_jobs_by_domain(domain: str) -> Any:
+    """Get jobs for a specific domain by filtering from database
+    Uses keyword matching to find jobs relevant to the domain"""
+    try:
+        import domain_job_scraper
+
+        limit = min(max(int(request.args.get("limit", 50)), 1), 100)
+        owner_email = current_user_email()
+
+        # Load all jobs from database
+        all_jobs = load_jobs_from_db(owner_email)
+
+        # Filter by domain
+        result = domain_job_scraper.get_domain_jobs(domain, all_jobs, limit=limit)
+        result["from_cache"] = False
+        result["storage"] = "mysql"
+        result["note"] = "Filtered from existing database jobs"
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Failed to get domain jobs for {domain}: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to fetch jobs for domain: {str(e)}",
+            "jobs": [],
+            "note": "Make sure to fetch jobs first using /api/fetch"
+        }), 500
 
 
 @app.route("/api/stats", methods=["GET"])

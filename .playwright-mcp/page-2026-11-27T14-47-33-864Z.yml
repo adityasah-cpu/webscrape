@@ -1,0 +1,11 @@
+- generic [ref=e2]:
+  - img "Centurion Logo" [ref=e4]
+  - heading "Centurion Nextgen Novagig" [level=1] [ref=e5]
+  - paragraph [ref=e6]: Sign in with your Google account to continue
+  - generic [ref=e8]:
+    - button "Sign in with Google. Opens in new tab" [ref=e10] [cursor=pointer]:
+      - generic [ref=e12]: Sign in with Google
+    - iframe
+  - generic [ref=e22]:
+    - strong [ref=e23]: 🔒 Secure Login
+    - text: Sign in securely using your Google account. We never store your password.
